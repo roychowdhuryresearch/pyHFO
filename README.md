@@ -52,6 +52,7 @@ Department of Electrical and Computer Engineering, University of California, Los
 - [Yipeng Zhang](https://zyp5511.github.io/)
 - [Lawrence Liu](https://www.linkedin.com/in/lawrence-liu-0a01391a7/)
 - [Yuanyi Ding](https://www.linkedin.com/in/yuanyi-ding-4a981a132/)
+- [Xin Chen](https://www.linkedin.com/in/xin-chen-980521/)
 - [Jessica Lin](https://www.linkedin.com/in/jessica4903/)
 
 Division of Pediatric Neurology, Department of Pediatrics, UCLA Mattel Children’s Hospital David Geffen School of Medicine
