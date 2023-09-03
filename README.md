@@ -15,7 +15,7 @@ Zhang, Y., Liu, L., Ding, Y., Chen, X., Monsoor, T., Daida, A., ... & Roychowdhu
 
 * [HFO-Classification](https://github.com/roychowdhuryresearch/HFO-Classification) - Many HFO classification projects powered by deep learning.
 
-* [EEG-Viz](https://github.com/roychowdhuryresearch/HFO-Classification) - A Python toolbox for EEG visualization.
+* [EEG-Viz](https://github.com/jebbica/EEG-Viz) - A Python toolbox for EEG visualization.
 
 
 ## Installation
