@@ -638,9 +638,10 @@ class HFOMainWindow(QMainWindow):
 
     def _classify(self,artifact_only=False):
         # print("print artfact_only",artifact_only)
+        threshold = 0.5
         seconds_to_ignore_before=float(self.overview_ignore_before_input.text())
         seconds_to_ignore_after=float(self.overview_ignore_after_input.text())
-        self.hfo_app.classify_artifacts([seconds_to_ignore_before,seconds_to_ignore_after])
+        self.hfo_app.classify_artifacts([seconds_to_ignore_before,seconds_to_ignore_after], threshold)
         print("Classified artifacts")
         if not artifact_only:
             self.hfo_app.classify_spikes()

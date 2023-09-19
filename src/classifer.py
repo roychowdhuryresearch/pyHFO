@@ -47,17 +47,17 @@ class Classifier():
         self.model_a = model.to(self.device)
         self.preprocessing_artifact = PreProcessing.from_param(self.param_artifact_preprocessing)
 
-    def artifact_detection(self, HFO_features, ignore_region):
+    def artifact_detection(self, HFO_features, ignore_region, threshold=0.5):
         if not self.model_a:
             raise ValueError("Please load artifact model first!")
-        return self._classify_artifacts(self.model_a, HFO_features, ignore_region)
+        return self._classify_artifacts(self.model_a, HFO_features, ignore_region, threshold=threshold)
 
     def spike_detection(self, HFO_features):
         if not self.model_s:
             raise ValueError("Please load spike model first!")
         return self._classify_spikes(self.model_s, HFO_features)
 
-    def _classify_artifacts(self, model, HFO_feature, ignore_region):
+    def _classify_artifacts(self, model, HFO_feature, ignore_region, threshold=0.5):
         model = model.to(self.device)
         features = self.preprocessing_artifact.process_hfo_feature(HFO_feature)
         artifact_predictions = np.zeros(features.shape[0]) -1
@@ -66,7 +66,7 @@ class Classifier():
         keep_index = np.where(np.logical_and(starts > ignore_region[0], ends < ignore_region[1]) == True)[0]   
         features = features[keep_index]
         if len(features) != 0:
-            predictions = inference(model, features, self.device ,self.batch_size)
+            predictions = inference(model, features, self.device ,self.batch_size, threshold=threshold)
             artifact_predictions[keep_index] = predictions
         HFO_feature.update_artifact_pred(artifact_predictions)
         return HFO_feature

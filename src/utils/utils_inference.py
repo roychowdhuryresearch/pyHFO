@@ -13,12 +13,12 @@ def load_model(model, state_dict, device):
     model = model.to(device).float()
     return model
 
-def inference(model, x, device ,batch_size = 256):
+def inference(model, x, device ,batch_size = 256, threshold = 0.5):
     model.eval()
     x = torch.from_numpy(x).float()
     with torch.no_grad():
         res = batch_iterate(x, model, device ,batch_size)
-    return np.squeeze(res > 0.5)
+    return np.squeeze(res > threshold)
 
 def normalize_img(a):
     batch_num = a.shape[0]

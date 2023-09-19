@@ -301,12 +301,12 @@ class HFO_App(object):
         self.classifier = Classifier(self.param_classifier) 
 
 
-    def classify_artifacts(self, ignore_region = [1, 1]):
+    def classify_artifacts(self, ignore_region = [1, 1], threshold=0.5):
         if not self.hfo_features.has_feature():
             self.generate_HFO_features()
         ignore_region = np.array(ignore_region) * self.sample_freq
         ignore_region = np.array([ignore_region[0], len(self.eeg_data[0]) - ignore_region[1]])
-        self.classifier.artifact_detection(self.hfo_features, ignore_region)
+        self.classifier.artifact_detection(self.hfo_features, ignore_region, threshold=threshold)
         self.classified = True
     
     def classify_spikes(self):
