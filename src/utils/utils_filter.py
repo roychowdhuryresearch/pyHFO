@@ -9,6 +9,11 @@ def filter_data(data, sos):
 
 def construct_filter(fp, fs, rp, rs, space, sample_freq):
     print("Constructing filter with fp: {}, fs: {}, rp: {}, rs: {}, space: {}, sample_freq: {}".format(fp, fs, rp, rs, space, sample_freq))
+    
+    if fs < 1 or rs < 1:
+        raise ValueError("Invalid value for stop band.")
+
+    
     filter_freq = [fp, fs]
     space = space
 

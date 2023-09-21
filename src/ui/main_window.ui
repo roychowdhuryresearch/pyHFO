@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>2015</width>
-    <height>1380</height>
+    <height>1277</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -594,157 +594,7 @@
            <property name="horizontalSpacing">
             <number>5</number>
            </property>
-           <item row="0" column="0" colspan="2">
-            <widget class="QGroupBox" name="main_edf_info">
-             <property name="font">
-              <font>
-               <pointsize>13</pointsize>
-               <bold>false</bold>
-              </font>
-             </property>
-             <property name="layoutDirection">
-              <enum>Qt::LeftToRight</enum>
-             </property>
-             <property name="title">
-              <string>EDF Information</string>
-             </property>
-             <layout class="QGridLayout" name="gridLayout_18">
-              <item row="1" column="1">
-               <widget class="QLabel" name="main_sampfreq">
-                <property name="font">
-                 <font>
-                  <pointsize>11</pointsize>
-                  <bold>false</bold>
-                 </font>
-                </property>
-                <property name="text">
-                 <string>samp_freq</string>
-                </property>
-               </widget>
-              </item>
-              <item row="1" column="0">
-               <widget class="QLabel" name="label_5">
-                <property name="font">
-                 <font>
-                  <pointsize>11</pointsize>
-                  <bold>false</bold>
-                  <underline>true</underline>
-                 </font>
-                </property>
-                <property name="layoutDirection">
-                 <enum>Qt::LeftToRight</enum>
-                </property>
-                <property name="text">
-                 <string>Sampling Frequency:</string>
-                </property>
-                <property name="alignment">
-                 <set>Qt::AlignJustify|Qt::AlignVCenter</set>
-                </property>
-               </widget>
-              </item>
-              <item row="0" column="1">
-               <widget class="QLabel" name="main_filename">
-                <property name="font">
-                 <font>
-                  <pointsize>11</pointsize>
-                  <bold>false</bold>
-                 </font>
-                </property>
-                <property name="text">
-                 <string>filename</string>
-                </property>
-               </widget>
-              </item>
-              <item row="3" column="0">
-               <widget class="QLabel" name="label_7">
-                <property name="font">
-                 <font>
-                  <pointsize>11</pointsize>
-                  <bold>false</bold>
-                  <underline>true</underline>
-                 </font>
-                </property>
-                <property name="layoutDirection">
-                 <enum>Qt::LeftToRight</enum>
-                </property>
-                <property name="text">
-                 <string>Length:</string>
-                </property>
-                <property name="alignment">
-                 <set>Qt::AlignJustify|Qt::AlignVCenter</set>
-                </property>
-               </widget>
-              </item>
-              <item row="2" column="0">
-               <widget class="QLabel" name="label_6">
-                <property name="font">
-                 <font>
-                  <pointsize>11</pointsize>
-                  <bold>false</bold>
-                  <underline>true</underline>
-                 </font>
-                </property>
-                <property name="layoutDirection">
-                 <enum>Qt::LeftToRight</enum>
-                </property>
-                <property name="text">
-                 <string>Number of Channels:</string>
-                </property>
-                <property name="alignment">
-                 <set>Qt::AlignJustify|Qt::AlignVCenter</set>
-                </property>
-               </widget>
-              </item>
-              <item row="3" column="1">
-               <widget class="QLabel" name="main_length">
-                <property name="font">
-                 <font>
-                  <pointsize>11</pointsize>
-                  <bold>false</bold>
-                 </font>
-                </property>
-                <property name="text">
-                 <string>length</string>
-                </property>
-               </widget>
-              </item>
-              <item row="0" column="0">
-               <widget class="QLabel" name="label_4">
-                <property name="font">
-                 <font>
-                  <pointsize>11</pointsize>
-                  <bold>false</bold>
-                  <underline>true</underline>
-                 </font>
-                </property>
-                <property name="layoutDirection">
-                 <enum>Qt::LeftToRight</enum>
-                </property>
-                <property name="text">
-                 <string>File Name:</string>
-                </property>
-                <property name="alignment">
-                 <set>Qt::AlignJustify|Qt::AlignVCenter</set>
-                </property>
-               </widget>
-              </item>
-              <item row="2" column="1">
-               <widget class="QLabel" name="main_numchannels">
-                <property name="font">
-                 <font>
-                  <pointsize>11</pointsize>
-                  <bold>false</bold>
-                 </font>
-                </property>
-                <property name="text">
-                 <string>num_channels</string>
-                </property>
-               </widget>
-              </item>
-             </layout>
-            </widget>
-           </item>
-           <item row="0" column="2">
+           <item row="0" column="0" colspan="3">
             <widget class="QTextEdit" name="STDTextEdit">
              <property name="readOnly">
               <bool>true</bool>
@@ -780,10 +630,727 @@
          <attribute name="title">
           <string>Overview</string>
          </attribute>
-         <layout class="QGridLayout" name="gridLayout_27">
+         <layout class="QGridLayout" name="gridLayout_26">
           <item row="0" column="0">
-           <layout class="QGridLayout" name="gridLayout_5">
+           <layout class="QGridLayout" name="gridLayout_5" rowstretch="2,1,2,2,2">
+            <item row="3" column="0">
+             <widget class="QStackedWidget" name="stackedWidget_3">
+              <widget class="QWidget" name="page_7">
+               <layout class="QGridLayout" name="gridLayout_27">
+                <item row="0" column="0">
+                 <widget class="QGroupBox" name="classifier_groupbox_4">
+                  <property name="font">
+                   <font>
+                    <family>Arial</family>
+                    <pointsize>13</pointsize>
+                   </font>
+                  </property>
+                  <property name="title">
+                   <string>Classifier Parameters</string>
+                  </property>
+                  <layout class="QGridLayout" name="gridLayout_23">
+                   <item row="0" column="0">
+                    <layout class="QGridLayout" name="gridLayout_21" rowstretch="1,1,1,1,1">
+                     <item row="3" column="0">
+                      <layout class="QHBoxLayout" name="horizontalLayout_32">
+                       <item>
+                        <widget class="QLabel" name="label_128">
+                         <property name="font">
+                          <font>
+                           <family>Arial</family>
+                           <pointsize>11</pointsize>
+                           <underline>true</underline>
+                          </font>
+                         </property>
+                         <property name="text">
+                          <string>Device</string>
+                         </property>
+                         <property name="alignment">
+                          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QLineEdit" name="overview_device_display">
+                         <property name="font">
+                          <font>
+                           <family>Arial</family>
+                           <pointsize>11</pointsize>
+                           <kerning>true</kerning>
+                          </font>
+                         </property>
+                         <property name="styleSheet">
+                          <string notr="true">background-color: rgb(235, 235, 235);</string>
+                         </property>
+                         <property name="text">
+                          <string>CPU</string>
+                         </property>
+                         <property name="readOnly">
+                          <bool>true</bool>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QLabel" name="label_129">
+                         <property name="font">
+                          <font>
+                           <family>Arial</family>
+                           <pointsize>11</pointsize>
+                           <underline>true</underline>
+                          </font>
+                         </property>
+                         <property name="text">
+                          <string>Batch Size</string>
+                         </property>
+                         <property name="alignment">
+                          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QLineEdit" name="overview_batch_size_display">
+                         <property name="font">
+                          <font>
+                           <family>Arial</family>
+                           <pointsize>11</pointsize>
+                           <kerning>true</kerning>
+                          </font>
+                         </property>
+                         <property name="styleSheet">
+                          <string notr="true">background-color: rgb(235, 235, 235);</string>
+                         </property>
+                         <property name="text">
+                          <string>64</string>
+                         </property>
+                         <property name="readOnly">
+                          <bool>true</bool>
+                         </property>
+                        </widget>
+                       </item>
+                      </layout>
+                     </item>
+                     <item row="1" column="0">
+                      <layout class="QHBoxLayout" name="horizontalLayout_31">
+                       <item>
+                        <widget class="QLabel" name="label_124">
+                         <property name="font">
+                          <font>
+                           <family>Arial</family>
+                           <pointsize>11</pointsize>
+                           <underline>true</underline>
+                          </font>
+                         </property>
+                         <property name="text">
+                          <string>Ignore</string>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QLineEdit" name="overview_ignore_before_input">
+                         <property name="font">
+                          <font>
+                           <family>Arial</family>
+                           <pointsize>11</pointsize>
+                          </font>
+                         </property>
+                         <property name="text">
+                          <string>1</string>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QLabel" name="label_125">
+                         <property name="font">
+                          <font>
+                           <family>Arial</family>
+                           <pointsize>11</pointsize>
+                          </font>
+                         </property>
+                         <property name="text">
+                          <string>Sec Before</string>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QLineEdit" name="overview_ignore_after_input">
+                         <property name="font">
+                          <font>
+                           <family>Arial</family>
+                           <pointsize>11</pointsize>
+                          </font>
+                         </property>
+                         <property name="text">
+                          <string>1</string>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QLabel" name="label_126">
+                         <property name="font">
+                          <font>
+                           <family>Arial</family>
+                           <pointsize>11</pointsize>
+                          </font>
+                         </property>
+                         <property name="text">
+                          <string>Sec After Recording</string>
+                         </property>
+                        </widget>
+                       </item>
+                      </layout>
+                     </item>
+                     <item row="2" column="0">
+                      <layout class="QHBoxLayout" name="horizontalLayout_9">
+                       <item>
+                        <widget class="QCheckBox" name="overview_use_spike_checkbox">
+                         <property name="font">
+                          <font>
+                           <family>Arial</family>
+                           <pointsize>11</pointsize>
+                           <underline>true</underline>
+                          </font>
+                         </property>
+                         <property name="text">
+                          <string>Use spk-HFO</string>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QLabel" name="label_127">
+                         <property name="font">
+                          <font>
+                           <family>Arial</family>
+                           <pointsize>11</pointsize>
+                           <underline>true</underline>
+                          </font>
+                         </property>
+                         <property name="text">
+                          <string>spk-HFO Path</string>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QLineEdit" name="overview_spike_path_display">
+                         <property name="font">
+                          <font>
+                           <family>Arial</family>
+                           <pointsize>11</pointsize>
+                           <italic>false</italic>
+                           <underline>false</underline>
+                           <kerning>true</kerning>
+                          </font>
+                         </property>
+                         <property name="styleSheet">
+                          <string notr="true">background-color: rgb(235, 235, 235);</string>
+                         </property>
+                         <property name="text">
+                          <string/>
+                         </property>
+                         <property name="readOnly">
+                          <bool>true</bool>
+                         </property>
+                         <property name="placeholderText">
+                          <string>File Name...</string>
+                         </property>
+                        </widget>
+                       </item>
+                      </layout>
+                     </item>
+                     <item row="0" column="0">
+                      <layout class="QHBoxLayout" name="horizontalLayout_30">
+                       <item>
+                        <widget class="QLabel" name="label_123">
+                         <property name="font">
+                          <font>
+                           <family>Arial</family>
+                           <pointsize>11</pointsize>
+                           <underline>true</underline>
+                          </font>
+                         </property>
+                         <property name="text">
+                          <string>Artifact Path</string>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QLineEdit" name="overview_artifact_path_display">
+                         <property name="font">
+                          <font>
+                           <family>Arial</family>
+                           <pointsize>11</pointsize>
+                           <italic>false</italic>
+                           <underline>false</underline>
+                           <kerning>true</kerning>
+                          </font>
+                         </property>
+                         <property name="styleSheet">
+                          <string notr="true">background-color: rgb(235, 235, 235);</string>
+                         </property>
+                         <property name="text">
+                          <string/>
+                         </property>
+                         <property name="readOnly">
+                          <bool>true</bool>
+                         </property>
+                         <property name="placeholderText">
+                          <string>File Name...</string>
+                         </property>
+                        </widget>
+                       </item>
+                      </layout>
+                     </item>
+                     <item row="4" column="0">
+                      <layout class="QHBoxLayout" name="horizontalLayout_10" stretch="0,0,0,0">
+                       <item>
+                        <widget class="QLabel" name="label_23">
+                         <property name="font">
+                          <font>
+                           <pointsize>11</pointsize>
+                           <underline>true</underline>
+                          </font>
+                         </property>
+                         <property name="text">
+                          <string>Artifact Threshold</string>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QDoubleSpinBox" name="artifact_threshold_input">
+                         <property name="font">
+                          <font>
+                           <pointsize>11</pointsize>
+                          </font>
+                         </property>
+                         <property name="maximum">
+                          <double>1.000000000000000</double>
+                         </property>
+                         <property name="singleStep">
+                          <double>0.100000000000000</double>
+                         </property>
+                         <property name="value">
+                          <double>0.500000000000000</double>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <spacer name="horizontalSpacer_6">
+                         <property name="orientation">
+                          <enum>Qt::Horizontal</enum>
+                         </property>
+                         <property name="sizeHint" stdset="0">
+                          <size>
+                           <width>40</width>
+                           <height>20</height>
+                          </size>
+                         </property>
+                        </spacer>
+                       </item>
+                       <item>
+                        <widget class="QPushButton" name="detect_all_button">
+                         <property name="font">
+                          <font>
+                           <family>Arial</family>
+                           <pointsize>11</pointsize>
+                          </font>
+                         </property>
+                         <property name="text">
+                          <string>HFO Classification</string>
+                         </property>
+                        </widget>
+                       </item>
+                      </layout>
+                     </item>
+                    </layout>
+                   </item>
+                  </layout>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+              <widget class="QWidget" name="page_8"/>
+             </widget>
+            </item>
+            <item row="0" column="0">
+             <widget class="QStackedWidget" name="stackedWidget_5">
+              <widget class="QWidget" name="page_17">
+               <layout class="QGridLayout" name="gridLayout_25">
+                <item row="0" column="0">
+                 <widget class="QGroupBox" name="main_edf_info">
+                  <property name="font">
+                   <font>
+                    <pointsize>13</pointsize>
+                    <weight>50</weight>
+                    <bold>false</bold>
+                   </font>
+                  </property>
+                  <property name="layoutDirection">
+                   <enum>Qt::LeftToRight</enum>
+                  </property>
+                  <property name="title">
+                   <string>EDF Information</string>
+                  </property>
+                  <layout class="QGridLayout" name="gridLayout_18">
+                   <item row="1" column="0">
+                    <widget class="QLabel" name="label_5">
+                     <property name="font">
+                      <font>
+                       <pointsize>11</pointsize>
+                       <weight>50</weight>
+                       <bold>false</bold>
+                       <underline>true</underline>
+                      </font>
+                     </property>
+                     <property name="layoutDirection">
+                      <enum>Qt::LeftToRight</enum>
+                     </property>
+                     <property name="text">
+                      <string>Sampling Frequency:</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignJustify|Qt::AlignVCenter</set>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="0" column="0">
+                    <widget class="QLabel" name="label_4">
+                     <property name="font">
+                      <font>
+                       <pointsize>11</pointsize>
+                       <weight>50</weight>
+                       <bold>false</bold>
+                       <underline>true</underline>
+                      </font>
+                     </property>
+                     <property name="layoutDirection">
+                      <enum>Qt::LeftToRight</enum>
+                     </property>
+                     <property name="text">
+                      <string>File Name:</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignJustify|Qt::AlignVCenter</set>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="2" column="0">
+                    <widget class="QLabel" name="label_6">
+                     <property name="font">
+                      <font>
+                       <pointsize>11</pointsize>
+                       <weight>50</weight>
+                       <bold>false</bold>
+                       <underline>true</underline>
+                      </font>
+                     </property>
+                     <property name="layoutDirection">
+                      <enum>Qt::LeftToRight</enum>
+                     </property>
+                     <property name="text">
+                      <string>Number of Channels:</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignJustify|Qt::AlignVCenter</set>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="1" column="1">
+                    <widget class="QLabel" name="main_sampfreq">
+                     <property name="font">
+                      <font>
+                       <pointsize>11</pointsize>
+                       <weight>50</weight>
+                       <bold>false</bold>
+                      </font>
+                     </property>
+                     <property name="text">
+                      <string>samp_freq</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="0" column="1">
+                    <widget class="QLabel" name="main_filename">
+                     <property name="font">
+                      <font>
+                       <pointsize>11</pointsize>
+                       <weight>50</weight>
+                       <bold>false</bold>
+                      </font>
+                     </property>
+                     <property name="text">
+                      <string>filename</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="2" column="1">
+                    <widget class="QLabel" name="main_numchannels">
+                     <property name="font">
+                      <font>
+                       <pointsize>11</pointsize>
+                       <weight>50</weight>
+                       <bold>false</bold>
+                      </font>
+                     </property>
+                     <property name="text">
+                      <string>num_channels</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="3" column="0">
+                    <widget class="QLabel" name="label_7">
+                     <property name="font">
+                      <font>
+                       <pointsize>11</pointsize>
+                       <weight>50</weight>
+                       <bold>false</bold>
+                       <underline>true</underline>
+                      </font>
+                     </property>
+                     <property name="layoutDirection">
+                      <enum>Qt::LeftToRight</enum>
+                     </property>
+                     <property name="text">
+                      <string>Length:</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignJustify|Qt::AlignVCenter</set>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="3" column="1">
+                    <widget class="QLabel" name="main_length">
+                     <property name="font">
+                      <font>
+                       <pointsize>11</pointsize>
+                       <weight>50</weight>
+                       <bold>false</bold>
+                      </font>
+                     </property>
+                     <property name="text">
+                      <string>length</string>
+                     </property>
+                    </widget>
+                   </item>
+                  </layout>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+              <widget class="QWidget" name="page_18"/>
+             </widget>
+            </item>
             <item row="1" column="0">
+             <widget class="QStackedWidget" name="stackedWidget_2">
+              <property name="currentIndex">
+               <number>0</number>
+              </property>
+              <widget class="QWidget" name="page_3">
+               <layout class="QGridLayout" name="gridLayout_22">
+                <item row="0" column="0">
+                 <widget class="QGroupBox" name="filters_groupbox">
+                  <property name="font">
+                   <font>
+                    <family>Arial</family>
+                    <pointsize>13</pointsize>
+                   </font>
+                  </property>
+                  <property name="title">
+                   <string>Filter Parameters</string>
+                  </property>
+                  <layout class="QGridLayout" name="gridLayout_9">
+                   <item row="0" column="0">
+                    <layout class="QVBoxLayout" name="verticalLayout">
+                     <item>
+                      <layout class="QHBoxLayout" name="horizontalLayout_5">
+                       <item>
+                        <widget class="QLabel" name="label_158">
+                         <property name="font">
+                          <font>
+                           <family>Arial</family>
+                           <pointsize>11</pointsize>
+                          </font>
+                         </property>
+                         <property name="toolTip">
+                          <string>Pass Band</string>
+                         </property>
+                         <property name="text">
+                          <string>Fp</string>
+                         </property>
+                         <property name="alignment">
+                          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QLineEdit" name="fp_input">
+                         <property name="minimumSize">
+                          <size>
+                           <width>41</width>
+                           <height>20</height>
+                          </size>
+                         </property>
+                         <property name="maximumSize">
+                          <size>
+                           <width>150</width>
+                           <height>75</height>
+                          </size>
+                         </property>
+                         <property name="text">
+                          <string/>
+                         </property>
+                         <property name="alignment">
+                          <set>Qt::AlignCenter</set>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QLabel" name="label_159">
+                         <property name="font">
+                          <font>
+                           <family>Arial</family>
+                           <pointsize>11</pointsize>
+                          </font>
+                         </property>
+                         <property name="toolTip">
+                          <string>Stop Band</string>
+                         </property>
+                         <property name="text">
+                          <string>Fs</string>
+                         </property>
+                         <property name="alignment">
+                          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QLineEdit" name="fs_input">
+                         <property name="minimumSize">
+                          <size>
+                           <width>41</width>
+                           <height>20</height>
+                          </size>
+                         </property>
+                         <property name="maximumSize">
+                          <size>
+                           <width>150</width>
+                           <height>75</height>
+                          </size>
+                         </property>
+                         <property name="text">
+                          <string/>
+                         </property>
+                         <property name="alignment">
+                          <set>Qt::AlignCenter</set>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QLabel" name="label_2">
+                         <property name="font">
+                          <font>
+                           <family>Arial</family>
+                           <pointsize>11</pointsize>
+                          </font>
+                         </property>
+                         <property name="toolTip">
+                          <string>Pass Band Ripple</string>
+                         </property>
+                         <property name="text">
+                          <string>rp</string>
+                         </property>
+                         <property name="alignment">
+                          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QLineEdit" name="rp_input">
+                         <property name="minimumSize">
+                          <size>
+                           <width>41</width>
+                           <height>20</height>
+                          </size>
+                         </property>
+                         <property name="maximumSize">
+                          <size>
+                           <width>150</width>
+                           <height>75</height>
+                          </size>
+                         </property>
+                         <property name="text">
+                          <string/>
+                         </property>
+                         <property name="alignment">
+                          <set>Qt::AlignCenter</set>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QLabel" name="label_3">
+                         <property name="font">
+                          <font>
+                           <family>Arial</family>
+                           <pointsize>11</pointsize>
+                          </font>
+                         </property>
+                         <property name="toolTip">
+                          <string>Stop Band Attenuation</string>
+                         </property>
+                         <property name="text">
+                          <string>rs</string>
+                         </property>
+                         <property name="alignment">
+                          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QLineEdit" name="rs_input">
+                         <property name="minimumSize">
+                          <size>
+                           <width>41</width>
+                           <height>20</height>
+                          </size>
+                         </property>
+                         <property name="maximumSize">
+                          <size>
+                           <width>150</width>
+                           <height>75</height>
+                          </size>
+                         </property>
+                         <property name="text">
+                          <string/>
+                         </property>
+                         <property name="alignment">
+                          <set>Qt::AlignCenter</set>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QPushButton" name="overview_filter_button">
+                         <property name="font">
+                          <font>
+                           <family>Arial</family>
+                           <pointsize>11</pointsize>
+                          </font>
+                         </property>
+                         <property name="text">
+                          <string>Filter the Signal</string>
+                         </property>
+                        </widget>
+                       </item>
+                      </layout>
+                     </item>
+                    </layout>
+                   </item>
+                  </layout>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+              <widget class="QWidget" name="page_4"/>
+             </widget>
+            </item>
+            <item row="2" column="0">
              <widget class="QStackedWidget" name="stackedWidget">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
@@ -8423,584 +8990,76 @@
               </widget>
              </widget>
             </item>
-            <item row="2" column="0">
-             <widget class="QStackedWidget" name="stackedWidget_3">
+            <item row="4" column="0">
+             <widget class="QStackedWidget" name="stackedWidget_4">
               <property name="currentIndex">
                <number>0</number>
               </property>
-              <widget class="QWidget" name="page_7">
-               <layout class="QGridLayout" name="gridLayout_23">
+              <widget class="QWidget" name="page_9">
+               <layout class="QGridLayout" name="gridLayout_24">
                 <item row="0" column="0">
-                 <widget class="QGroupBox" name="classifier_groupbox_4">
+                 <widget class="QGroupBox" name="statistics_box">
                   <property name="font">
                    <font>
                     <family>Arial</family>
                     <pointsize>13</pointsize>
+                    <weight>50</weight>
+                    <bold>false</bold>
                    </font>
                   </property>
                   <property name="title">
-                   <string>Classifier Parameters</string>
+                   <string>Statistics</string>
                   </property>
-                  <layout class="QGridLayout" name="gridLayout_21">
-                   <item row="3" column="0">
-                    <layout class="QHBoxLayout" name="horizontalLayout_32">
-                     <item>
-                      <widget class="QLabel" name="label_128">
-                       <property name="font">
-                        <font>
-                         <family>Arial</family>
-                         <pointsize>11</pointsize>
-                         <underline>true</underline>
-                        </font>
-                       </property>
-                       <property name="text">
-                        <string>Device</string>
-                       </property>
-                       <property name="alignment">
-                        <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                       </property>
-                      </widget>
-                     </item>
-                     <item>
-                      <widget class="QLineEdit" name="overview_device_display">
-                       <property name="font">
-                        <font>
-                         <family>Arial</family>
-                         <pointsize>11</pointsize>
-                         <kerning>true</kerning>
-                        </font>
-                       </property>
-                       <property name="styleSheet">
-                        <string notr="true">background-color: rgb(235, 235, 235);</string>
-                       </property>
-                       <property name="text">
-                        <string>CPU</string>
-                       </property>
-                       <property name="readOnly">
-                        <bool>true</bool>
-                       </property>
-                      </widget>
-                     </item>
-                     <item>
-                      <widget class="QLabel" name="label_129">
-                       <property name="font">
-                        <font>
-                         <family>Arial</family>
-                         <pointsize>11</pointsize>
-                         <underline>true</underline>
-                        </font>
-                       </property>
-                       <property name="text">
-                        <string>Batch Size</string>
-                       </property>
-                       <property name="alignment">
-                        <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                       </property>
-                      </widget>
-                     </item>
-                     <item>
-                      <widget class="QLineEdit" name="overview_batch_size_display">
-                       <property name="font">
-                        <font>
-                         <family>Arial</family>
-                         <pointsize>11</pointsize>
-                         <kerning>true</kerning>
-                        </font>
-                       </property>
-                       <property name="styleSheet">
-                        <string notr="true">background-color: rgb(235, 235, 235);</string>
-                       </property>
-                       <property name="text">
-                        <string>64</string>
-                       </property>
-                       <property name="readOnly">
-                        <bool>true</bool>
-                       </property>
-                      </widget>
-                     </item>
-                    </layout>
-                   </item>
-                   <item row="2" column="0">
-                    <layout class="QHBoxLayout" name="horizontalLayout_9">
-                     <item>
-                      <widget class="QCheckBox" name="overview_use_spike_checkbox">
-                       <property name="font">
-                        <font>
-                         <family>Arial</family>
-                         <pointsize>11</pointsize>
-                         <underline>true</underline>
-                        </font>
-                       </property>
-                       <property name="text">
-                        <string>Use spk-HFO</string>
-                       </property>
-                      </widget>
-                     </item>
-                     <item>
-                      <widget class="QLabel" name="label_127">
-                       <property name="font">
-                        <font>
-                         <family>Arial</family>
-                         <pointsize>11</pointsize>
-                         <underline>true</underline>
-                        </font>
-                       </property>
-                       <property name="text">
-                        <string>spk-HFO Path</string>
-                       </property>
-                      </widget>
-                     </item>
-                     <item>
-                      <widget class="QLineEdit" name="overview_spike_path_display">
-                       <property name="font">
-                        <font>
-                         <family>Arial</family>
-                         <pointsize>11</pointsize>
-                         <italic>false</italic>
-                         <underline>false</underline>
-                         <kerning>true</kerning>
-                        </font>
-                       </property>
-                       <property name="styleSheet">
-                        <string notr="true">background-color: rgb(235, 235, 235);</string>
-                       </property>
-                       <property name="text">
-                        <string/>
-                       </property>
-                       <property name="readOnly">
-                        <bool>true</bool>
-                       </property>
-                       <property name="placeholderText">
-                        <string>File Name...</string>
-                       </property>
-                      </widget>
-                     </item>
-                    </layout>
-                   </item>
-                   <item row="4" column="0">
-                    <layout class="QHBoxLayout" name="horizontalLayout_10" stretch="0,0">
-                     <item>
-                      <spacer name="horizontalSpacer_6">
-                       <property name="orientation">
-                        <enum>Qt::Horizontal</enum>
-                       </property>
-                       <property name="sizeHint" stdset="0">
-                        <size>
-                         <width>40</width>
-                         <height>20</height>
-                        </size>
-                       </property>
-                      </spacer>
-                     </item>
-                     <item>
-                      <widget class="QPushButton" name="detect_all_button">
-                       <property name="font">
-                        <font>
-                         <family>Arial</family>
-                         <pointsize>11</pointsize>
-                        </font>
-                       </property>
-                       <property name="text">
-                        <string>HFO Classification</string>
-                       </property>
-                      </widget>
-                     </item>
-                    </layout>
-                   </item>
-                   <item row="0" column="0">
-                    <layout class="QHBoxLayout" name="horizontalLayout_30">
-                     <item>
-                      <widget class="QLabel" name="label_123">
-                       <property name="font">
-                        <font>
-                         <family>Arial</family>
-                         <pointsize>11</pointsize>
-                         <underline>true</underline>
-                        </font>
-                       </property>
-                       <property name="text">
-                        <string>Artifact Path</string>
-                       </property>
-                      </widget>
-                     </item>
-                     <item>
-                      <widget class="QLineEdit" name="overview_artifact_path_display">
-                       <property name="font">
-                        <font>
-                         <family>Arial</family>
-                         <pointsize>11</pointsize>
-                         <italic>false</italic>
-                         <underline>false</underline>
-                         <kerning>true</kerning>
-                        </font>
-                       </property>
-                       <property name="styleSheet">
-                        <string notr="true">background-color: rgb(235, 235, 235);</string>
-                       </property>
-                       <property name="text">
-                        <string/>
-                       </property>
-                       <property name="readOnly">
-                        <bool>true</bool>
-                       </property>
-                       <property name="placeholderText">
-                        <string>File Name...</string>
-                       </property>
-                      </widget>
-                     </item>
-                    </layout>
-                   </item>
+                  <layout class="QGridLayout" name="gridLayout_17">
                    <item row="1" column="0">
-                    <layout class="QHBoxLayout" name="horizontalLayout_31">
-                     <item>
-                      <widget class="QLabel" name="label_124">
-                       <property name="font">
-                        <font>
-                         <family>Arial</family>
-                         <pointsize>11</pointsize>
-                         <underline>true</underline>
-                        </font>
-                       </property>
-                       <property name="text">
-                        <string>Ignore</string>
-                       </property>
-                      </widget>
-                     </item>
-                     <item>
-                      <widget class="QLineEdit" name="overview_ignore_before_input">
-                       <property name="font">
-                        <font>
-                         <family>Arial</family>
-                         <pointsize>11</pointsize>
-                        </font>
-                       </property>
-                       <property name="text">
-                        <string>1</string>
-                       </property>
-                      </widget>
-                     </item>
-                     <item>
-                      <widget class="QLabel" name="label_125">
-                       <property name="font">
-                        <font>
-                         <family>Arial</family>
-                         <pointsize>11</pointsize>
-                        </font>
-                       </property>
-                       <property name="text">
-                        <string>Sec Before</string>
-                       </property>
-                      </widget>
-                     </item>
-                     <item>
-                      <widget class="QLineEdit" name="overview_ignore_after_input">
-                       <property name="font">
-                        <font>
-                         <family>Arial</family>
-                         <pointsize>11</pointsize>
-                        </font>
-                       </property>
-                       <property name="text">
-                        <string>1</string>
-                       </property>
-                      </widget>
-                     </item>
-                     <item>
-                      <widget class="QLabel" name="label_126">
-                       <property name="font">
-                        <font>
-                         <family>Arial</family>
-                         <pointsize>11</pointsize>
-                        </font>
-                       </property>
-                       <property name="text">
-                        <string>Sec After Recording</string>
-                       </property>
-                      </widget>
-                     </item>
-                    </layout>
+                    <widget class="QPushButton" name="save_npz_button">
+                     <property name="font">
+                      <font>
+                       <family>Arial</family>
+                       <pointsize>11</pointsize>
+                       <weight>50</weight>
+                       <bold>false</bold>
+                      </font>
+                     </property>
+                     <property name="text">
+                      <string>Save As npz</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="1" column="1">
+                    <widget class="QPushButton" name="save_csv_button">
+                     <property name="font">
+                      <font>
+                       <family>Arial</family>
+                       <pointsize>11</pointsize>
+                       <weight>50</weight>
+                       <bold>false</bold>
+                      </font>
+                     </property>
+                     <property name="text">
+                      <string>Save As Excel</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="0" column="0" colspan="2">
+                    <widget class="QLabel" name="statistics_label">
+                     <property name="frameShape">
+                      <enum>QFrame::NoFrame</enum>
+                     </property>
+                     <property name="text">
+                      <string/>
+                     </property>
+                    </widget>
                    </item>
                   </layout>
                  </widget>
                 </item>
                </layout>
               </widget>
-              <widget class="QWidget" name="page_8"/>
-             </widget>
-            </item>
-            <item row="0" column="0">
-             <widget class="QStackedWidget" name="stackedWidget_2">
-              <widget class="QWidget" name="page_3">
-               <layout class="QGridLayout" name="gridLayout_22">
-                <item row="0" column="0">
-                 <widget class="QGroupBox" name="filters_groupbox">
-                  <property name="font">
-                   <font>
-                    <family>Arial</family>
-                    <pointsize>13</pointsize>
-                   </font>
-                  </property>
-                  <property name="title">
-                   <string>Filter Parameters</string>
-                  </property>
-                  <layout class="QGridLayout" name="gridLayout_9">
-                   <item row="0" column="0">
-                    <layout class="QVBoxLayout" name="verticalLayout">
-                     <item>
-                      <layout class="QHBoxLayout" name="horizontalLayout_5">
-                       <item>
-                        <widget class="QLabel" name="label_158">
-                         <property name="font">
-                          <font>
-                           <family>Arial</family>
-                           <pointsize>11</pointsize>
-                          </font>
-                         </property>
-                         <property name="toolTip">
-                          <string>Pass Band</string>
-                         </property>
-                         <property name="text">
-                          <string>Fp</string>
-                         </property>
-                         <property name="alignment">
-                          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                         </property>
-                        </widget>
-                       </item>
-                       <item>
-                        <widget class="QLineEdit" name="fp_input">
-                         <property name="minimumSize">
-                          <size>
-                           <width>41</width>
-                           <height>20</height>
-                          </size>
-                         </property>
-                         <property name="maximumSize">
-                          <size>
-                           <width>150</width>
-                           <height>75</height>
-                          </size>
-                         </property>
-                         <property name="text">
-                          <string/>
-                         </property>
-                         <property name="alignment">
-                          <set>Qt::AlignCenter</set>
-                         </property>
-                        </widget>
-                       </item>
-                       <item>
-                        <widget class="QLabel" name="label_159">
-                         <property name="font">
-                          <font>
-                           <family>Arial</family>
-                           <pointsize>11</pointsize>
-                          </font>
-                         </property>
-                         <property name="toolTip">
-                          <string>Stop Band</string>
-                         </property>
-                         <property name="text">
-                          <string>Fs</string>
-                         </property>
-                         <property name="alignment">
-                          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                         </property>
-                        </widget>
-                       </item>
-                       <item>
-                        <widget class="QLineEdit" name="fs_input">
-                         <property name="minimumSize">
-                          <size>
-                           <width>41</width>
-                           <height>20</height>
-                          </size>
-                         </property>
-                         <property name="maximumSize">
-                          <size>
-                           <width>150</width>
-                           <height>75</height>
-                          </size>
-                         </property>
-                         <property name="text">
-                          <string/>
-                         </property>
-                         <property name="alignment">
-                          <set>Qt::AlignCenter</set>
-                         </property>
-                        </widget>
-                       </item>
-                       <item>
-                        <widget class="QLabel" name="label_2">
-                         <property name="font">
-                          <font>
-                           <family>Arial</family>
-                           <pointsize>11</pointsize>
-                          </font>
-                         </property>
-                         <property name="toolTip">
-                          <string>Pass Band Ripple</string>
-                         </property>
-                         <property name="text">
-                          <string>rp</string>
-                         </property>
-                         <property name="alignment">
-                          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                         </property>
-                        </widget>
-                       </item>
-                       <item>
-                        <widget class="QLineEdit" name="rp_input">
-                         <property name="minimumSize">
-                          <size>
-                           <width>41</width>
-                           <height>20</height>
-                          </size>
-                         </property>
-                         <property name="maximumSize">
-                          <size>
-                           <width>150</width>
-                           <height>75</height>
-                          </size>
-                         </property>
-                         <property name="text">
-                          <string/>
-                         </property>
-                         <property name="alignment">
-                          <set>Qt::AlignCenter</set>
-                         </property>
-                        </widget>
-                       </item>
-                       <item>
-                        <widget class="QLabel" name="label_3">
-                         <property name="font">
-                          <font>
-                           <family>Arial</family>
-                           <pointsize>11</pointsize>
-                          </font>
-                         </property>
-                         <property name="toolTip">
-                          <string>Stop Band Attenuation</string>
-                         </property>
-                         <property name="text">
-                          <string>rs</string>
-                         </property>
-                         <property name="alignment">
-                          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                         </property>
-                        </widget>
-                       </item>
-                       <item>
-                        <widget class="QLineEdit" name="rs_input">
-                         <property name="minimumSize">
-                          <size>
-                           <width>41</width>
-                           <height>20</height>
-                          </size>
-                         </property>
-                         <property name="maximumSize">
-                          <size>
-                           <width>150</width>
-                           <height>75</height>
-                          </size>
-                         </property>
-                         <property name="text">
-                          <string/>
-                         </property>
-                         <property name="alignment">
-                          <set>Qt::AlignCenter</set>
-                         </property>
-                        </widget>
-                       </item>
-                       <item>
-                        <widget class="QPushButton" name="overview_filter_button">
-                         <property name="font">
-                          <font>
-                           <family>Arial</family>
-                           <pointsize>11</pointsize>
-                          </font>
-                         </property>
-                         <property name="text">
-                          <string>Filter the Signal</string>
-                         </property>
-                        </widget>
-                       </item>
-                      </layout>
-                     </item>
-                    </layout>
-                   </item>
-                  </layout>
-                 </widget>
-                </item>
-               </layout>
-              </widget>
-              <widget class="QWidget" name="page_4"/>
+              <widget class="QWidget" name="page_10"/>
              </widget>
             </item>
            </layout>
-          </item>
-          <item row="1" column="0">
-           <widget class="QStackedWidget" name="stackedWidget_4">
-            <widget class="QWidget" name="page_9">
-             <layout class="QGridLayout" name="gridLayout_24">
-              <item row="0" column="0">
-               <widget class="QGroupBox" name="statistics_box">
-                <property name="font">
-                 <font>
-                  <family>Arial</family>
-                  <pointsize>13</pointsize>
-                  <bold>false</bold>
-                 </font>
-                </property>
-                <property name="title">
-                 <string>Statistics</string>
-                </property>
-                <layout class="QGridLayout" name="gridLayout_17" rowstretch="1,0">
-                 <item row="1" column="0">
-                  <widget class="QPushButton" name="save_npz_button">
-                   <property name="font">
-                    <font>
-                     <family>Arial</family>
-                     <pointsize>11</pointsize>
-                     <bold>false</bold>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>Save As npz</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="1" column="1">
-                  <widget class="QPushButton" name="save_csv_button">
-                   <property name="font">
-                    <font>
-                     <family>Arial</family>
-                     <pointsize>11</pointsize>
-                     <bold>false</bold>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>Save As Excel</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="0" column="0" colspan="2">
-                  <widget class="QLabel" name="statistics_label">
-                   <property name="frameShape">
-                    <enum>QFrame::NoFrame</enum>
-                   </property>
-                   <property name="text">
-                    <string/>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
-               </widget>
-              </item>
-             </layout>
-            </widget>
-            <widget class="QWidget" name="page_10"/>
-           </widget>
           </item>
          </layout>
         </widget>
