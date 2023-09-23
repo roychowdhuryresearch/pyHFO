@@ -395,7 +395,9 @@ class HFOMainWindow(QMainWindow):
             self.hfo_app.set_unfiltered_60()
             
         self.STE_save_button.setEnabled(True)
+        self.ste_detect_button.setEnabled(True)
         self.MNI_save_button.setEnabled(True)
+        self.mni_detect_button.setEnabled(True)
         self.is_data_filtered = True
         self.show_filtered = True
         self.waveform_plot.set_filtered(True)
@@ -419,7 +421,7 @@ class HFOMainWindow(QMainWindow):
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
             msg.setText("Error")
-            msg.setInformativeText('Filter could not be constructed with the given parameters')
+            msg.setInformativeText('filter could not be constructed with the given parameters')
             msg.setWindowTitle("Filter Construction Error")
             msg.exec_()
             return 
@@ -488,8 +490,6 @@ class HFOMainWindow(QMainWindow):
             self.ste_min_oscillations_display.setText(min_osc_raw)
             self.ste_peak_threshold_display.setText(peak_thres_raw)
             self.ste_rms_threshold_display.setText(rms_thres_raw)
-            self.ste_detect_button.setEnabled(True)
-
             self.update_detector_tab("STE")
         except:
             msg = QMessageBox()
@@ -534,8 +534,6 @@ class HFOMainWindow(QMainWindow):
             self.mni_baseline_shift_display.setText(base_shift)
             self.mni_baseline_threshold_display.setText(base_thrd)
             self.mni_baseline_min_time_display.setText(base_min)
-            self.mni_detect_button.setEnabled(True)
-
 
             self.update_detector_tab("MNI")
         except:
@@ -558,7 +556,7 @@ class HFOMainWindow(QMainWindow):
         self.message_handler("HFOs detected")
         self.update_statistics_label()
         self.waveform_plot.set_plot_HFOs(True)
-        # self.detect_all_button.setEnabled(True)
+        self.detect_all_button.setEnabled(True)
 
     def _detect(self, progress_callback):
         #call detect HFO function on backend
@@ -611,7 +609,6 @@ class HFOMainWindow(QMainWindow):
         spike_path = self.classifier_spike_filename.text()
         use_spike = self.use_spike_checkbox.isChecked()
         device = self.classifier_device_input.text()
-        
         if device=="cpu":
             model_type = "default_cpu"
         elif device=="cuda:0" and self.gpu:
@@ -621,7 +618,7 @@ class HFOMainWindow(QMainWindow):
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
             msg.setText("Error!")
-            msg.setInformativeText('Device not recognized, please set to CPU for CPU or cuda:0 for GPU')
+            msg.setInformativeText('Device not recognized, please set to cpu for cpu or cuda:0 for gpu')
             msg.setWindowTitle("Device not recognized")
             msg.exec_()
             return
@@ -630,7 +627,6 @@ class HFOMainWindow(QMainWindow):
         classifier_param = ParamClassifier(artifact_path=artifact_path, spike_path=spike_path, use_spike=use_spike,
                                           device=device, batch_size=int(batch_size), model_type=model_type)
         self.hfo_app.set_classifier(classifier_param)
-        self.detect_all_button.setEnabled(True)
         self.set_classifier_param_display()
 
     def choose_model_file(self, model_type):
@@ -642,12 +638,9 @@ class HFOMainWindow(QMainWindow):
 
     def _classify(self,artifact_only=False):
         # print("print artfact_only",artifact_only)
-        # threshold = 0.5
-
+        threshold = 0.5
         seconds_to_ignore_before=float(self.overview_ignore_before_input.text())
         seconds_to_ignore_after=float(self.overview_ignore_after_input.text())
-        threshold = self.artifact_threshold_input.value()
-
         self.hfo_app.classify_artifacts([seconds_to_ignore_before,seconds_to_ignore_after], threshold)
         print("Classified artifacts")
         if not artifact_only:

@@ -100,7 +100,7 @@ class HFO_App(object):
         sos = construct_filter(param_filter.fp, param_filter.fs, param_filter.rp, param_filter.rs, param_filter.space, param_filter.sample_freq)
         #if any value in sos is nan, then raise error
         if np.isnan(sos).any():
-            raise ValueError("Filter parameter is invalid")
+            raise ValueError("filter parameter is invalid")
         self.sos = sos
 
 
