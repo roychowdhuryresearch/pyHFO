@@ -1,6 +1,6 @@
 # PyHFO
 
-PyHFO is a multi-window desktop application providing an in-tegrated and user-friendly platform that includes time-efficient HFO detection algorithms such as short-term energy (STE) and Montreal Neurological Institute and Hospital (MNI) detectors and deep learning models for artifact and HFO with spike classification.
+PyHFO is a multi-window desktop application providing an integrated and user-friendly platform that includes time-efficient HFO detection algorithms such as short-term energy (STE) and Montreal Neurological Institute and Hospital (MNI) detectors and deep learning models for artifact and HFO with spike classification.
 
 ## Bibtex
 If you find our project is useful in your research, please cite:
