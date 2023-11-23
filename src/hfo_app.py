@@ -89,7 +89,12 @@ class HFO_App(object):
         else:
             return data[:, start:end], self.channel_names
     
+    def get_eeg_data_shape(self):
+        return self.eeg_data.shape
     
+    def get_sample_freq(self):
+        return self.sample_freq
+
     '''
         Filter API
     '''

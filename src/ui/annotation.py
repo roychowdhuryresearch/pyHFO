@@ -60,16 +60,14 @@ class HFOAnnotation(QtWidgets.QMainWindow):
             self.NextButton.clicked.connect(self.plot_next)
             self.Accept.clicked.connect(self.update_button_clicked)
             # create the main waveform plot which we want to embed in VisulaizationVerticalLayout 
-            self.waveform_plot = AnnotationPlot(
-                                                hfo_app=self.hfo_app)
+            self.waveform_plot = AnnotationPlot(hfo_app=self.hfo_app)
             self.VisulaizationVerticalLayout.addWidget(self.waveform_plot)
             
-            self.fft_plot = FFTPlot(
-                                                hfo_app=self.hfo_app)
+            self.fft_plot = FFTPlot(hfo_app=self.hfo_app)
             self.FFT_layout.addWidget(self.fft_plot)
             
             # 
-            
+
             if not self.hfo_app.hfo_features.has_prediction():
                   self.hfo_app.hfo_features.generate_psedo_label()
             channel, start, end = self.hfo_app.hfo_features.get_current()
@@ -77,16 +75,13 @@ class HFOAnnotation(QtWidgets.QMainWindow):
             self.fft_plot.plot(start, end, channel)
             self.update_infos()
             
-            
-            
-
-
       def plot_prev(self):
             # start, end: index of the prev hfo
             channel, start, end = self.hfo_app.hfo_features.get_prev()
             self.waveform_plot.plot(start, end, channel)
             self.fft_plot.plot(start, end, channel)
             self.update_infos()
+
       def plot_next(self):
             # start, end: index of the next hfo
             channel, start, end = self.hfo_app.hfo_features.get_next()
@@ -101,9 +96,9 @@ class HFOAnnotation(QtWidgets.QMainWindow):
             self.start_textbox.setText(str(round(info["start_index"]/fs,3))+" s")
             self.end_textbox.setText(str(round(info["end_index"]/fs,3))+" s")
             self.length_textbox.setText(str(round((info["end_index"]-info["start_index"])/fs,3))+" s")
-            if "annotation" in info.keys():
-                  self.model_textbox.setText(info["annotation"])
-                  self.EventDropdown_Box.setCurrentText(info["annotation"])
+            if info["annotation"] is not None:
+                  self.model_textbox.setText(info["prediction"])
+                  self.EventDropdown_Box.setCurrentText(info["prediction"])
                   
       def update_button_clicked(self):
             print("updating now...")

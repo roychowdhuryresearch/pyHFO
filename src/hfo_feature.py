@@ -7,7 +7,9 @@ class HFO_Feature():
         self.ends = interval[:, 1]
         self.features = features
         self.artifact_predictions = np.zeros(self.starts.shape)
-        # self.doctor_annotation = []
+        self.artifact_annotation = np.zeros(self.starts.shape)
+        self.spike_annotation = np.zeros(self.starts.shape)
+        self.annotated = np.zeros(self.starts.shape)
         self.spike_predictions = []
         self.HFO_type = HFO_type
         self.sample_freq = sample_freq
@@ -49,13 +51,14 @@ class HFO_Feature():
     
     def doctor_annotation(self, annotation:str):
         if annotation == "Artifact":
-            self.artifact_predictions[self.index] = 0
+            self.artifact_annotation[self.index] = 0
         elif annotation == "Spike":
-            self.spike_predictions[self.index] = 1
-            self.artifact_predictions[self.index] = 1
+            self.spike_annotation[self.index] = 1
+            self.artifact_annotation[self.index] = 1
         elif annotation == "HFO":
-            self.spike_predictions[self.index] = 0
-            self.artifact_predictions[self.index] = 1
+            self.spike_annotation[self.index] = 0
+            self.artifact_annotation[self.index] = 1
+        self.annotated[self.index] = 1
 
     def get_next(self):
         if self.index >= self.num_HFO - 1:
@@ -77,29 +80,23 @@ class HFO_Feature():
     def get_current(self):
         return self.channel_names[self.index], self.starts[self.index], self.ends[self.index]
     
+    def _get_prediction(self, artifact_prediction, spike_prediction):
+        if artifact_prediction < 1:
+            return "Artifact"
+        elif spike_prediction == 1:
+            return "Spike"
+        else:
+            return "HFO"
+
     def get_current_info(self):
         channel_name = self.channel_names[self.index]
         start = self.starts[self.index]
         end = self.ends[self.index]
-        if self.artifact_predicted:
-            artifact_prediction = self.artifact_predictions[self.index]
-            if artifact_prediction < 1:
-                annotation = "Artifact"
-            elif self.spike_predicted:
-                spike_prediction = self.spike_predictions[self.index]
-                if spike_prediction == 1:
-                    annotation = "Spike"
-                else:
-                    annotation = "HFO"
-            else:
-                annotation = "HFO"
-            return {"channel_name": channel_name, "start_index": start, "end_index": end, "annotation": annotation}
-        else:
-            return {"channel_name": channel_name, "start_index": start, "end_index": end}
+        prediction = self._get_prediction(self.artifact_predictions[self.index], self.spike_predictions[self.index]) if self.artifact_predicted else None
+        annotation = self._get_prediction(self.artifact_annotation[self.index], self.spike_annotation[self.index]) if self.annotated[self.index] else None  
+        return {"channel_name": channel_name, "start_index": start, "end_index": end, "prediction": prediction, "annotation": annotation}
 
                     
-        
-    
     def get_num_artifact(self):
         return self.num_artifact
     
