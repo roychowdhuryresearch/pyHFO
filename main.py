@@ -18,6 +18,7 @@ from src.param.param_detector import ParamDetector, ParamSTE, ParamMNI
 from src.param.param_filter import ParamFilter
 from src.ui.quick_detection import HFOQuickDetector
 from src.ui.channels_selection import ChannelSelectionWindow
+from src.ui.annotation import HFOAnnotation
 from src.utils.utils_gui import *
 from src.ui.plot_waveform import *
 from PyQt5.QtCore import pyqtSignal
@@ -130,6 +131,11 @@ class HFOMainWindow(QMainWindow):
 
         self.Filter60Button.toggled.connect(self.switch_60)
         self.Filter60Button.setEnabled(False)
+
+        #annotation button
+        self.annotation_button.clicked.connect(self.open_annotation)
+        #disable annotation button
+        self.annotation_button.setEnabled(False)
 
         self.channels_to_plot = []
 
@@ -557,6 +563,7 @@ class HFOMainWindow(QMainWindow):
         self.update_statistics_label()
         self.waveform_plot.set_plot_HFOs(True)
         self.detect_all_button.setEnabled(True)
+        self.annotation_button.setEnabled(True)
 
     def _detect(self, progress_callback):
         #call detect HFO function on backend
@@ -815,6 +822,11 @@ class HFOMainWindow(QMainWindow):
             self.update_ste_params(detector_params.detector_param.to_dict())
         elif detector_type == "mni":
             self.update_mni_params(detector_params.detector_param.to_dict())
+    
+    def open_annotation(self):
+        self.save_csv_button.setEnabled(True)
+        annotation = HFOAnnotation(self.hfo_app, self, self.close_signal)
+        annotation.show()
 
 
 if __name__ == '__main__':

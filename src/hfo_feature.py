@@ -6,7 +6,8 @@ class HFO_Feature():
         self.starts = interval[:, 0]
         self.ends = interval[:, 1]
         self.features = features
-        self.artifact_predictions = []
+        self.artifact_predictions = np.zeros(self.starts.shape)
+        # self.doctor_annotation = []
         self.spike_predictions = []
         self.HFO_type = HFO_type
         self.sample_freq = sample_freq
@@ -18,6 +19,10 @@ class HFO_Feature():
         self.num_spike = 0
         self.num_HFO = len(self.starts)
         self.num_real = 0
+        self.index = 0
+        self.artifact_predicted = False
+        self.spike_predicted = False
+
     
     def __str__(self):
         return "HFO_Feature: {} HFOs, {} artifacts, {} spikes, {} real HFOs".format(self.num_HFO, self.num_artifact, self.num_spike, self.num_real)
@@ -33,6 +38,67 @@ class HFO_Feature():
     
     def get_num_HFO(self):
         return self.num_HFO
+    
+    def has_prediction(self):
+        return self.artifact_predicted
+    
+    def generate_psedo_label(self):
+        self.artifact_predictions = np.ones(self.num_HFO)
+        self.spike_predictions = np.zeros(self.num_HFO)
+        self.artifact_predicted = True
+    
+    def doctor_annotation(self, annotation:str):
+        if annotation == "Artifact":
+            self.artifact_predictions[self.index] = 0
+        elif annotation == "Spike":
+            self.spike_predictions[self.index] = 1
+            self.artifact_predictions[self.index] = 1
+        elif annotation == "HFO":
+            self.spike_predictions[self.index] = 0
+            self.artifact_predictions[self.index] = 1
+
+    def get_next(self):
+        if self.index >= self.num_HFO - 1:
+            self.index = self.num_HFO - 1
+        else:
+            self.index += 1
+        # returns the next hfo start and end index instead of next window start and end index
+        return self.channel_names[self.index], self.starts[self.index], self.ends[self.index]
+        
+
+    def get_prev(self):
+        if self.index <= 0:
+            self.index = 0
+        else:
+            self.index -= 1
+        # the same as above
+        return self.channel_names[self.index], self.starts[self.index], self.ends[self.index]
+
+    def get_current(self):
+        return self.channel_names[self.index], self.starts[self.index], self.ends[self.index]
+    
+    def get_current_info(self):
+        channel_name = self.channel_names[self.index]
+        start = self.starts[self.index]
+        end = self.ends[self.index]
+        if self.artifact_predicted:
+            artifact_prediction = self.artifact_predictions[self.index]
+            if artifact_prediction < 1:
+                annotation = "Artifact"
+            elif self.spike_predicted:
+                spike_prediction = self.spike_predictions[self.index]
+                if spike_prediction == 1:
+                    annotation = "Spike"
+                else:
+                    annotation = "HFO"
+            else:
+                annotation = "HFO"
+            return {"channel_name": channel_name, "start_index": start, "end_index": end, "annotation": annotation}
+        else:
+            return {"channel_name": channel_name, "start_index": start, "end_index": end}
+
+                    
+        
     
     def get_num_artifact(self):
         return self.num_artifact
@@ -85,11 +151,13 @@ class HFO_Feature():
         return hfo_feature
 
     def update_artifact_pred(self, artifact_predictions):
+        self.artifact_predicted = True
         self.artifact_predictions = artifact_predictions
         self.num_artifact = np.sum(artifact_predictions <1)
         self.num_real = np.sum(artifact_predictions >0)
     
     def update_spike_pred(self, spike_predictions):
+        self.spike_predicted = True
         self.spike_predictions = spike_predictions
         self.num_spike = np.sum(spike_predictions == 1)
     
@@ -117,14 +185,15 @@ class HFO_Feature():
                 spike_predictions_g.append(spike_predictions[channel_index])
         return channel_name_g, interval_g, artifact_predictions_g, spike_predictions_g
 
-    def get_HFOs_for_channel(self, channel_name:str, min_start:int, max_end:int):
+    def get_HFOs_for_channel(self, channel_name:str, min_start:int=None, max_end:int=None):
         channel_names = self.channel_names
         starts = self.starts
         ends = self.ends
         artifact_predictions = np.array(self.artifact_predictions)
         spike_predictions = np.array(self.spike_predictions)
         indexes = channel_names == channel_name
-        indexes = indexes & (starts >= min_start) & (ends <= max_end)
+        if min_start is not None and max_end is not None:
+            indexes = indexes & (starts >= min_start) & (ends <= max_end)
         starts = starts[indexes]
         ends = ends[indexes]
         try:
@@ -145,6 +214,7 @@ class HFO_Feature():
         df["channel_names"] = channel_names
         df["starts"] = starts
         df["ends"] = ends
+        # df["doctor_annotation"] = self.doctor_annotation
         if len(artifact_predictions) > 0:
             df["artifact"] = artifact_predictions
         if len(spike_predictions) > 0:
@@ -165,7 +235,7 @@ class HFO_Feature():
         df_out["artifact"] = (df_out["artifact"] > 0).astype(int)
         df_out["spike"] = (df_out["spike"] > 0).astype(int)
         df_channel = df_out.groupby("channel_names").agg({"starts": "count","artifact": "sum", "spike":"sum"}).reset_index()
-        df_channel.rename(columns={"start": "Total Detection", "artifact": "HFO", "spike": "spk-HFO"}, inplace=True)
+        df_channel.rename(columns={"starts": "Total Detection", "artifact": "HFO", "spike": "spk-HFO"}, inplace=True)
         df.rename(columns={"artifact": "HFO", "spike": "spk-HFO"}, inplace=True)
         with pd.ExcelWriter(file_path) as writer:
             df_channel.to_excel(writer, sheet_name="Channels", index=False)

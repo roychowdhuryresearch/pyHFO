@@ -171,7 +171,7 @@
           </widget>
          </item>
          <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_14" stretch="1,0,0,3,1,1,0,0">
+          <layout class="QHBoxLayout" name="horizontalLayout_14" stretch="1,0,3,1,1">
            <property name="leftMargin">
             <number>10</number>
            </property>
@@ -199,19 +199,6 @@
              </property>
              <property name="text">
               <string>Toggle Filtered</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QRadioButton" name="Filter60Button">
-             <property name="font">
-              <font>
-               <family>Arial</family>
-               <pointsize>10</pointsize>
-              </font>
-             </property>
-             <property name="text">
-              <string>Filter 60 Hz</string>
              </property>
             </widget>
            </item>
@@ -253,91 +240,6 @@
              </property>
             </widget>
            </item>
-           <item>
-            <spacer name="horizontalSpacer_8">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item>
-            <layout class="QHBoxLayout" name="horizontalLayout_13" stretch="0,0,1,2,0">
-             <property name="leftMargin">
-              <number>7</number>
-             </property>
-             <property name="rightMargin">
-              <number>7</number>
-             </property>
-             <item>
-              <widget class="Line" name="line">
-               <property name="frameShadow">
-                <enum>QFrame::Plain</enum>
-               </property>
-               <property name="lineWidth">
-                <number>1</number>
-               </property>
-               <property name="orientation">
-                <enum>Qt::Vertical</enum>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QLabel" name="label_21">
-               <property name="font">
-                <font>
-                 <family>Arial</family>
-                 <pointsize>11</pointsize>
-                </font>
-               </property>
-               <property name="text">
-                <string>N Jobs</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QSpinBox" name="n_jobs_spinbox">
-               <property name="font">
-                <font>
-                 <family>Arial</family>
-                 <pointsize>11</pointsize>
-                </font>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <spacer name="horizontalSpacer_5">
-               <property name="orientation">
-                <enum>Qt::Horizontal</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>40</width>
-                 <height>20</height>
-                </size>
-               </property>
-              </spacer>
-             </item>
-             <item>
-              <widget class="QPushButton" name="n_jobs_ok_button">
-               <property name="font">
-                <font>
-                 <family>Arial</family>
-                 <pointsize>11</pointsize>
-                </font>
-               </property>
-               <property name="text">
-                <string>Save</string>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </item>
           </layout>
          </item>
          <item>
@@ -370,9 +272,9 @@
                  <colorrole role="Base">
                   <brush brushstyle="SolidPattern">
                    <color alpha="255">
-                    <red>245</red>
-                    <green>130</green>
-                    <blue>48</blue>
+                    <red>255</red>
+                    <green>0</green>
+                    <blue>230</blue>
                    </color>
                   </brush>
                  </colorrole>
@@ -381,9 +283,9 @@
                  <colorrole role="Base">
                   <brush brushstyle="SolidPattern">
                    <color alpha="255">
-                    <red>245</red>
-                    <green>130</green>
-                    <blue>48</blue>
+                    <red>255</red>
+                    <green>0</green>
+                    <blue>230</blue>
                    </color>
                   </brush>
                  </colorrole>
@@ -427,9 +329,9 @@
                  <colorrole role="Base">
                   <brush brushstyle="SolidPattern">
                    <color alpha="255">
-                    <red>240</red>
-                    <green>50</green>
-                    <blue>230</blue>
+                    <red>255</red>
+                    <green>0</green>
+                    <blue>0</blue>
                    </color>
                   </brush>
                  </colorrole>
@@ -438,9 +340,9 @@
                  <colorrole role="Base">
                   <brush brushstyle="SolidPattern">
                    <color alpha="255">
-                    <red>240</red>
-                    <green>50</green>
-                    <blue>230</blue>
+                    <red>255</red>
+                    <green>0</green>
+                    <blue>0</blue>
                    </color>
                   </brush>
                  </colorrole>
@@ -484,9 +386,9 @@
                  <colorrole role="Base">
                   <brush brushstyle="SolidPattern">
                    <color alpha="255">
-                    <red>60</red>
-                    <green>180</green>
-                    <blue>75</blue>
+                    <red>255</red>
+                    <green>111</green>
+                    <blue>0</blue>
                    </color>
                   </brush>
                  </colorrole>
@@ -495,9 +397,9 @@
                  <colorrole role="Base">
                   <brush brushstyle="SolidPattern">
                    <color alpha="255">
-                    <red>60</red>
-                    <green>180</green>
-                    <blue>75</blue>
+                    <red>255</red>
+                    <green>111</green>
+                    <blue>0</blue>
                    </color>
                   </brush>
                  </colorrole>
@@ -784,6 +686,215 @@
           <item row="0" column="0">
            <layout class="QGridLayout" name="gridLayout_5">
             <item row="1" column="0">
+             <widget class="QStackedWidget" name="stackedWidget_2">
+              <widget class="QWidget" name="page_3">
+               <layout class="QGridLayout" name="gridLayout_22">
+                <item row="0" column="0">
+                 <widget class="QGroupBox" name="filters_groupbox">
+                  <property name="font">
+                   <font>
+                    <family>Arial</family>
+                    <pointsize>13</pointsize>
+                   </font>
+                  </property>
+                  <property name="title">
+                   <string>Filter Parameters</string>
+                  </property>
+                  <layout class="QGridLayout" name="gridLayout_9">
+                   <item row="0" column="0">
+                    <layout class="QVBoxLayout" name="verticalLayout">
+                     <item>
+                      <layout class="QHBoxLayout" name="horizontalLayout_5">
+                       <item>
+                        <widget class="QLabel" name="label_158">
+                         <property name="font">
+                          <font>
+                           <family>Arial</family>
+                           <pointsize>11</pointsize>
+                          </font>
+                         </property>
+                         <property name="toolTip">
+                          <string>Pass Band</string>
+                         </property>
+                         <property name="text">
+                          <string>Fp</string>
+                         </property>
+                         <property name="alignment">
+                          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QLineEdit" name="fp_input">
+                         <property name="minimumSize">
+                          <size>
+                           <width>41</width>
+                           <height>20</height>
+                          </size>
+                         </property>
+                         <property name="maximumSize">
+                          <size>
+                           <width>150</width>
+                           <height>75</height>
+                          </size>
+                         </property>
+                         <property name="text">
+                          <string/>
+                         </property>
+                         <property name="alignment">
+                          <set>Qt::AlignCenter</set>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QLabel" name="label_159">
+                         <property name="font">
+                          <font>
+                           <family>Arial</family>
+                           <pointsize>11</pointsize>
+                          </font>
+                         </property>
+                         <property name="toolTip">
+                          <string>Stop Band</string>
+                         </property>
+                         <property name="text">
+                          <string>Fs</string>
+                         </property>
+                         <property name="alignment">
+                          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QLineEdit" name="fs_input">
+                         <property name="minimumSize">
+                          <size>
+                           <width>41</width>
+                           <height>20</height>
+                          </size>
+                         </property>
+                         <property name="maximumSize">
+                          <size>
+                           <width>150</width>
+                           <height>75</height>
+                          </size>
+                         </property>
+                         <property name="text">
+                          <string/>
+                         </property>
+                         <property name="alignment">
+                          <set>Qt::AlignCenter</set>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QLabel" name="label_2">
+                         <property name="font">
+                          <font>
+                           <family>Arial</family>
+                           <pointsize>11</pointsize>
+                          </font>
+                         </property>
+                         <property name="toolTip">
+                          <string>Pass Band Ripple</string>
+                         </property>
+                         <property name="text">
+                          <string>rp</string>
+                         </property>
+                         <property name="alignment">
+                          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QLineEdit" name="rp_input">
+                         <property name="minimumSize">
+                          <size>
+                           <width>41</width>
+                           <height>20</height>
+                          </size>
+                         </property>
+                         <property name="maximumSize">
+                          <size>
+                           <width>150</width>
+                           <height>75</height>
+                          </size>
+                         </property>
+                         <property name="text">
+                          <string/>
+                         </property>
+                         <property name="alignment">
+                          <set>Qt::AlignCenter</set>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QLabel" name="label_3">
+                         <property name="font">
+                          <font>
+                           <family>Arial</family>
+                           <pointsize>11</pointsize>
+                          </font>
+                         </property>
+                         <property name="toolTip">
+                          <string>Stop Band Attenuation</string>
+                         </property>
+                         <property name="text">
+                          <string>rs</string>
+                         </property>
+                         <property name="alignment">
+                          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QLineEdit" name="rs_input">
+                         <property name="minimumSize">
+                          <size>
+                           <width>41</width>
+                           <height>20</height>
+                          </size>
+                         </property>
+                         <property name="maximumSize">
+                          <size>
+                           <width>150</width>
+                           <height>75</height>
+                          </size>
+                         </property>
+                         <property name="text">
+                          <string/>
+                         </property>
+                         <property name="alignment">
+                          <set>Qt::AlignCenter</set>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QPushButton" name="overview_filter_button">
+                         <property name="font">
+                          <font>
+                           <family>Arial</family>
+                           <pointsize>11</pointsize>
+                          </font>
+                         </property>
+                         <property name="text">
+                          <string>Filter the Signal</string>
+                         </property>
+                        </widget>
+                       </item>
+                      </layout>
+                     </item>
+                    </layout>
+                   </item>
+                  </layout>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+              <widget class="QWidget" name="page_4"/>
+             </widget>
+            </item>
+            <item row="2" column="0">
              <widget class="QStackedWidget" name="stackedWidget">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
@@ -8423,7 +8534,7 @@
               </widget>
              </widget>
             </item>
-            <item row="2" column="0">
+            <item row="3" column="0">
              <widget class="QStackedWidget" name="stackedWidget_3">
               <property name="currentIndex">
                <number>0</number>
@@ -8729,11 +8840,11 @@
              </widget>
             </item>
             <item row="0" column="0">
-             <widget class="QStackedWidget" name="stackedWidget_2">
-              <widget class="QWidget" name="page_3">
-               <layout class="QGridLayout" name="gridLayout_22">
+             <widget class="QStackedWidget" name="stackedWidget_5">
+              <widget class="QWidget" name="page_5">
+               <layout class="QGridLayout" name="gridLayout_25">
                 <item row="0" column="0">
-                 <widget class="QGroupBox" name="filters_groupbox">
+                 <widget class="QGroupBox" name="groupBox">
                   <property name="font">
                    <font>
                     <family>Arial</family>
@@ -8741,191 +8852,91 @@
                    </font>
                   </property>
                   <property name="title">
-                   <string>Filter Parameters</string>
+                   <string>Processing</string>
                   </property>
-                  <layout class="QGridLayout" name="gridLayout_9">
+                  <layout class="QGridLayout" name="gridLayout_26">
                    <item row="0" column="0">
-                    <layout class="QVBoxLayout" name="verticalLayout">
+                    <layout class="QHBoxLayout" name="horizontalLayout_13" stretch="0,1,2,0,0,0">
+                     <property name="leftMargin">
+                      <number>7</number>
+                     </property>
+                     <property name="rightMargin">
+                      <number>7</number>
+                     </property>
                      <item>
-                      <layout class="QHBoxLayout" name="horizontalLayout_5">
-                       <item>
-                        <widget class="QLabel" name="label_158">
-                         <property name="font">
-                          <font>
-                           <family>Arial</family>
-                           <pointsize>11</pointsize>
-                          </font>
-                         </property>
-                         <property name="toolTip">
-                          <string>Pass Band</string>
-                         </property>
-                         <property name="text">
-                          <string>Fp</string>
-                         </property>
-                         <property name="alignment">
-                          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                         </property>
-                        </widget>
-                       </item>
-                       <item>
-                        <widget class="QLineEdit" name="fp_input">
-                         <property name="minimumSize">
-                          <size>
-                           <width>41</width>
-                           <height>20</height>
-                          </size>
-                         </property>
-                         <property name="maximumSize">
-                          <size>
-                           <width>150</width>
-                           <height>75</height>
-                          </size>
-                         </property>
-                         <property name="text">
-                          <string/>
-                         </property>
-                         <property name="alignment">
-                          <set>Qt::AlignCenter</set>
-                         </property>
-                        </widget>
-                       </item>
-                       <item>
-                        <widget class="QLabel" name="label_159">
-                         <property name="font">
-                          <font>
-                           <family>Arial</family>
-                           <pointsize>11</pointsize>
-                          </font>
-                         </property>
-                         <property name="toolTip">
-                          <string>Stop Band</string>
-                         </property>
-                         <property name="text">
-                          <string>Fs</string>
-                         </property>
-                         <property name="alignment">
-                          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                         </property>
-                        </widget>
-                       </item>
-                       <item>
-                        <widget class="QLineEdit" name="fs_input">
-                         <property name="minimumSize">
-                          <size>
-                           <width>41</width>
-                           <height>20</height>
-                          </size>
-                         </property>
-                         <property name="maximumSize">
-                          <size>
-                           <width>150</width>
-                           <height>75</height>
-                          </size>
-                         </property>
-                         <property name="text">
-                          <string/>
-                         </property>
-                         <property name="alignment">
-                          <set>Qt::AlignCenter</set>
-                         </property>
-                        </widget>
-                       </item>
-                       <item>
-                        <widget class="QLabel" name="label_2">
-                         <property name="font">
-                          <font>
-                           <family>Arial</family>
-                           <pointsize>11</pointsize>
-                          </font>
-                         </property>
-                         <property name="toolTip">
-                          <string>Pass Band Ripple</string>
-                         </property>
-                         <property name="text">
-                          <string>rp</string>
-                         </property>
-                         <property name="alignment">
-                          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                         </property>
-                        </widget>
-                       </item>
-                       <item>
-                        <widget class="QLineEdit" name="rp_input">
-                         <property name="minimumSize">
-                          <size>
-                           <width>41</width>
-                           <height>20</height>
-                          </size>
-                         </property>
-                         <property name="maximumSize">
-                          <size>
-                           <width>150</width>
-                           <height>75</height>
-                          </size>
-                         </property>
-                         <property name="text">
-                          <string/>
-                         </property>
-                         <property name="alignment">
-                          <set>Qt::AlignCenter</set>
-                         </property>
-                        </widget>
-                       </item>
-                       <item>
-                        <widget class="QLabel" name="label_3">
-                         <property name="font">
-                          <font>
-                           <family>Arial</family>
-                           <pointsize>11</pointsize>
-                          </font>
-                         </property>
-                         <property name="toolTip">
-                          <string>Stop Band Attenuation</string>
-                         </property>
-                         <property name="text">
-                          <string>rs</string>
-                         </property>
-                         <property name="alignment">
-                          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                         </property>
-                        </widget>
-                       </item>
-                       <item>
-                        <widget class="QLineEdit" name="rs_input">
-                         <property name="minimumSize">
-                          <size>
-                           <width>41</width>
-                           <height>20</height>
-                          </size>
-                         </property>
-                         <property name="maximumSize">
-                          <size>
-                           <width>150</width>
-                           <height>75</height>
-                          </size>
-                         </property>
-                         <property name="text">
-                          <string/>
-                         </property>
-                         <property name="alignment">
-                          <set>Qt::AlignCenter</set>
-                         </property>
-                        </widget>
-                       </item>
-                       <item>
-                        <widget class="QPushButton" name="overview_filter_button">
-                         <property name="font">
-                          <font>
-                           <family>Arial</family>
-                           <pointsize>11</pointsize>
-                          </font>
-                         </property>
-                         <property name="text">
-                          <string>Filter the Signal</string>
-                         </property>
-                        </widget>
-                       </item>
-                      </layout>
+                      <widget class="QLabel" name="label_21">
+                       <property name="font">
+                        <font>
+                         <family>Arial</family>
+                         <pointsize>11</pointsize>
+                        </font>
+                       </property>
+                       <property name="text">
+                        <string>N Jobs</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QSpinBox" name="n_jobs_spinbox">
+                       <property name="font">
+                        <font>
+                         <family>Arial</family>
+                         <pointsize>11</pointsize>
+                        </font>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <spacer name="horizontalSpacer_5">
+                       <property name="orientation">
+                        <enum>Qt::Horizontal</enum>
+                       </property>
+                       <property name="sizeHint" stdset="0">
+                        <size>
+                         <width>40</width>
+                         <height>20</height>
+                        </size>
+                       </property>
+                      </spacer>
+                     </item>
+                     <item>
+                      <widget class="QPushButton" name="n_jobs_ok_button">
+                       <property name="font">
+                        <font>
+                         <family>Arial</family>
+                         <pointsize>11</pointsize>
+                        </font>
+                       </property>
+                       <property name="text">
+                        <string>Save</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="Line" name="line">
+                       <property name="frameShadow">
+                        <enum>QFrame::Plain</enum>
+                       </property>
+                       <property name="lineWidth">
+                        <number>1</number>
+                       </property>
+                       <property name="orientation">
+                        <enum>Qt::Vertical</enum>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QRadioButton" name="Filter60Button">
+                       <property name="font">
+                        <font>
+                         <family>Arial</family>
+                         <pointsize>11</pointsize>
+                        </font>
+                       </property>
+                       <property name="text">
+                        <string>Filter 60 Hz</string>
+                       </property>
+                      </widget>
                      </item>
                     </layout>
                    </item>
@@ -8934,7 +8945,7 @@
                 </item>
                </layout>
               </widget>
-              <widget class="QWidget" name="page_4"/>
+              <widget class="QWidget" name="page_6"/>
              </widget>
             </item>
            </layout>
@@ -8956,6 +8967,16 @@
                  <string>Statistics</string>
                 </property>
                 <layout class="QGridLayout" name="gridLayout_17" rowstretch="1,0">
+                 <item row="0" column="0" colspan="2">
+                  <widget class="QLabel" name="statistics_label">
+                   <property name="frameShape">
+                    <enum>QFrame::NoFrame</enum>
+                   </property>
+                   <property name="text">
+                    <string/>
+                   </property>
+                  </widget>
+                 </item>
                  <item row="1" column="0">
                   <widget class="QPushButton" name="save_npz_button">
                    <property name="font">
@@ -8984,13 +9005,17 @@
                    </property>
                   </widget>
                  </item>
-                 <item row="0" column="0" colspan="2">
-                  <widget class="QLabel" name="statistics_label">
-                   <property name="frameShape">
-                    <enum>QFrame::NoFrame</enum>
+                 <item row="1" column="2">
+                  <widget class="QPushButton" name="annotation_button">
+                   <property name="font">
+                    <font>
+                     <family>Arial</family>
+                     <pointsize>11</pointsize>
+                     <bold>false</bold>
+                    </font>
                    </property>
                    <property name="text">
-                    <string/>
+                    <string>Annotation</string>
                    </property>
                   </widget>
                  </item>
