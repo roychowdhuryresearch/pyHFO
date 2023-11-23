@@ -386,7 +386,7 @@ class HFO_App(object):
             app.param_detector = ParamDetector.from_dict(checkpoint["param_detector"].item())
             #print("new HFO features")
             app.hfo_features = HFO_Feature.from_dict(checkpoint["HFO_features"].item())
-            print(app.hfo_features)
+            # print(app.hfo_features)
         if app.classified:
             app.param_classifier = ParamClassifier.from_dict(checkpoint["param_classifier"].item())
         return app

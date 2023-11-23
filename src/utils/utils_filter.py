@@ -8,7 +8,7 @@ def filter_data(data, sos):
     return filtered
 
 def construct_filter(fp, fs, rp, rs, space, sample_freq):
-    print("Constructing filter with fp: {}, fs: {}, rp: {}, rs: {}, space: {}, sample_freq: {}".format(fp, fs, rp, rs, space, sample_freq))
+    # print("Constructing filter with fp: {}, fs: {}, rp: {}, rs: {}, space: {}, sample_freq: {}".format(fp, fs, rp, rs, space, sample_freq))
     filter_freq = [fp, fs]
     space = space
 

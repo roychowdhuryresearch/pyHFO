@@ -205,7 +205,7 @@ class HFOMainWindow(QMainWindow):
     def switch_60(self):
         #get the value of the Filter60Button radio button
         filter_60 = self.Filter60Button.isChecked()
-        print("filtering:", filter_60)
+        # print("filtering:", filter_60)
         #if yes
         if filter_60:
             self.hfo_app.set_filter_60()

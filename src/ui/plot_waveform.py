@@ -61,7 +61,7 @@ class PlotWaveform(QtWidgets.QGraphicsView):
             self.init_eeg_data()
 
     def init_eeg_data(self):
-        print("reinit eeg data")
+        # print("reinit eeg data")
         #reinitalize self
         # self = PlotWaveform(self.plot_loc,self.hfo_loc,self.backend)
         # self.eeg_data = eeg_data
