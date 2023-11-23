@@ -44,6 +44,7 @@ import torch
 
 ROOT_DIR = Path(__file__).parent
 
+
 class HFOAnnotation(QtWidgets.QMainWindow):
       def __init__(self, hfo_app=None, main_window=None, close_signal = None):
             super(HFOAnnotation, self).__init__()
@@ -59,22 +60,23 @@ class HFOAnnotation(QtWidgets.QMainWindow):
             self.PreviousButton.clicked.connect(self.plot_prev)
             self.NextButton.clicked.connect(self.plot_next)
             self.Accept.clicked.connect(self.update_button_clicked)
-            # create the main waveform plot which we want to embed in VisulaizationVerticalLayout 
+            # create the main waveform plot which we want to embed in VisulaizationVerticalLayout
             self.waveform_plot = AnnotationPlot(hfo_app=self.hfo_app)
             self.VisulaizationVerticalLayout.addWidget(self.waveform_plot)
-            
+
             self.fft_plot = FFTPlot(hfo_app=self.hfo_app)
             self.FFT_layout.addWidget(self.fft_plot)
-            
-            # 
+
+            #
 
             if not self.hfo_app.hfo_features.has_prediction():
                   self.hfo_app.hfo_features.generate_psedo_label()
             channel, start, end = self.hfo_app.hfo_features.get_current()
             self.waveform_plot.plot(start, end, channel)
             self.fft_plot.plot(start, end, channel)
+            self.init_annotation_dropdown()
             self.update_infos()
-            
+
       def plot_prev(self):
             # start, end: index of the prev hfo
             channel, start, end = self.hfo_app.hfo_features.get_prev()
@@ -88,7 +90,15 @@ class HFOAnnotation(QtWidgets.QMainWindow):
             self.waveform_plot.plot(start, end, channel)
             self.fft_plot.plot(start, end, channel)
             self.update_infos()
-            
+
+      def plot_jump(self):
+            selected_index = self.AnotationDropdownBox.currentIndex()
+            # start, end: index of the next hfo
+            channel, start, end = self.hfo_app.hfo_features.get_jump(selected_index)
+            self.waveform_plot.plot(start, end, channel)
+            self.fft_plot.plot(start, end, channel)
+            self.update_infos()
+
       def update_infos(self):
             info = self.hfo_app.hfo_features.get_current_info()
             fs = self.hfo_app.sample_freq
@@ -96,16 +106,35 @@ class HFOAnnotation(QtWidgets.QMainWindow):
             self.start_textbox.setText(str(round(info["start_index"]/fs,3))+" s")
             self.end_textbox.setText(str(round(info["end_index"]/fs,3))+" s")
             self.length_textbox.setText(str(round((info["end_index"]-info["start_index"])/fs,3))+" s")
+            self.AnotationDropdownBox.setCurrentIndex(self.hfo_app.hfo_features.index)
             if info["annotation"] is not None:
                   self.model_textbox.setText(info["prediction"])
                   self.EventDropdown_Box.setCurrentText(info["prediction"])
-                  
+
       def update_button_clicked(self):
             print("updating now...")
             selected_text = self.EventDropdown_Box.currentText()
             self.hfo_app.hfo_features.doctor_annotation(selected_text)
+            # Update the text of the selected item in the dropdown menu
+            selected_index = self.hfo_app.hfo_features.index
+            item_text = f"HFO {selected_index + 1}: {selected_text}"
+            self.AnotationDropdownBox.setItemText(selected_index, item_text)
             self.plot_next()
 
+      def init_annotation_dropdown(self):
+            # initialize the text in the dropdown menu
+            for i in range(len(self.hfo_app.hfo_features.annotated)):
+                  if self.hfo_app.hfo_features.annotated[i] == 0:
+                        text = f"HFO {i + 1}"
+                  else:
+                        if self.hfo_app.hfo_features.spike_annotation[i] == 1 and self.hfo_app.hfo_features.artifact_annotation[i] == 1:
+                              text = f"HFO {i + 1}: Spike"
+                        elif self.hfo_app.hfo_features.spike_annotation[i] == 0 and self.hfo_app.hfo_features.artifact_annotation[i] == 1:
+                              text = f"HFO {i + 1}: HFO"
+                        elif self.hfo_app.hfo_features.artifact_annotation[i] == 0:
+                              text = f"HFO {i + 1}: Artifact"
+                  self.AnotationDropdownBox.addItem(text)
+            self.AnotationDropdownBox.activated.connect(self.plot_jump)
 
 
 if __name__ == '__main__':

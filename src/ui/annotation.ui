@@ -24,41 +24,11 @@
     <item row="0" column="0">
      <layout class="QGridLayout" name="gridLayout_4" columnstretch="7,0">
       <item row="0" column="1">
-       <layout class="QGridLayout" name="left_panel" rowstretch="1,0,0,0,0,0">
-        <item row="4" column="0">
-         <widget class="QComboBox" name="EventDropdown_Box">
-          <property name="font">
-           <font>
-            <family>Arial</family>
-            <pointsize>9</pointsize>
-           </font>
-          </property>
-          <item>
-           <property name="text">
-            <string>--- Event Type ---</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>Spike</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>HFO</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>Artifact</string>
-           </property>
-          </item>
-         </widget>
-        </item>
-        <item row="2" column="0">
+       <layout class="QGridLayout" name="left_panel" rowstretch="1,0,0,0,0,0,0">
+        <item row="3" column="0">
          <layout class="QHBoxLayout" name="FFT_layout"/>
         </item>
-        <item row="5" column="0">
+        <item row="6" column="0">
          <layout class="QHBoxLayout" name="horizontalLayout_2">
           <item>
            <widget class="QPushButton" name="Accept">
@@ -105,7 +75,40 @@
           </item>
          </layout>
         </item>
-        <item row="3" column="0">
+        <item row="5" column="0">
+         <widget class="QComboBox" name="EventDropdown_Box">
+          <property name="font">
+           <font>
+            <family>Arial</family>
+            <pointsize>9</pointsize>
+           </font>
+          </property>
+          <item>
+           <property name="text">
+            <string>--- Event Type ---</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Spike</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>HFO</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Artifact</string>
+           </property>
+          </item>
+         </widget>
+        </item>
+        <item row="2" column="0">
+         <layout class="QHBoxLayout" name="FFT_layout_2"/>
+        </item>
+        <item row="4" column="0">
          <widget class="QGroupBox" name="groupBox">
           <property name="font">
            <font>
@@ -293,7 +296,7 @@
          </widget>
         </item>
         <item row="1" column="0">
-         <layout class="QHBoxLayout" name="FFT_layout_2"/>
+         <widget class="QComboBox" name="AnotationDropdownBox"/>
         </item>
        </layout>
       </item>
@@ -310,7 +313,7 @@
      <x>0</x>
      <y>0</y>
      <width>1116</width>
-     <height>21</height>
+     <height>25</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuEdit">

@@ -7,10 +7,10 @@ class HFO_Feature():
         self.ends = interval[:, 1]
         self.features = features
         self.artifact_predictions = np.zeros(self.starts.shape)
+        self.spike_predictions = []
         self.artifact_annotation = np.zeros(self.starts.shape)
         self.spike_annotation = np.zeros(self.starts.shape)
         self.annotated = np.zeros(self.starts.shape)
-        self.spike_predictions = []
         self.HFO_type = HFO_type
         self.sample_freq = sample_freq
         self.feature_size = 0
@@ -62,18 +62,22 @@ class HFO_Feature():
 
     def get_next(self):
         if self.index >= self.num_HFO - 1:
-            self.index = self.num_HFO - 1
+            self.index = 0
         else:
             self.index += 1
         # returns the next hfo start and end index instead of next window start and end index
         return self.channel_names[self.index], self.starts[self.index], self.ends[self.index]
-        
 
     def get_prev(self):
         if self.index <= 0:
             self.index = 0
         else:
             self.index -= 1
+        # the same as above
+        return self.channel_names[self.index], self.starts[self.index], self.ends[self.index]
+
+    def get_jump(self, index):
+        self.index = index
         # the same as above
         return self.channel_names[self.index], self.starts[self.index], self.ends[self.index]
 
