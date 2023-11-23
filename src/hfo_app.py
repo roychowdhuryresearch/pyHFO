@@ -69,7 +69,7 @@ class HFO_App(object):
         self.eeg_data_un60 = self.eeg_data.copy()
         self.eeg_data_60 = self.filter_60(self.eeg_data)
         # print("channel names: ", self.channel_names)
-        print("Loading COMPLETE!")
+        # print("Loading COMPLETE!")
     
     def load_database(self):
         #@TODO; load database
@@ -381,7 +381,7 @@ class HFO_App(object):
             app.param_filter = ParamFilter.from_dict(checkpoint["param_filter"].item())
             app.filter_eeg_data(app.param_filter)
         if app.detected:
-            print("detected HFOs")
+            # print("detected HFOs")
             app.HFOs = checkpoint["HFOs"]
             app.param_detector = ParamDetector.from_dict(checkpoint["param_detector"].item())
             #print("new HFO features")

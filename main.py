@@ -135,7 +135,7 @@ class HFOMainWindow(QMainWindow):
 
         #check if gpu is available
         self.gpu = torch.cuda.is_available()
-        print(f"GPU available: {self.gpu}")
+        # print(f"GPU available: {self.gpu}")
         if not self.gpu:
             #disable gpu buttons
             self.default_gpu_button.setEnabled(False)
@@ -183,7 +183,7 @@ class HFOMainWindow(QMainWindow):
 
     def set_n_jobs(self):
         self.hfo_app.n_jobs = int(self.n_jobs_spinbox.value())
-        print(f"n_jobs set to {self.hfo_app.n_jobs}")
+        # print(f"n_jobs set to {self.hfo_app.n_jobs}")
 
     def set_channels_to_plot(self, channels_to_plot):
         self.waveform_plot.set_channels_to_plot(channels_to_plot)
@@ -384,9 +384,9 @@ class HFOMainWindow(QMainWindow):
             self.threadpool.start(worker)
 
     def filtering_complete(self):
-        self.message_handler('Filtering COMPLETE!')
+        # self.message_handler('Filtering COMPLETE!')
         filter_60 = self.Filter60Button.isChecked()
-        print("filtering:", filter_60)
+        # print("filtering:", filter_60)
         #if yes
         if filter_60:
             self.hfo_app.set_filter_60()
@@ -404,7 +404,7 @@ class HFOMainWindow(QMainWindow):
         self.save_npz_button.setEnabled(True)
 
     def filter_data(self):
-        print("Filtering data...")
+        # print("Filtering data...")
         try: 
             #get filter parameters
             fp_raw = self.fp_input.text()
@@ -545,7 +545,7 @@ class HFOMainWindow(QMainWindow):
             msg.exec_()
 
     def detect_HFOs(self):
-        print("Detecting HFOs...")
+        # print("Detecting HFOs...")
         worker=Worker(self._detect)
         worker.signals.result.connect(self._detect_finished)
         self.threadpool.start(worker)
@@ -567,7 +567,7 @@ class HFOMainWindow(QMainWindow):
         # if we want to open multiple qd dialog
         if not self.quick_detect_open:
             qd = HFOQuickDetector(HFO_App(), self, self.close_signal)
-            print("created new quick detector")
+            # print("created new quick detector")
             qd.show()
             self.quick_detect_open = True
     
@@ -642,10 +642,10 @@ class HFOMainWindow(QMainWindow):
         seconds_to_ignore_before=float(self.overview_ignore_before_input.text())
         seconds_to_ignore_after=float(self.overview_ignore_after_input.text())
         self.hfo_app.classify_artifacts([seconds_to_ignore_before,seconds_to_ignore_after], threshold)
-        print("Classified artifacts")
+        # print("Classified artifacts")
         if not artifact_only:
             self.hfo_app.classify_spikes()
-            print("Classified spikes")
+            # print("Classified spikes")
         return []
 
     def _classify_finished(self):
@@ -655,7 +655,7 @@ class HFOMainWindow(QMainWindow):
         self.save_csv_button.setEnabled(True)
 
     def classify(self,check_spike=True):
-        print("Classifying HFOs")
+        # print("Classifying HFOs")
         # print("check_spike",check_spike)
         if check_spike:
             use_spike=self.overview_use_spike_checkbox.isChecked()
@@ -666,7 +666,7 @@ class HFOMainWindow(QMainWindow):
         self.threadpool.start(worker)
 
     def update_statistics_label(self):
-        print(self.hfo_app.hfo_features)
+        # print(self.hfo_app.hfo_features)
         num_HFO = self.hfo_app.hfo_features.get_num_HFO()
         num_artifact = self.hfo_app.hfo_features.get_num_artifact()
         num_spike = self.hfo_app.hfo_features.get_num_spike()
@@ -689,12 +689,12 @@ class HFOMainWindow(QMainWindow):
 
     def save_to_npz(self):
         #open file dialog
-        print("saving to npz...",end="")
+        # print("saving to npz...",end="")
         fname,_  = QFileDialog.getSaveFileName(self, 'Save file', "", ".npz files (*.npz)")
         if fname:
-            print("saving to {fname}...",end="")
+            # print("saving to {fname}...",end="")
             worker = Worker(self._save_to_npz, fname)
-            worker.signals.result.connect(lambda: print(f"Saved to {fname}"))
+            worker.signals.result.connect(lambda: 0)
             self.threadpool.start(worker)
 
     def _load_from_npz(self,fname,progress_callback):
@@ -704,7 +704,7 @@ class HFOMainWindow(QMainWindow):
     def load_from_npz(self):
         #open file dialog
         fname,_  = QFileDialog.getOpenFileName(self, 'Open file', "", ".npz files (*.npz)")
-        print(f"Loading, {fname}")
+        # print(f"Loading, {fname}")
         if fname:
             self.reinitialize()
             worker = Worker(self._load_from_npz, fname)

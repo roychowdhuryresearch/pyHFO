@@ -20,11 +20,11 @@ ROOT_DIR = Path(__file__).parent
 class HFOQuickDetector(QtWidgets.QDialog):
     def __init__(self, hfo_app=None, main_window=None, close_signal = None):
         super(HFOQuickDetector, self).__init__()
-        print("initializing HFOQuickDetector")
+        # print("initializing HFOQuickDetector")
         self.ui = uic.loadUi(os.path.join(ROOT_DIR, 'quick_detection.ui'), self)
         self.setWindowTitle("HFO Quick Detector")
         self.setWindowIcon(QtGui.QIcon(os.path.join(ROOT_DIR, 'images/icon.png')))
-        print("loaded ui")
+        # print("loaded ui")
         self.filename = None
         self.threadpool = QThreadPool()
         self.detectionTypeComboBox.currentIndexChanged['int'].connect(
@@ -252,7 +252,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
         return []
     
     def detect_HFOs(self):
-        print("Detecting HFOs...")
+        # print("Detecting HFOs...")
         worker=Worker(self._detect)
         worker.signals.result.connect(self._detect_finished)
         self.threadpool.start(worker)
@@ -263,7 +263,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
     #     # self.message_handler("HFOs detected")
 
     def filter_data(self):
-        print("Filtering data...")
+        # print("Filtering data...")
         worker=Worker(self._filter)
         worker.signals.finished.connect(self.filtering_complete)
         self.threadpool.start(worker)
@@ -314,29 +314,29 @@ class HFOQuickDetector(QtWidgets.QDialog):
         save_as_npz = self.qd_npz_checkbox.isChecked()
         #if neither excel nor npz is selected, then don't do anything
         if not save_as_excel and not save_as_npz:
-            print("No output selected. Please select at least one output format!")
+            # print("No output selected. Please select at least one output format!")
             return []
 
         # run the filter
         self.hfo_app.filter_eeg_data(filter_param)
-        print("Filtering COMPLETE!")     
+        # print("Filtering COMPLETE!")     
         #run the detector
         self.hfo_app.set_detector(detector_param)
         self.hfo_app.detect_HFO()
-        print("HFOs DETECTED!")
+        # print("HFOs DETECTED!")
         #if we use classifier, run the classifier
         use_classifier = self.qd_use_classifier_checkbox.isChecked()
         if use_classifier:
             self.classify(classifier_param)
 
-        print("Classification FINISH!")
+        # print("Classification FINISH!")
         if save_as_excel:
             fname = self.fname.split(".")[0]+".xlsx"    
             self.hfo_app.export_excel(fname)
         if save_as_npz:
             fname = self.fname.split(".")[0]+".npz"
             self.hfo_app.export_app(fname)
-        print(f"Exporting {fname} FINISH!")
+        # print(f"Exporting {fname} FINISH!")
         return []
     
     def run(self):
@@ -351,7 +351,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
         self.run_button.setEnabled(True)
         self.cancel_button.setEnabled(True)
         self.running = False
-        print("run finished")
+        # print("run finished")
         
     # def close(self):
     #     print("closing")
@@ -363,11 +363,11 @@ class HFOQuickDetector(QtWidgets.QDialog):
     #     # else:
     #     #     super().close()
     def reject(self):
-        print("rejecting")
+        # print("rejecting")
         # super().reject()
         # #if running a detection do not allow to close
         if self.running:
-            print("cannot close while running detection")
+            # print("cannot close while running detection")
             return
         else:
             self.main_window.set_quick_detect_open(False)
