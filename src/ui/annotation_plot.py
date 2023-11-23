@@ -16,7 +16,7 @@ import os
 from src.hfo_app import HFO_App
 from src.hfo_feature import HFO_Feature
 
-from utils.utils_annotation import *
+from src.utils.utils_annotation import *
 
 import random
 import scipy.fft as fft #FFT plot (5)
@@ -32,7 +32,7 @@ from src.utils.utils_gui import *
 from src.ui.plot_waveform import *
 
 # from src.ui.plot_annotation_waveform import *
-from src.ui.a_channel_selection import AnnotationChannelSelection 
+# from src.ui.a_channel_selection import AnnotationChannelSelection 
 
 # from src.plot_time_frequency import PlotTimeFrequencyNoLabel
 from src.utils.utils_plotting import *
