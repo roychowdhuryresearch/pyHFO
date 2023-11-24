@@ -55,7 +55,7 @@ class HFO_Feature():
         elif annotation == "Spike":
             self.spike_annotation[self.index] = 1
             self.artifact_annotation[self.index] = 1
-        elif annotation == "HFO":
+        elif annotation == "Real":
             self.spike_annotation[self.index] = 0
             self.artifact_annotation[self.index] = 1
         self.annotated[self.index] = 1
