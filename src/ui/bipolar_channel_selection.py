@@ -13,6 +13,7 @@ from src.utils.utils_gui import *
 
 ROOT_DIR = Path(__file__).parent
 
+
 class BipolarChannelSelectionWindow(QtWidgets.QDialog):
     def __init__(self, hfo_app=None, main_window=None, close_signal = None,waveform_plot = None):
         # print(ROOT_DIR)

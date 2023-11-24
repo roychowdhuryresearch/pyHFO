@@ -837,8 +837,10 @@ class HFOMainWindow(QMainWindow):
         annotation = HFOAnnotation(self.hfo_app, self, self.close_signal)
         annotation.show()
 
+
 def closeAllWindows():
     QApplication.instance().closeAllWindows()
+
 
 if __name__ == '__main__':
     mp.freeze_support()

@@ -8,8 +8,8 @@ class HFO_Feature():
         self.features = features
         self.artifact_predictions = np.zeros(self.starts.shape)
         self.spike_predictions = []
-        self.artifact_annotation = np.zeros(self.starts.shape)
-        self.spike_annotation = np.zeros(self.starts.shape)
+        self.artifact_annotations = np.zeros(self.starts.shape)
+        self.spike_annotations = np.zeros(self.starts.shape)
         self.annotated = np.zeros(self.starts.shape)
         self.HFO_type = HFO_type
         self.sample_freq = sample_freq
@@ -51,13 +51,13 @@ class HFO_Feature():
     
     def doctor_annotation(self, annotation:str):
         if annotation == "Artifact":
-            self.artifact_annotation[self.index] = 0
+            self.artifact_annotations[self.index] = 0
         elif annotation == "Spike":
-            self.spike_annotation[self.index] = 1
-            self.artifact_annotation[self.index] = 1
+            self.spike_annotations[self.index] = 1
+            self.artifact_annotations[self.index] = 1
         elif annotation == "Real":
-            self.spike_annotation[self.index] = 0
-            self.artifact_annotation[self.index] = 1
+            self.spike_annotations[self.index] = 0
+            self.artifact_annotations[self.index] = 1
         self.annotated[self.index] = 1
 
     def get_next(self):
@@ -97,7 +97,7 @@ class HFO_Feature():
         start = self.starts[self.index]
         end = self.ends[self.index]
         prediction = self._get_prediction(self.artifact_predictions[self.index], self.spike_predictions[self.index]) if self.artifact_predicted else None
-        annotation = self._get_prediction(self.artifact_annotation[self.index], self.spike_annotation[self.index]) if self.annotated[self.index] else None  
+        annotation = self._get_prediction(self.artifact_annotations[self.index], self.spike_annotations[self.index]) if self.annotated[self.index] else None
         return {"channel_name": channel_name, "start_index": start, "end_index": end, "prediction": prediction, "annotation": annotation}
 
                     
@@ -209,9 +209,9 @@ class HFO_Feature():
         channel_name = self.channel_names[index]
         if self.annotated[index] == 0:
             suffix = "Unannotated"
-        elif self.artifact_annotation[index] == 0:
+        elif self.artifact_annotations[index] == 0:
             suffix = "Artifact"
-        elif self.spike_annotation[index] == 1:
+        elif self.spike_annotations[index] == 1:
             suffix = "Spike"
         else:
             suffix = "Real"
@@ -223,6 +223,9 @@ class HFO_Feature():
         ends = self.ends
         artifact_predictions = np.array(self.artifact_predictions)
         spike_predictions = np.array(self.spike_predictions)
+        artifact_annotations = np.array(self.artifact_annotations)
+        spike_annotations = np.array(self.spike_annotations)
+        annotated = np.array(self.annotated)
         df = pd.DataFrame()
         df["channel_names"] = channel_names
         df["starts"] = starts
@@ -232,6 +235,11 @@ class HFO_Feature():
             df["artifact"] = artifact_predictions
         if len(spike_predictions) > 0:
             df["spike"] = spike_predictions
+        df['annotated'] = annotated
+        if len(artifact_annotations) > 0:
+            df["artifact annotations"] = artifact_annotations
+        if len(spike_annotations) > 0:
+            df["spike annotations"] = spike_annotations
         return df
 
     def export_csv(self, file_path):
@@ -245,11 +253,28 @@ class HFO_Feature():
             df_out["artifact"] = 0
         if "spike" not in df_out.columns:
             df_out["spike"] = 0
+        if "artifact annotations" not in df_out.columns:
+            df_out["artifact annotations"] = 0
+        if "spike annotations" not in df_out.columns:
+            df_out["spike annotations"] = 0
         df_out["artifact"] = (df_out["artifact"] > 0).astype(int)
         df_out["spike"] = (df_out["spike"] > 0).astype(int)
-        df_channel = df_out.groupby("channel_names").agg({"starts": "count","artifact": "sum", "spike":"sum"}).reset_index()
-        df_channel.rename(columns={"starts": "Total Detection", "artifact": "HFO", "spike": "spk-HFO"}, inplace=True)
-        df.rename(columns={"artifact": "HFO", "spike": "spk-HFO"}, inplace=True)
+        df_out['annotated'] = 1 - (df_out["annotated"] > 0).astype(int)
+        df_out["artifact annotations"] = (df_out["artifact annotations"] > 0).astype(int)
+        df_out["spike annotations"] = (df_out["spike annotations"] > 0).astype(int)
+        df_channel = df_out.groupby("channel_names").agg({"starts": "count",
+                                                          "artifact": "sum", "spike": "sum",
+                                                          "annotated": "sum",
+                                                          "artifact annotations": "sum", "spike annotations": "sum"}).reset_index()
+        df_channel.rename(columns={"starts": "Total Detection",
+                                   "artifact": "HFO", "spike": "spk-HFO",
+                                   "annotated": "Unannotated",
+                                   "artifact annotations": "HFO annotations", "spike annotations": "spk-HFO annotations"}, inplace=True)
+        df.rename(columns={"artifact": "HFO", "spike": "spk-HFO",
+                           "annotated": "Annotated",
+                           "artifact annotations": "HFO annotations", "spike annotations": "spk-HFO annotations"}, inplace=True)
+        df['Annotated'] = df["Annotated"] > 0
+        df['Annotated'] = df['Annotated'].replace({True: 'Yes', False: 'No'})
         with pd.ExcelWriter(file_path) as writer:
             df_channel.to_excel(writer, sheet_name="Channels", index=False)
             df.to_excel(writer, sheet_name="Events", index=False)

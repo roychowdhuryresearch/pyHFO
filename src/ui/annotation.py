@@ -7,7 +7,7 @@ import pyqtgraph as pg
 
 import sys
 from PyQt5 import QtCore, QtGui, QtWidgets
-import pyqtgraph as pg # We will try using pyqtgraph for plotting
+import pyqtgraph as pg  # We will try using pyqtgraph for plotting
 import time
 import mne
 # from superqt import QDoubleRangeSlider
@@ -19,7 +19,7 @@ from src.hfo_feature import HFO_Feature
 from src.utils.utils_annotation import *
 
 import random
-import scipy.fft as fft #FFT plot (5)
+import scipy.fft as fft  # FFT plot (5)
 import numpy as np
 
 import re
@@ -47,88 +47,88 @@ ROOT_DIR = Path(__file__).parent
 
 
 class HFOAnnotation(QtWidgets.QMainWindow):
-      def __init__(self, hfo_app=None, main_window=None, close_signal = None):
-            super(HFOAnnotation, self).__init__()
-            print("initializing HFOAnnotation")
-            self.hfo_app = hfo_app
-            self.time = np.arange(0, self.hfo_app.get_eeg_data_shape()[1])/self.hfo_app.get_sample_freq()
-            self.ui = uic.loadUi(os.path.join(ROOT_DIR, 'annotation.ui'), self)
-            self.setWindowTitle("HFO Annotator")
-            self.setWindowIcon(QtGui.QIcon(os.path.join(ROOT_DIR, 'src/ui/images/icon.png')))
-            self.threadpool = QThreadPool()
-            self.close_signal = close_signal
-            self.close_signal.connect(self.close)
-            self.PreviousButton.clicked.connect(self.plot_prev)
-            self.NextButton.clicked.connect(self.plot_next)
-            self.Accept.clicked.connect(self.update_button_clicked)
-            # create the main waveform plot which we want to embed in VisulaizationVerticalLayout
-            self.waveform_plot = AnnotationPlot(hfo_app=self.hfo_app)
-            self.VisulaizationVerticalLayout.addWidget(self.waveform_plot)
+    def __init__(self, hfo_app=None, main_window=None, close_signal=None):
+        super(HFOAnnotation, self).__init__()
+        print("initializing HFOAnnotation")
+        self.hfo_app = hfo_app
+        self.time = np.arange(0, self.hfo_app.get_eeg_data_shape()[1]) / self.hfo_app.get_sample_freq()
+        self.ui = uic.loadUi(os.path.join(ROOT_DIR, 'annotation.ui'), self)
+        self.setWindowTitle("HFO Annotator")
+        self.setWindowIcon(QtGui.QIcon(os.path.join(ROOT_DIR, 'src/ui/images/icon.png')))
+        self.threadpool = QThreadPool()
+        self.close_signal = close_signal
+        self.close_signal.connect(self.close)
+        self.PreviousButton.clicked.connect(self.plot_prev)
+        self.NextButton.clicked.connect(self.plot_next)
+        self.Accept.clicked.connect(self.update_button_clicked)
+        # create the main waveform plot which we want to embed in VisulaizationVerticalLayout
+        self.waveform_plot = AnnotationPlot(hfo_app=self.hfo_app)
+        self.VisulaizationVerticalLayout.addWidget(self.waveform_plot)
 
-            self.fft_plot = FFTPlot(hfo_app=self.hfo_app)
-            self.FFT_layout.addWidget(self.fft_plot)
-            #
+        self.fft_plot = FFTPlot(hfo_app=self.hfo_app)
+        self.FFT_layout.addWidget(self.fft_plot)
+        #
 
-            if not self.hfo_app.hfo_features.has_prediction():
-                  self.hfo_app.hfo_features.generate_psedo_label()
-            channel, start, end = self.hfo_app.hfo_features.get_current()
-            self.waveform_plot.plot(start, end, channel)
-            self.fft_plot.plot(start, end, channel)
-            self.init_annotation_dropdown()
-            self.update_infos()
-            self.setInitialSize()
+        if not self.hfo_app.hfo_features.has_prediction():
+            self.hfo_app.hfo_features.generate_psedo_label()
+        channel, start, end = self.hfo_app.hfo_features.get_current()
+        self.waveform_plot.plot(start, end, channel)
+        self.fft_plot.plot(start, end, channel)
+        self.init_annotation_dropdown()
+        self.update_infos()
+        self.setInitialSize()
 
-      def setInitialSize(self):
-            # Getting screen resolution of your monitor
-            screen = QApplication.primaryScreen()
-            rect = screen.availableGeometry()
+    def setInitialSize(self):
+        # Getting screen resolution of your monitor
+        screen = QApplication.primaryScreen()
+        rect = screen.availableGeometry()
 
-            # Calculating the window size as a fraction of the screen size
-            width = rect.width() * 0.6  # 80% of the screen width
-            height = rect.height() * 0.6  # 80% of the screen height
+        # Calculating the window size as a fraction of the screen size
+        width = rect.width() * 0.6  # 80% of the screen width
+        height = rect.height() * 0.6  # 80% of the screen height
 
-            # Setting the initial size and fixing it
-            self.setGeometry(100, 100, width, height)
-            self.setFixedSize(QSize(width, height))
+        # Setting the initial size and fixing it
+        self.setGeometry(100, 100, width, height)
+        self.setFixedSize(QSize(width, height))
 
+    def plot_prev(self):
+        # start, end: index of the prev hfo
+        channel, start, end = self.hfo_app.hfo_features.get_prev()
+        self.waveform_plot.plot(start, end, channel)
+        self.fft_plot.plot(start, end, channel)
+        self.update_infos()
 
-      def plot_prev(self):
-            # start, end: index of the prev hfo
-            channel, start, end = self.hfo_app.hfo_features.get_prev()
-            self.waveform_plot.plot(start, end, channel)
-            self.fft_plot.plot(start, end, channel)
-            self.update_infos()
+    def plot_next(self):
+        # start, end: index of the next hfo
+        channel, start, end = self.hfo_app.hfo_features.get_next()
+        self.waveform_plot.plot(start, end, channel)
+        self.fft_plot.plot(start, end, channel)
+        self.update_infos()
 
-      def plot_next(self):
-            # start, end: index of the next hfo
-            channel, start, end = self.hfo_app.hfo_features.get_next()
-            self.waveform_plot.plot(start, end, channel)
-            self.fft_plot.plot(start, end, channel)
-            self.update_infos()
+    def plot_jump(self):
+        selected_index = self.AnotationDropdownBox.currentIndex()
+        # start, end: index of the next hfo
+        channel, start, end = self.hfo_app.hfo_features.get_jump(selected_index)
+        self.waveform_plot.plot(start, end, channel)
+        self.fft_plot.plot(start, end, channel)
+        self.update_infos()
 
-      def plot_jump(self):
-            selected_index = self.AnotationDropdownBox.currentIndex()
-            # start, end: index of the next hfo
-            channel, start, end = self.hfo_app.hfo_features.get_jump(selected_index)
-            self.waveform_plot.plot(start, end, channel)
-            self.fft_plot.plot(start, end, channel)
-            self.update_infos()
+    def update_infos(self):
+        info = self.hfo_app.hfo_features.get_current_info()
+        fs = self.hfo_app.sample_freq
+        self.channel_name_textbox.setText(info["channel_name"])
+        self.start_textbox.setText(str(round(info["start_index"] / fs, 3)) + " s")
+        self.end_textbox.setText(str(round(info["end_index"] / fs, 3)) + " s")
+        self.length_textbox.setText(str(round((info["end_index"] - info["start_index"]) / fs, 3)) + " s")
+        self.AnotationDropdownBox.setCurrentIndex(self.hfo_app.hfo_features.index)
+        if info["annotation"] is not None:
+            self.model_textbox.setText(info["prediction"])
+            self.EventDropdown_Box.setCurrentText(info["prediction"])
 
-      def update_infos(self):
-            info = self.hfo_app.hfo_features.get_current_info()
-            fs = self.hfo_app.sample_freq
-            self.channel_name_textbox.setText(info["channel_name"])
-            self.start_textbox.setText(str(round(info["start_index"]/fs,3))+" s")
-            self.end_textbox.setText(str(round(info["end_index"]/fs,3))+" s")
-            self.length_textbox.setText(str(round((info["end_index"]-info["start_index"])/fs,3))+" s")
-            self.AnotationDropdownBox.setCurrentIndex(self.hfo_app.hfo_features.index)
-            if info["annotation"] is not None:
-                  self.model_textbox.setText(info["prediction"])
-                  self.EventDropdown_Box.setCurrentText(info["prediction"])
-
-      def update_button_clicked(self):
-            print("updating now...")
-            selected_text = self.EventDropdown_Box.currentText()
+    def update_button_clicked(self):
+        print("updating now...")
+        selected_text = self.EventDropdown_Box.currentText()
+        if selected_text in ["Artifact", "Spike", "Real"]:
             self.hfo_app.hfo_features.doctor_annotation(selected_text)
             # Update the text of the selected item in the dropdown menu
             selected_index = self.hfo_app.hfo_features.index
@@ -136,12 +136,12 @@ class HFOAnnotation(QtWidgets.QMainWindow):
             self.AnotationDropdownBox.setItemText(selected_index, item_text)
             self.plot_next()
 
-      def init_annotation_dropdown(self):
-            # initialize the text in the dropdown menu
-            for i in range(len(self.hfo_app.hfo_features.annotated)):
-                  text = self.hfo_app.hfo_features.get_annotation_text(i)
-                  self.AnotationDropdownBox.addItem(text)
-            self.AnotationDropdownBox.activated.connect(self.plot_jump)
+    def init_annotation_dropdown(self):
+        # initialize the text in the dropdown menu
+        for i in range(len(self.hfo_app.hfo_features.annotated)):
+            text = self.hfo_app.hfo_features.get_annotation_text(i)
+            self.AnotationDropdownBox.addItem(text)
+        self.AnotationDropdownBox.activated.connect(self.plot_jump)
 
 
 if __name__ == '__main__':
