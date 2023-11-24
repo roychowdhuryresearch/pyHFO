@@ -387,7 +387,12 @@ class HFO_App(object):
             "param_classifier": self.param_classifier.to_dict() if self.param_classifier else None,
             "classified": self.classified,
             "filtered": self.filtered,
-            "detected": self.detected
+            "detected": self.detected,
+            "artifact_predictions": np.array(self.hfo_features.artifact_predictions),
+            "spike_predictions": np.array(self.hfo_features.spike_predictions),
+            "artifact_annotations": np.array(self.hfo_features.artifact_annotations),
+            "spike_annotations": np.array(self.hfo_features.spike_annotations),
+            "annotated": np.array(self.hfo_features.annotated),
         }
         dump_to_npz(checkpoint, path)
     
@@ -406,6 +411,11 @@ class HFO_App(object):
         app.classified = checkpoint["classified"].item()
         app.filtered = checkpoint["filtered"].item()
         app.detected = checkpoint["detected"].item()
+        app.hfo_features.artifact_predictions = checkpoint["artifact_predictions"].item()
+        app.hfo_features.spike_predictions = checkpoint["spike_predictions"].item()
+        app.hfo_features.artifact_annotations = checkpoint["artifact_annotations"].item()
+        app.hfo_features.spike_annotations = checkpoint["spike_annotations"].item()
+        app.hfo_features.annotated = checkpoint["annotated"].item()
         if app.filtered:
             app.param_filter = ParamFilter.from_dict(checkpoint["param_filter"].item())
             app.filter_eeg_data(app.param_filter)
