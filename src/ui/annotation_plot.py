@@ -125,8 +125,10 @@ class AnnotationPlot(FigureCanvasQTAgg):
         self.axs[2].set_xticklabels(np.round(np.linspace(time_to_display[0], time_to_display[-1], 5),1))
         # set yticks as frequency
         self.axs[2].set_yticks(np.linspace(10, 500, 5).astype(int))
+        self.axs[2].yaxis.set_major_formatter(ticker.FuncFormatter(custom_formatter))
         self.axs[2].set_xlabel('Time (s)')
-        self.axs[2].set_ylabel('Frequency (Hz)', rotation=90, labelpad=5)
+        self.axs[2].set_ylabel('Frequency (Hz)', rotation=90, labelpad=4)
+        self.axs[2].yaxis.set_label_coords(-0.1, 0.5) 
         
 
         #share x axis

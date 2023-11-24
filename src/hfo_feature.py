@@ -204,6 +204,18 @@ class HFO_Feature():
             artifact_predictions = []
             spike_predictions = []
         return starts, ends, artifact_predictions, spike_predictions
+    
+    def get_annotation_text(self, index):
+        channel_name = self.channel_names[index]
+        if self.annotated[index] == 0:
+            suffix = "Unannotated"
+        elif self.artifact_annotation[index] == 0:
+            suffix = "Artifact"
+        elif self.spike_annotation[index] == 1:
+            suffix = "Spike"
+        else:
+            suffix = "Real"
+        return f" No.{index+1}: {channel_name} : {suffix}"
 
     def to_df(self):
         channel_names = self.channel_names

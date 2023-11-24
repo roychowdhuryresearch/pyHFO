@@ -30,6 +30,7 @@ from src.param.param_detector import ParamDetector, ParamSTE, ParamMNI
 from src.param.param_filter import ParamFilter
 from src.utils.utils_gui import *
 from src.ui.plot_waveform import *
+from PyQt5.QtCore import QSize
 
 # from src.ui.plot_annotation_waveform import *
 # from src.ui.a_channel_selection import AnnotationChannelSelection 
@@ -66,7 +67,6 @@ class HFOAnnotation(QtWidgets.QMainWindow):
 
             self.fft_plot = FFTPlot(hfo_app=self.hfo_app)
             self.FFT_layout.addWidget(self.fft_plot)
-
             #
 
             if not self.hfo_app.hfo_features.has_prediction():
@@ -76,6 +76,21 @@ class HFOAnnotation(QtWidgets.QMainWindow):
             self.fft_plot.plot(start, end, channel)
             self.init_annotation_dropdown()
             self.update_infos()
+            self.setInitialSize()
+
+      def setInitialSize(self):
+            # Getting screen resolution of your monitor
+            screen = QApplication.primaryScreen()
+            rect = screen.availableGeometry()
+
+            # Calculating the window size as a fraction of the screen size
+            width = rect.width() * 0.6  # 80% of the screen width
+            height = rect.height() * 0.6  # 80% of the screen height
+
+            # Setting the initial size and fixing it
+            self.setGeometry(100, 100, width, height)
+            self.setFixedSize(QSize(width, height))
+
 
       def plot_prev(self):
             # start, end: index of the prev hfo
@@ -117,22 +132,14 @@ class HFOAnnotation(QtWidgets.QMainWindow):
             self.hfo_app.hfo_features.doctor_annotation(selected_text)
             # Update the text of the selected item in the dropdown menu
             selected_index = self.hfo_app.hfo_features.index
-            item_text = f"HFO {selected_index + 1}: {selected_text}"
+            item_text = self.hfo_app.hfo_features.get_annotation_text(selected_index)
             self.AnotationDropdownBox.setItemText(selected_index, item_text)
             self.plot_next()
 
       def init_annotation_dropdown(self):
             # initialize the text in the dropdown menu
             for i in range(len(self.hfo_app.hfo_features.annotated)):
-                  if self.hfo_app.hfo_features.annotated[i] == 0:
-                        text = f"HFO {i + 1}"
-                  else:
-                        if self.hfo_app.hfo_features.spike_annotation[i] == 1 and self.hfo_app.hfo_features.artifact_annotation[i] == 1:
-                              text = f"HFO {i + 1}: Spike"
-                        elif self.hfo_app.hfo_features.spike_annotation[i] == 0 and self.hfo_app.hfo_features.artifact_annotation[i] == 1:
-                              text = f"HFO {i + 1}: HFO"
-                        elif self.hfo_app.hfo_features.artifact_annotation[i] == 0:
-                              text = f"HFO {i + 1}: Artifact"
+                  text = self.hfo_app.hfo_features.get_annotation_text(i)
                   self.AnotationDropdownBox.addItem(text)
             self.AnotationDropdownBox.activated.connect(self.plot_jump)
 
