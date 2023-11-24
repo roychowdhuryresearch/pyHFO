@@ -139,6 +139,9 @@ class PlotWaveform(QtWidgets.QGraphicsView):
     def get_channel_indices_to_plot(self):
         return self.channel_indices_to_plot
     
+    def update_channel_names(self,new_channel_names):
+        self.channel_names = list(new_channel_names)
+
     def set_channels_to_plot(self,channels_to_plot:list):
         self.channels_to_plot = channels_to_plot
         self.channel_indices_to_plot = [self.channel_names.index(channel) for channel in channels_to_plot]

@@ -229,6 +229,19 @@
             </spacer>
            </item>
            <item>
+            <widget class="QPushButton" name="bipolar_button">
+             <property name="font">
+              <font>
+               <family>Arial</family>
+               <pointsize>11</pointsize>
+              </font>
+             </property>
+             <property name="text">
+              <string>Bipolar Selection</string>
+             </property>
+            </widget>
+           </item>
+           <item>
             <widget class="QPushButton" name="Choose_Channels_Button">
              <property name="font">
               <font>

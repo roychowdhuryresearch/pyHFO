@@ -18,6 +18,7 @@ from src.param.param_detector import ParamDetector, ParamSTE, ParamMNI
 from src.param.param_filter import ParamFilter
 from src.ui.quick_detection import HFOQuickDetector
 from src.ui.channels_selection import ChannelSelectionWindow
+from src.ui.bipolar_channel_selection import BipolarChannelSelectionWindow
 from src.ui.annotation import HFOAnnotation
 from src.utils.utils_gui import *
 from src.ui.plot_waveform import *
@@ -131,6 +132,9 @@ class HFOMainWindow(QMainWindow):
 
         self.Filter60Button.toggled.connect(self.switch_60)
         self.Filter60Button.setEnabled(False)
+
+        self.bipolar_button.clicked.connect(self.open_bipolar_channel_selection)
+        self.bipolar_button.setEnabled(False)
 
         #annotation button
         self.annotation_button.clicked.connect(self.open_annotation)
@@ -299,6 +303,7 @@ class HFOMainWindow(QMainWindow):
         self.normalize_vertical_input.stateChanged.connect(self.waveform_plot_button_clicked)
         #enable the plot out the 60Hz bandstopped signal
         self.Filter60Button.setEnabled(True)
+        self.bipolar_button.setEnabled(True)
         #print("EDF file loaded")
 
 
@@ -427,7 +432,7 @@ class HFOMainWindow(QMainWindow):
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
             msg.setText("Error")
-            msg.setInformativeText('filter could not be constructed with the given parameters')
+            msg.setInformativeText('Filter could not be constructed with the given parameters')
             msg.setWindowTitle("Filter Construction Error")
             msg.exec_()
             return 
@@ -625,7 +630,7 @@ class HFOMainWindow(QMainWindow):
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
             msg.setText("Error!")
-            msg.setInformativeText('Device not recognized, please set to cpu for cpu or cuda:0 for gpu')
+            msg.setInformativeText('Device not recognized, please set to CPU for CPU or cuda:0 for GPU')
             msg.setWindowTitle("Device not recognized")
             msg.exec_()
             return
@@ -823,16 +828,23 @@ class HFOMainWindow(QMainWindow):
         elif detector_type == "mni":
             self.update_mni_params(detector_params.detector_param.to_dict())
     
+    def open_bipolar_channel_selection(self):
+        self.bipolar_channel_selection_window = BipolarChannelSelectionWindow(self.hfo_app, self, self.close_signal,self.waveform_plot)
+        self.bipolar_channel_selection_window.show()
+
     def open_annotation(self):
         self.save_csv_button.setEnabled(True)
         annotation = HFOAnnotation(self.hfo_app, self, self.close_signal)
         annotation.show()
 
+def closeAllWindows():
+    QApplication.instance().closeAllWindows()
 
 if __name__ == '__main__':
     mp.freeze_support()
     app = QApplication(sys.argv)
     mainWindow = HFOMainWindow()
     mainWindow.show()
+    app.aboutToQuit.connect(closeAllWindows)
     sys.exit(app.exec_())
     
