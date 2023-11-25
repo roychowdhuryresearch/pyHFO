@@ -86,7 +86,8 @@ class HFOAnnotation(QtWidgets.QMainWindow):
         # Calculating the window size as a fraction of the screen size
         width = rect.width() * 0.6  # 80% of the screen width
         height = rect.height() * 0.6  # 80% of the screen height
-
+        width = int(width)
+        height = int(height)
         # Setting the initial size and fixing it
         self.setGeometry(100, 100, width, height)
         self.setFixedSize(QSize(width, height))

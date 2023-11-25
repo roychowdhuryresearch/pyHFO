@@ -40,7 +40,7 @@ class HFOMainWindow(QMainWindow):
     def __init__(self):
         super(HFOMainWindow, self).__init__()
         self.ui = uic.loadUi(os.path.join(ROOT_DIR, 'src/ui/main_window.ui'), self)
-        self.setWindowIcon(QtGui.QIcon(os.path.join(ROOT_DIR, 'src/ui/images/icon.png')))
+        self.setWindowIcon(QtGui.QIcon(os.path.join(ROOT_DIR, 'src/ui/images/icon1.png')))
         self.setWindowTitle("pyHFO")
         self.hfo_app = HFO_App()
         self.threadpool = QThreadPool()
