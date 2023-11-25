@@ -171,7 +171,7 @@
           </widget>
          </item>
          <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_14" stretch="1,0,0,3,1,1,0,0">
+          <layout class="QHBoxLayout" name="horizontalLayout_14" stretch="1,0,0,3,1,1,0,0,0">
            <property name="leftMargin">
             <number>10</number>
            </property>
@@ -612,7 +612,6 @@
              <property name="font">
               <font>
                <pointsize>13</pointsize>
-               <weight>50</weight>
                <bold>false</bold>
               </font>
              </property>
@@ -628,7 +627,6 @@
                 <property name="font">
                  <font>
                   <pointsize>11</pointsize>
-                  <weight>50</weight>
                   <bold>false</bold>
                  </font>
                 </property>
@@ -642,7 +640,6 @@
                 <property name="font">
                  <font>
                   <pointsize>11</pointsize>
-                  <weight>50</weight>
                   <bold>false</bold>
                   <underline>true</underline>
                  </font>
@@ -663,7 +660,6 @@
                 <property name="font">
                  <font>
                   <pointsize>11</pointsize>
-                  <weight>50</weight>
                   <bold>false</bold>
                  </font>
                 </property>
@@ -677,7 +673,6 @@
                 <property name="font">
                  <font>
                   <pointsize>11</pointsize>
-                  <weight>50</weight>
                   <bold>false</bold>
                   <underline>true</underline>
                  </font>
@@ -698,7 +693,6 @@
                 <property name="font">
                  <font>
                   <pointsize>11</pointsize>
-                  <weight>50</weight>
                   <bold>false</bold>
                   <underline>true</underline>
                  </font>
@@ -719,7 +713,6 @@
                 <property name="font">
                  <font>
                   <pointsize>11</pointsize>
-                  <weight>50</weight>
                   <bold>false</bold>
                  </font>
                 </property>
@@ -733,7 +726,6 @@
                 <property name="font">
                  <font>
                   <pointsize>11</pointsize>
-                  <weight>50</weight>
                   <bold>false</bold>
                   <underline>true</underline>
                  </font>
@@ -754,7 +746,6 @@
                 <property name="font">
                  <font>
                   <pointsize>11</pointsize>
-                  <weight>50</weight>
                   <bold>false</bold>
                  </font>
                 </property>
@@ -9430,7 +9421,6 @@
                  <font>
                   <family>Arial</family>
                   <pointsize>13</pointsize>
-                  <weight>50</weight>
                   <bold>false</bold>
                  </font>
                 </property>
@@ -9444,7 +9434,6 @@
                     <font>
                      <family>Arial</family>
                      <pointsize>11</pointsize>
-                     <weight>50</weight>
                      <bold>false</bold>
                     </font>
                    </property>
@@ -9459,7 +9448,6 @@
                     <font>
                      <family>Arial</family>
                      <pointsize>11</pointsize>
-                     <weight>50</weight>
                      <bold>false</bold>
                     </font>
                    </property>
@@ -9480,6 +9468,13 @@
                  </item>
                  <item row="1" column="2">
                   <widget class="QPushButton" name="annotation_button">
+                   <property name="font">
+                    <font>
+                     <family>Arial</family>
+                     <pointsize>11</pointsize>
+                     <bold>false</bold>
+                    </font>
+                   </property>
                    <property name="text">
                     <string>Annotation</string>
                    </property>
