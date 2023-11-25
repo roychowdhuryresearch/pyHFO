@@ -19,6 +19,7 @@ print(DATA_FILES)
 
 OPTIONS = {
     'argv_emulation': False,
+    'iconfile': 'src/ui/images/icon1.icns',
     'packages': [
         'matplotlib',
         'mne',
