@@ -55,6 +55,7 @@ class BipolarChannelSelectionWindow(QtWidgets.QDialog):
                 #create bipolar channel and add to data, channel_name lists
                 self.hfo_app.add_bipolar_channel(self.channel_1,self.channel_2)
                 self.waveform_plot.update_channel_names(self.hfo_app.channel_names)
+                self.main_window.set_channels_to_plot(self.hfo_app.channel_names, display_all=False)
             self.close()
         else:
             msg = QMessageBox()

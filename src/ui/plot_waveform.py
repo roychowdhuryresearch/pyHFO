@@ -249,8 +249,8 @@ class PlotWaveform(QtWidgets.QGraphicsView):
                     # y = eeg_data_to_display[i, int(starts[j]):int(ends[j])]
                     # # self.waveform_mini_item.setData(x, y, pen=pg.mkPen(color=color, width=2))
                     # self.hfo_display.plot(x, y, pen=pg.mkPen(color=color, width=2))
-
-                    self.hfo_display.plot([self.time[int(starts[j])], self.time[int(ends[j])]], [
+                    end = min(int(ends[j]), len(self.time)-1)
+                    self.hfo_display.plot([self.time[int(starts[j])], self.time[end]], [
                         top_value, top_value
                     ], pen=pg.mkPen(color=color, width=5))
 

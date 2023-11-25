@@ -126,7 +126,7 @@ class HFOAnnotation(QtWidgets.QMainWindow):
             self.EventDropdown_Box.setCurrentText(info["prediction"])
 
     def update_button_clicked(self):
-        print("updating now...")
+        # print("updating now...")
         selected_text = self.EventDropdown_Box.currentText()
         if selected_text in ["Artifact", "Spike", "Real"]:
             self.hfo_app.hfo_features.doctor_annotation(selected_text)

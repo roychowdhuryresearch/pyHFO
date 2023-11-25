@@ -108,16 +108,16 @@ class HFO_App(object):
             bipolar_filtered_60 = bipolar(self.filter_data_60, self.channel_names, ch_1, ch_2)
             bipolar_filtered_un60 = bipolar(self.filter_data_un60, self.channel_names, ch_1, ch_2)
 
-        self.channel_names = np.concatenate([self.channel_names,[f"{ch_1}#-#{ch_2}"]])
+        self.channel_names = np.concatenate([[f"{ch_1}#-#{ch_2}"],self.channel_names])
 
         #add filtered/unfiltered 60/un60 signals to different arrays 
-        self.eeg_data = np.concatenate([self.eeg_data,bipolar_signal])
-        self.eeg_data_un60 = np.concatenate([self.eeg_data_un60, bipolar_signalun60])
-        self.eeg_data_60 = np.concatenate([self.eeg_data_60, bipolar_signal60])
+        self.eeg_data = np.concatenate([bipolar_signal,self.eeg_data])
+        self.eeg_data_un60 = np.concatenate([bipolar_signalun60,self.eeg_data_un60])
+        self.eeg_data_60 = np.concatenate([ bipolar_signal60,self.eeg_data_60])
         if self.filtered == True: 
             self.filtered_data_60 = np.concatenate([self.filter_data_60, bipolar_filtered_60])
             self.filtered_data_un60 = np.concatenate([self.filter_data_un60, bipolar_filtered_un60])
-
+            self.filter_data = self.filtered_data_un60.copy()
 
     '''
         Filter API

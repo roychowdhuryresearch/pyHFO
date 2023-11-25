@@ -138,8 +138,10 @@ class HFOMainWindow(QMainWindow):
 
         #annotation button
         self.annotation_button.clicked.connect(self.open_annotation)
-        #disable annotation button
         self.annotation_button.setEnabled(False)
+
+        self.Choose_Channels_Button.setEnabled(False)
+        self.waveform_plot_button.setEnabled(False)
 
         self.channels_to_plot = []
 
@@ -195,11 +197,12 @@ class HFOMainWindow(QMainWindow):
         self.hfo_app.n_jobs = int(self.n_jobs_spinbox.value())
         # print(f"n_jobs set to {self.hfo_app.n_jobs}")
 
-    def set_channels_to_plot(self, channels_to_plot):
+    def set_channels_to_plot(self, channels_to_plot, display_all = True):
         self.waveform_plot.set_channels_to_plot(channels_to_plot)
         # print(f"Channels to plot: {self.channels_to_plot}")
         self.n_channel_input.setMaximum(len(channels_to_plot))
-        self.n_channel_input.setValue(len(channels_to_plot))
+        if display_all:
+            self.n_channel_input.setValue(len(channels_to_plot))
         self.waveform_plot_button_clicked()
     
     def open_channel_selection(self):
@@ -283,7 +286,9 @@ class HFOMainWindow(QMainWindow):
         self.waveform_time_scroll_bar.valueChanged.connect(self.scroll_time_waveform_plot)
         self.channel_scroll_bar.valueChanged.connect(self.scroll_channel_waveform_plot)
         self.waveform_plot_button.clicked.connect(self.waveform_plot_button_clicked)
+        self.waveform_plot_button.setEnabled(True)
         self.Choose_Channels_Button.clicked.connect(self.open_channel_selection)
+        self.Choose_Channels_Button.setEnabled(True)
         #set the display time window spin box
         self.display_time_window_input.setValue(self.waveform_plot.get_time_window())
         self.display_time_window_input.setMaximum(self.waveform_plot.get_total_time())
@@ -395,7 +400,7 @@ class HFOMainWindow(QMainWindow):
             self.threadpool.start(worker)
 
     def filtering_complete(self):
-        # self.message_handler('Filtering COMPLETE!')
+        self.message_handler('Filtering COMPLETE!')
         filter_60 = self.Filter60Button.isChecked()
         # print("filtering:", filter_60)
         #if yes
@@ -415,7 +420,7 @@ class HFOMainWindow(QMainWindow):
         self.save_npz_button.setEnabled(True)
 
     def filter_data(self):
-        # print("Filtering data...")
+        self.message_handler("Filtering data...")
         try: 
             #get filter parameters
             fp_raw = self.fp_input.text()
@@ -556,7 +561,7 @@ class HFOMainWindow(QMainWindow):
             msg.exec_()
 
     def detect_HFOs(self):
-        # print("Detecting HFOs...")
+        print("Detecting HFOs...")
         worker=Worker(self._detect)
         worker.signals.result.connect(self._detect_finished)
         self.threadpool.start(worker)
@@ -649,15 +654,12 @@ class HFOMainWindow(QMainWindow):
             self.classifier_spike_filename.setText(fname)
 
     def _classify(self,artifact_only=False):
-        # print("print artfact_only",artifact_only)
         threshold = 0.5
         seconds_to_ignore_before=float(self.overview_ignore_before_input.text())
         seconds_to_ignore_after=float(self.overview_ignore_after_input.text())
         self.hfo_app.classify_artifacts([seconds_to_ignore_before,seconds_to_ignore_after], threshold)
-        # print("Classified artifacts")
         if not artifact_only:
             self.hfo_app.classify_spikes()
-            # print("Classified spikes")
         return []
 
     def _classify_finished(self):
@@ -667,8 +669,7 @@ class HFOMainWindow(QMainWindow):
         self.save_csv_button.setEnabled(True)
 
     def classify(self,check_spike=True):
-        # print("Classifying HFOs")
-        # print("check_spike",check_spike)
+        self.message_handler("Classifying HFOs...")
         if check_spike:
             use_spike=self.overview_use_spike_checkbox.isChecked()
         else:
@@ -678,7 +679,6 @@ class HFOMainWindow(QMainWindow):
         self.threadpool.start(worker)
 
     def update_statistics_label(self):
-        # print(self.hfo_app.hfo_features)
         num_HFO = self.hfo_app.hfo_features.get_num_HFO()
         num_artifact = self.hfo_app.hfo_features.get_num_artifact()
         num_spike = self.hfo_app.hfo_features.get_num_spike()
@@ -716,7 +716,7 @@ class HFOMainWindow(QMainWindow):
     def load_from_npz(self):
         #open file dialog
         fname,_  = QFileDialog.getOpenFileName(self, 'Open file', "", ".npz files (*.npz)")
-        # print(f"Loading, {fname}")
+        self.message_handler("Loading from npz...")
         if fname:
             self.reinitialize()
             worker = Worker(self._load_from_npz, fname)
