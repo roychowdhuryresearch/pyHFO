@@ -195,7 +195,9 @@ class HFO_App(object):
         if self.filter_data is None or len(self.filter_data) == 0:
             self.filter_eeg_data()
         self.channel_names, self.HFOs = self.detector.detect_multi_channels(self.filter_data, self.channel_names, filtered=True)
-        self.hfo_features = HFO_Feature.construct(self.channel_names, self.HFOs, self.param_detector.detector_type, self.sample_freq, prev_feature_to_join=self.hfo_features)
+        new_features = HFO_Feature.construct(self.channel_names, self.HFOs, self.param_detector.detector_type, self.sample_freq)
+        self.hfo_features = HFO_Feature.join_features(self.hfo_features, new_features, self.channel_names)
+
         self.detected = True
 
     '''

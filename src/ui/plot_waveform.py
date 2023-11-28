@@ -81,7 +81,7 @@ class PlotWaveform(QtWidgets.QGraphicsView):
         # print(self.edf_info)
         # self.channel_names_locs=np.mean(self.eeg_data,axis = 1)
         self.sample_freq = self.edf_info['sfreq']
-        self.time = np.arange(0,eeg_data.shape[1]/self.sample_freq,1/self.sample_freq) # time in seconds
+        self.time = np.arange(0,eeg_data.shape[1]/self.sample_freq, 1/self.sample_freq) # time in seconds
         self.n_channels = len(self.channel_names)
         # print("here")
         self.n_channels_to_plot = min(self.n_channels,self.n_channels_to_plot)
@@ -219,7 +219,9 @@ class PlotWaveform(QtWidgets.QGraphicsView):
                     # print("plotting",self.time[int(starts[j])],self.time[int(ends[j])],"name:",name,"channel:",channel)
                     # print(starts[j],ends[j])
                     # print(eeg_data_to_display[i,int(starts[j]):int(ends[j])])
-                    self.waveform_display.plot([self.time[int(starts[j])],self.time[int(ends[j])]],[
+
+                    # plotting the dots up top
+                    self.waveform_display.plot([self.time[min(len(self.time)-1,int(starts[j]))],self.time[min(len(self.time)-1,int(ends[j]))]],[
                         top_value+0.2,top_value+0.2
                     ],pen = pg.mkPen(color = color,width=10))
 
@@ -244,10 +246,10 @@ class PlotWaveform(QtWidgets.QGraphicsView):
                         name="HFO"
                     # x = self.time[int(starts[j]):int(ends[j])]
                     # y = eeg_data_to_display[i, int(starts[j]):int(ends[j])]
-                    # # self.waveform_mini_item.setData(x, y, pen=pg.mkPen(color=color, width=2))
+                    # self.waveform_mini_item.setData(x, y, pen=pg.mkPen(color=color, width=2))
                     # self.hfo_display.plot(x, y, pen=pg.mkPen(color=color, width=2))
 
-                    self.hfo_display.plot([self.time[int(starts[j])], self.time[int(ends[j])]], [
+                    self.hfo_display.plot([self.time[min(len(self.time)-1, int(starts[j]))], self.time[min(len(self.time)-1, int(ends[j]))]], [
                         top_value, top_value
                     ], pen=pg.mkPen(color=color, width=5))
 

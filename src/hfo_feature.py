@@ -22,16 +22,13 @@ class HFO_Feature():
     def __str__(self):
         return "HFO_Feature: {} HFOs, {} artifacts, {} spikes, {} real HFOs".format(self.num_HFO, self.num_artifact, self.num_spike, self.num_real)
     @staticmethod
-    def construct(channel_names, start_end, HFO_type = "STE", sample_freq = 2000, freq_range = [10, 500], time_range = [0, 1000], feature_size = 224, prev_feature_to_join = None):
+    def construct(channel_names, start_end, HFO_type = "STE", sample_freq = 2000, freq_range = [10, 500], time_range = [0, 1000], feature_size = 224):
         '''
         Construct HFO_Feature object from detector output
         '''
-        channel_key = {string: index for index, string in enumerate(channel_names)}
         channel_names = np.concatenate([[channel_names[i]]*len(start_end[i]) for i in range(len(channel_names))])
         start_end = [start_end[i] for i in range(len(start_end)) if len(start_end[i])>0]
         start_end = np.concatenate(start_end) if len(start_end) > 0 else np.array([])
-        if prev_feature_to_join is not None:
-            return HFO_Feature.joined_feature(channel_names, start_end, HFO_type, sample_freq, freq_range, time_range, feature_size, prev_feature_to_join, channel_key)
         return HFO_Feature(channel_names, start_end, np.array([]), HFO_type, sample_freq, freq_range, time_range, feature_size)
     
     def get_num_HFO(self):
@@ -175,30 +172,37 @@ class HFO_Feature():
             df.to_excel(writer, sheet_name="Events", index=False)
 
     @staticmethod
-    def joined_feature(channel_names, start_end, HFO_type, sample_freq, freq_range, time_range, feature_size, prev_feature, channel_key):
-        if prev_feature is None: return
-        if len(channel_names) == len(prev_feature.channel_names) == 0: return
-        print(f'Joining the previous {prev_feature.HFO_type} detection')
-        starts = start_end[:, 0]
-        ends = start_end[:, 1]
+    def join_features(feature1, feature2, channel_names):
+        if feature1 is None and feature2 is not None: return feature2
+        elif feature2 is None: return feature1
+        if len(feature1.channel_names) == len(feature2.channel_names) == 0: return
+        print(f'Joining {feature1.HFO_type} and {feature2.HFO_type} detection')
         
-        joined_ends = np.concatenate((ends, prev_feature.ends))
-        joined_starts = np.concatenate((starts, prev_feature.starts))
-        joined_channel_names = np.concatenate((channel_names, prev_feature.channel_names))
-        # sort based on channel_name, then interval start
+        channel_key = {string: index for index, string in enumerate(channel_names)}
+        joined_ends = np.concatenate((feature1.ends, feature2.ends))
+        joined_starts = np.concatenate((feature1.starts, feature2.starts))
+        joined_channel_names = np.concatenate((feature1.channel_names, feature2.channel_names))
+        # sort based on channel_name, then interval start, with channel key as the order of channels
         joined_intervals = [list(inter) for inter in sorted(zip(joined_channel_names, joined_starts, joined_ends), key=lambda i : (channel_key[i[0]], i[1], i[2]))]
-        merged_intervals = [joined_intervals[0]]
-        for inter in joined_intervals:
-            if merged_intervals[-1][0] == inter[0] and merged_intervals[-1][1] <= inter[1] <= merged_intervals[-1][-1]:
-                merged_intervals[-1][-1] = max(merged_intervals[-1][-1], inter[-1])
-            else:
-                merged_intervals.append(inter)
+
+        if len(joined_intervals) == 0:
+            merged_intervals = []
+        else:
+            # put the first interval in the merged list
+            merged_intervals = [joined_intervals[0]]
+            for inter in joined_intervals:
+                # if in the same channel and overlaps
+                if merged_intervals[-1][0] == inter[0] and merged_intervals[-1][1] <= inter[1] <= merged_intervals[-1][-1]:
+                    merged_intervals[-1][-1] = max(merged_intervals[-1][-1], inter[-1])
+                else:
+                    merged_intervals.append(inter)
+
         merged_intervals = np.array(merged_intervals)
         start_end = merged_intervals[:, 1:].astype(np.int64)
         channel_names = merged_intervals[:, 0]
-        sample_freq = (sample_freq + prev_feature.sample_freq) // 2
-        freq_range = [min(freq_range[0], prev_feature.freq_range[0]), max(freq_range[1], prev_feature.freq_range[1])]
-        time_range = [min(time_range[0], prev_feature.time_range[0]), max(time_range[1], prev_feature.time_range[1])]
-        feature_size = max(feature_size, prev_feature.feature_size)
-        print(f'Joined {HFO_type} and {prev_feature.HFO_type} features')
-        return HFO_Feature(channel_names, start_end, np.array([]), HFO_type, sample_freq, freq_range, time_range, feature_size)
+        sample_freq = (feature1.sample_freq + feature2.sample_freq) // 2
+        freq_range = [min(feature1.freq_range[0], feature2.freq_range[0]), max(feature1.freq_range[1], feature2.freq_range[1])]
+        time_range = [min(feature1.time_range[0], feature2.time_range[0]), max(feature1.time_range[1], feature2.time_range[1])]
+        feature_size = max(feature1.feature_size, feature2.feature_size)
+        print(f'Joined {feature1.HFO_type} and {feature2.HFO_type} features')
+        return HFO_Feature(channel_names, start_end, np.array([]), feature1.HFO_type, sample_freq, freq_range, time_range, feature_size)
