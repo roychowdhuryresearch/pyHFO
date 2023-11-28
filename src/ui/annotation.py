@@ -69,8 +69,8 @@ class HFOAnnotation(QtWidgets.QMainWindow):
         self.FFT_layout.addWidget(self.fft_plot)
         #
 
-        if not self.hfo_app.hfo_features.has_prediction():
-            self.hfo_app.hfo_features.generate_psedo_label()
+        # if not self.hfo_app.hfo_features.has_prediction():
+        #     self.hfo_app.hfo_features.generate_psedo_label()
         channel, start, end = self.hfo_app.hfo_features.get_current()
         self.waveform_plot.plot(start, end, channel)
         self.fft_plot.plot(start, end, channel)
@@ -122,9 +122,13 @@ class HFOAnnotation(QtWidgets.QMainWindow):
         self.end_textbox.setText(str(round(info["end_index"] / fs, 3)) + " s")
         self.length_textbox.setText(str(round((info["end_index"] - info["start_index"]) / fs, 3)) + " s")
         self.AnotationDropdownBox.setCurrentIndex(self.hfo_app.hfo_features.index)
-        if info["annotation"] is not None:
+        print(info["prediction"])
+        if info["prediction"] is not None:
             self.model_textbox.setText(info["prediction"])
             self.EventDropdown_Box.setCurrentText(info["prediction"])
+        else:
+            self.model_textbox.setText("Unpredicted")
+            self.EventDropdown_Box.setCurrentText("--- Event Type ---")
 
     def update_button_clicked(self):
         # print("updating now...")

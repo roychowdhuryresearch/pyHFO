@@ -44,10 +44,10 @@ class HFO_Feature():
     def has_prediction(self):
         return self.artifact_predicted
     
-    def generate_psedo_label(self):
-        self.artifact_predictions = np.ones(self.num_HFO)
-        self.spike_predictions = np.zeros(self.num_HFO)
-        self.artifact_predicted = True
+    # def generate_psedo_label(self):
+    #     self.artifact_predictions = np.ones(self.num_HFO)
+    #     self.spike_predictions = np.zeros(self.num_HFO)
+    #     self.artifact_predicted = True
     
     def doctor_annotation(self, annotation:str):
         if annotation == "Artifact":
@@ -93,6 +93,7 @@ class HFO_Feature():
             return "HFO"
 
     def get_current_info(self):
+        print("self.artifact_predicted:",self.artifact_predicted)
         channel_name = self.channel_names[self.index]
         start = self.starts[self.index]
         end = self.ends[self.index]
