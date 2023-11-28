@@ -174,8 +174,8 @@ class FFTPlot(FigureCanvasQTAgg):
                 f_plot = f
                 Pxx_den_plot = Pxx_den
                 self.axs.semilogy(f_plot, Pxx_den_plot)
-                self.axs.set_xlabel('Frequency [Hz]')
-                self.axs.set_ylabel('PSD [V**2/Hz]')
+                self.axs.set_xlabel('Frequency (Hz)')
+                self.axs.set_ylabel(r"PSD (V$^2$/Hz)")
                 self.axs.set_ylim([1e-7, 1e3])
                 self.axs.set_xlim([0, 500])
                 self.axs.grid()
