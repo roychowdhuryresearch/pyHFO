@@ -37,20 +37,23 @@ def dump_to_npz(data, fn):
 
 def sort_channel(channel_names):
     def get_key(item):
-        index, channel = item
-        if channel.startswith('POL'):
-            # For strings starting with "POL", split into prefix, mid-part, and number
-            prefix, mid, number = re.search(r'(POL) (\w+)(\d+)', channel).groups()
-            return (1, prefix, mid, int(number))
-        else:
-            # For strings ending with "Ref", "REF", or "ref", extract the letter, number, and case
-            match = re.match(r'([A-Z][a-z]*)(\d+)(Ref|REF|ref)', channel)
-            if match:
-                letter, number, ref = match.groups()
-                return (2, letter, int(number), ref.lower())
+        try:
+            index, channel = item
+            if channel.startswith('POL'):
+                # For strings starting with "POL", split into prefix, mid-part, and number
+                prefix, mid, number = re.search(r'(POL) (\w+)(\d+)', channel).groups()
+                return (1, prefix, mid, int(number))
             else:
-                # If no match, return a high sort key to sort these items last
-                return (3, channel)
+                # For strings ending with "Ref", "REF", or "ref", extract the letter, number, and case
+                match = re.match(r'([A-Z][a-z]*)(\d+)(Ref|REF|ref)', channel)
+                if match:
+                    letter, number, ref = match.groups()
+                    return (2, letter, int(number), ref.lower())
+                else:
+                    # If no match, return a high sort key to sort these items last
+                    return (3, channel)
+        except:
+            return (3, channel)
 
     sorted_channels = sorted(enumerate(channel_names), key=get_key)
     

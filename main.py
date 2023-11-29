@@ -32,6 +32,9 @@ import time
 import multiprocessing as mp
 import torch
 
+import warnings
+warnings.filterwarnings("ignore")
+
 ROOT_DIR = Path(__file__).parent
 
 
