@@ -139,6 +139,9 @@ class PlotWaveform(QtWidgets.QGraphicsView):
     def get_channel_indices_to_plot(self):
         return self.channel_indices_to_plot
     
+    def update_channel_names(self,new_channel_names):
+        self.channel_names = list(new_channel_names)
+
     def set_channels_to_plot(self,channels_to_plot:list):
         self.channels_to_plot = channels_to_plot
         self.channel_indices_to_plot = [self.channel_names.index(channel) for channel in channels_to_plot]
@@ -246,8 +249,8 @@ class PlotWaveform(QtWidgets.QGraphicsView):
                     # y = eeg_data_to_display[i, int(starts[j]):int(ends[j])]
                     # # self.waveform_mini_item.setData(x, y, pen=pg.mkPen(color=color, width=2))
                     # self.hfo_display.plot(x, y, pen=pg.mkPen(color=color, width=2))
-
-                    self.hfo_display.plot([self.time[int(starts[j])], self.time[int(ends[j])]], [
+                    end = min(int(ends[j]), len(self.time)-1)
+                    self.hfo_display.plot([self.time[int(starts[j])], self.time[end]], [
                         top_value, top_value
                     ], pen=pg.mkPen(color=color, width=5))
 

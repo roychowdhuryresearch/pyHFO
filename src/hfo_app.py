@@ -89,7 +89,36 @@ class HFO_App(object):
         else:
             return data[:, start:end], self.channel_names
     
+    def get_eeg_data_shape(self):
+        return self.eeg_data.shape
     
+    def get_sample_freq(self):
+        return self.sample_freq
+
+    def add_bipolar_channel(self, ch_1, ch_2):
+
+        def bipolar(data,channels,ch1,ch2):
+            return data[channels==ch1]-data[channels==ch2]
+
+        bipolar_signal = bipolar(self.eeg_data,self.channel_names,ch_1,ch_2)
+        bipolar_signalun60 = bipolar(self.eeg_data_un60,self.channel_names,ch_1,ch_2)
+        bipolar_signal60 = bipolar(self.eeg_data_60, self.channel_names, ch_1, ch_2)
+
+        if self.filtered == True:
+            bipolar_filtered_60 = bipolar(self.filter_data_60, self.channel_names, ch_1, ch_2)
+            bipolar_filtered_un60 = bipolar(self.filter_data_un60, self.channel_names, ch_1, ch_2)
+
+        self.channel_names = np.concatenate([[f"{ch_1}#-#{ch_2}"],self.channel_names])
+
+        #add filtered/unfiltered 60/un60 signals to different arrays 
+        self.eeg_data = np.concatenate([bipolar_signal,self.eeg_data])
+        self.eeg_data_un60 = np.concatenate([bipolar_signalun60,self.eeg_data_un60])
+        self.eeg_data_60 = np.concatenate([ bipolar_signal60,self.eeg_data_60])
+        if self.filtered == True: 
+            self.filtered_data_60 = np.concatenate([self.filter_data_60, bipolar_filtered_60])
+            self.filtered_data_un60 = np.concatenate([self.filter_data_un60, bipolar_filtered_un60])
+            self.filter_data = self.filtered_data_un60.copy()
+
     '''
         Filter API
     '''
@@ -358,7 +387,12 @@ class HFO_App(object):
             "param_classifier": self.param_classifier.to_dict() if self.param_classifier else None,
             "classified": self.classified,
             "filtered": self.filtered,
-            "detected": self.detected
+            "detected": self.detected,
+            "artifact_predictions": np.array(self.hfo_features.artifact_predictions),
+            "spike_predictions": np.array(self.hfo_features.spike_predictions),
+            "artifact_annotations": np.array(self.hfo_features.artifact_annotations),
+            "spike_annotations": np.array(self.hfo_features.spike_annotations),
+            "annotated": np.array(self.hfo_features.annotated),
         }
         dump_to_npz(checkpoint, path)
     
@@ -377,6 +411,11 @@ class HFO_App(object):
         app.classified = checkpoint["classified"].item()
         app.filtered = checkpoint["filtered"].item()
         app.detected = checkpoint["detected"].item()
+        app.hfo_features.artifact_predictions = checkpoint["artifact_predictions"].item()
+        app.hfo_features.spike_predictions = checkpoint["spike_predictions"].item()
+        app.hfo_features.artifact_annotations = checkpoint["artifact_annotations"].item()
+        app.hfo_features.spike_annotations = checkpoint["spike_annotations"].item()
+        app.hfo_features.annotated = checkpoint["annotated"].item()
         if app.filtered:
             app.param_filter = ParamFilter.from_dict(checkpoint["param_filter"].item())
             app.filter_eeg_data(app.param_filter)
