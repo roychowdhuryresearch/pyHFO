@@ -14,7 +14,7 @@ from PyQt5.QtWidgets import QMessageBox
 
 from src.hfo_app import HFO_App
 from src.param.param_classifier import ParamClassifier
-from src.param.param_detector import ParamDetector, ParamSTE, ParamMNI
+from src.param.param_detector import ParamDetector, ParamSTE, ParamMNI, ParamSpindle
 from src.param.param_filter import ParamFilter
 from src.ui.quick_detection import HFOQuickDetector
 from src.ui.channels_selection import ChannelSelectionWindow
@@ -92,6 +92,7 @@ class HFOMainWindow(QMainWindow):
         self.init_default_filter_input_params()
         self.init_default_ste_input_params()
         self.init_default_mni_input_params()
+        self.init_default_spindle_input_params()
     
         #classifier default buttons
         self.default_cpu_button.clicked.connect(self.set_classifier_param_cpu_default)
@@ -121,9 +122,11 @@ class HFOMainWindow(QMainWindow):
         self.n_jobs_ok_button.clicked.connect(self.set_n_jobs)
 
         self.STE_save_button.clicked.connect(self.save_ste_params)
-        self.MNI_save_button.clicked.connect(self.save_mni_params)
         self.STE_save_button.setEnabled(False)
+        self.MNI_save_button.clicked.connect(self.save_mni_params)
         self.MNI_save_button.setEnabled(False)
+        self.spindle_save_button.clicked.connect(self.save_spindle_params)
+        self.spindle_save_button.setEnabled(False)
 
         self.save_npz_button.clicked.connect(self.save_to_npz)
         self.save_npz_button.setEnabled(False)
@@ -149,11 +152,13 @@ class HFOMainWindow(QMainWindow):
     def reinitialize_buttons(self):
         self.mni_detect_button.setEnabled(False)
         self.ste_detect_button.setEnabled(False)
+        self.spindle_detect_button.setEnabled(False)
         self.detect_all_button.setEnabled(False)
         self.save_csv_button.setEnabled(False)
         self.save_npz_button.setEnabled(False)
         self.STE_save_button.setEnabled(False)
         self.MNI_save_button.setEnabled(False)
+        self.spindle_save_button.setEnabled(False)
         self.Filter60Button.setEnabled(False)
 
     def set_mni_input_len(self,max_len = 5):
@@ -339,6 +344,10 @@ class HFOMainWindow(QMainWindow):
         self.mni_baseline_threshold_input.setText(str(default_params.base_thrd))
         self.mni_baseline_min_time_input.setText(str(default_params.base_min))
 
+    def init_default_spindle_input_params(self):
+        default_params=ParamSpindle(2000)
+        self.spindle_min_distance_input.setText(str(default_params.min_distance))
+
     def scroll_time_waveform_plot(self, event):
         t_start=self.waveform_time_scroll_bar.value()*self.waveform_plot.get_time_window()*self.waveform_plot.get_time_increment()/100
         self.waveform_plot.plot(t_start)
@@ -385,6 +394,9 @@ class HFOMainWindow(QMainWindow):
 
     def filtering_complete(self):
         self.message_handler('Filtering COMPLETE!')
+
+        self.hfo_app.print_filter()
+
         filter_60 = self.Filter60Button.isChecked()
         print("filtering:", filter_60)
         #if yes
@@ -398,6 +410,9 @@ class HFOMainWindow(QMainWindow):
         self.ste_detect_button.setEnabled(True)
         self.MNI_save_button.setEnabled(True)
         self.mni_detect_button.setEnabled(True)
+
+        self.spindle_save_button.setEnabled(True)
+
         self.is_data_filtered = True
         self.show_filtered = True
         self.waveform_plot.set_filtered(True)
@@ -544,8 +559,39 @@ class HFOMainWindow(QMainWindow):
             msg.setWindowTitle("Detector Construction Failed")
             msg.exec_()
 
+    def save_spindle_params(self):
+        try:
+            min_distance = self.spindle_min_distance_input.text()
+
+            param_dict = {"sample_freq":2000,"pass_band":1, "stop_band":80, #these are placeholder params, will be updated later
+                        "hypno": None,
+                        "include": (1, 2, 3),
+                        "freq_broad": (1, 30),
+                        "duration": (0.5, 2),
+                        "min_distance": min_distance,
+                        "thresh": {'corr': 0.65, 'rel_pow': 0.2, 'rms': 1.5},
+                        "multi_only": False,
+                        "remove_outliers": False,
+                        "verbose": False,
+                        "n_jobs":self.hfo_app.n_jobs}
+            # param_dict = self.round_dict(param_dict, 3)
+            detector_params = {"detector_type":"Spindle", "detector_param":param_dict}
+            self.hfo_app.set_detector(ParamDetector.from_dict(detector_params))
+
+            #set display parameters
+            # TODO
+
+            self.update_detector_tab("mni")
+            
+        except:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setText("Error setting params for Spindle detector!")
+            msg.setInformativeText('Detector (Spindle) could not be constructed given the parameters')
+            msg.setWindowTitle("Detector (Spindle) Construction Failed")
+            msg.exec_()
+
     def detect_HFOs(self):
-        print("Detecting HFOs...")
         worker=Worker(self._detect)
         worker.signals.result.connect(self._detect_finished)
         self.threadpool.start(worker)
@@ -579,6 +625,8 @@ class HFOMainWindow(QMainWindow):
             self.stackedWidget.setCurrentIndex(0)
         elif index == "STE":
             self.stackedWidget.setCurrentIndex(1)
+        elif index == "Spindle":
+            self.stackedWidget.setCurrentIndex(2)
 
     def set_classifier_param_display(self):
         classifier_param = self.hfo_app.get_classifier_param()

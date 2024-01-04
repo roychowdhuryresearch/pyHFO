@@ -7,7 +7,7 @@ from src.hfo_feature import HFO_Feature
 from src.classifer import Classifier
 from src.utils.utils_feature import *
 from src.utils.utils_filter import construct_filter, filter_data
-from src.utils.utils_detector import set_STE_detector, set_MNI_detector
+from src.utils.utils_detector import set_STE_detector, set_MNI_detector, set_Spindle_detector
 from src.utils.utils_io import get_edf_info, read_eeg_data, dump_to_npz
 from src.utils.utils_plotting import plot_feature
 
@@ -128,6 +128,15 @@ class HFO_App(object):
         self.filter_data_60 = self.filter_60(self.filter_data)
         self.filtered = True
 
+    def print_filter(self):
+        np.save("filter_data", self.filter_data)
+        fp = open("filter_param.txt", "w")
+        fp.write("sample freq: " + str(self.sample_freq) + "\n")
+        fp.write("fp: " + str(self.param_filter.fp) + "\n")
+        fp.write("fs: " + str(self.param_filter.fs) + "\n")
+        fp.write("channel names: " + ', '.join(map(str, self.channel_names)) + "\n")
+        fp.close()
+
     def has_filtered_data(self):
         return self.filter_data is not None or len(self.filter_data) > 0
     
@@ -181,8 +190,10 @@ class HFO_App(object):
         elif param.detector_type.lower() == "mni":
             self.detector = set_MNI_detector(param.detector_param)
             # print(param.detector_param.to_dict())
+        elif param.detector_type.lower() == "spindle":
+            self.detector = set_Spindle_detector(param.detector_param)
     
-    def detect_HFO(self, param_filter:ParamFilter =None, param_detector:ParamDetector=None):
+    def detect_HFO(self, param_filter:ParamFilter=None, param_detector:ParamDetector=None):
         '''
         This the function should be linked to the detect button in the overview window, 
         it can also be called with a param to set the detector, the detector will be reseted if the param is not None
@@ -194,6 +205,14 @@ class HFO_App(object):
             self.set_detector(param_detector)
         if self.filter_data is None or len(self.filter_data) == 0:
             self.filter_eeg_data()
+
+        if (self.param_detector.detector_type.lower() == "ste"):
+            print("Detecting HFOs(STE)...")
+        elif (self.param_detector.detector_type.lower() == "mni"):
+            print("Detecting HFOs(MNI)...")
+        elif (self.param_detector.detector_type.lower() == "spindle"):
+            print("Detecting Spindles(yasa)...")
+            
         self.channel_names, self.HFOs = self.detector.detect_multi_channels(self.filter_data, self.channel_names, filtered=True)
         new_features = HFO_Feature.construct(self.channel_names, self.HFOs, self.param_detector.detector_type, self.sample_freq)
         self.hfo_features = HFO_Feature.join_features(self.hfo_features, new_features, self.channel_names)

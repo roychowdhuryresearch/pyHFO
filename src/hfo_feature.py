@@ -3,8 +3,16 @@ import pandas as pd
 class HFO_Feature():
     def __init__(self, channel_names, interval, features = [], HFO_type = "STE", sample_freq = 2000, freq_range = [10, 500], time_range = [0, 1000], feature_size = 224):
         self.channel_names = channel_names
-        self.starts = interval[:, 0]
-        self.ends = interval[:, 1]
+        
+        try:
+            self.starts = interval[:, 0]
+        except:
+            self.starts = []
+        try:
+            self.ends = interval[:, 1]
+        except:
+            self.ends = []
+
         self.features = features
         self.artifact_predictions = []
         self.spike_predictions = []
@@ -26,6 +34,11 @@ class HFO_Feature():
         '''
         Construct HFO_Feature object from detector output
         '''
+
+        if HFO_type.lower() == "spindle":
+            return HFO_Feature(channel_names, start_end, np.array([]), HFO_type, sample_freq, freq_range, time_range, feature_size)
+        
+        # if output is from STE or MNI detector, need operations to flatten the result
         channel_names = np.concatenate([[channel_names[i]]*len(start_end[i]) for i in range(len(channel_names))])
         start_end = [start_end[i] for i in range(len(start_end)) if len(start_end[i])>0]
         start_end = np.concatenate(start_end) if len(start_end) > 0 else np.array([])

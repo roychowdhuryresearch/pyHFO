@@ -13,6 +13,8 @@ class ParamDetector:
             param.detector_param = ParamSTE.from_dict(param_dict['detector_param'])
         elif detector_type.lower() == 'mni':
             param.detector_param = ParamMNI.from_dict(param_dict['detector_param'])
+        elif detector_type.lower() == 'spindle':
+            param.detector_param = ParamSpindle.from_dict(param_dict['detector_param'])
         return param
     
 class ParamSTE:
@@ -117,4 +119,40 @@ class ParamMNI:
             d["base_thrd"],
             d["base_min"],
             d["n_jobs"]
+        )
+
+class ParamSpindle:
+    def __init__(self,sample_freq, pass_band=12, stop_band=15, hypno=None, include=(1, 2, 3),
+                 freq_broad=(1, 30), duration=(0.5, 2),
+                 min_distance=500, thresh={'corr': 0.65, 'rel_pow': 0.2, 'rms': 1.5},
+                 multi_only=False, remove_outliers=False, verbose=False):
+        self.freq_sp = (pass_band, stop_band)
+        self.sample_freq = sample_freq
+        self.pass_band = pass_band
+        self.stop_band = stop_band
+        self.hypno = hypno
+        self.include = include
+        self.freq_broad = freq_broad
+        self.duration = duration
+        self.min_distance = min_distance
+        self.thresh = thresh
+        self.multi_only = multi_only
+        self.remove_outliers = remove_outliers
+        self.verbose = verbose
+
+    @staticmethod
+    def from_dict(d):
+        return ParamSpindle(
+            sample_freq=d["sample_freq"],
+            pass_band=d["pass_band"],
+            stop_band=d["stop_band"],
+            hypno=d["hypno"],
+            include=d["include"],
+            freq_broad=d["freq_broad"],
+            duration=d["duration"],
+            min_distance=d["min_distance"],
+            thresh=d["thresh"],
+            multi_only=d["multi_only"],
+            remove_outliers=d["remove_outliers"],
+            verbose=d["verbose"]
         )
