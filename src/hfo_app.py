@@ -50,6 +50,7 @@ class HFO_App(object):
         ## feature related
         self.feature_param = None
         self.hfo_features = None
+        self.spindle_features = None
 
         ## classifier related
         self.param_classifier = None
@@ -212,7 +213,7 @@ class HFO_App(object):
             print("Detecting HFOs(MNI)...")
         elif (self.param_detector.detector_type.lower() == "spindle"):
             print("Detecting Spindles(yasa)...")
-            
+
         self.channel_names, self.HFOs = self.detector.detect_multi_channels(self.filter_data, self.channel_names, filtered=True)
         new_features = HFO_Feature.construct(self.channel_names, self.HFOs, self.param_detector.detector_type, self.sample_freq)
         self.hfo_features = HFO_Feature.join_features(self.hfo_features, new_features, self.channel_names)

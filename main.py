@@ -446,8 +446,10 @@ class HFOMainWindow(QMainWindow):
 
     def toggle_filtered(self):
         # self.message_handler('Showing original data...')
-        if self.is_data_filtered:
-            self.show_filtered = not self.show_filtered
+        # if self.is_data_filtered:
+        if self.hfo_app.filtered:
+            # self.show_filtered = not self.show_filtered
+            self.show_filtered = not self.toggle_filtered_checkbox.isChecked()
             self.waveform_plot.set_filtered(self.show_filtered)
             self.waveform_plot_button_clicked()
 
