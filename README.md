@@ -1,4 +1,7 @@
 # PyHFO
+[ProjectPage](https://roychowdhuryresearch.github.io/PyHFO_Project_Page/) |
+[Download](https://github.com/roychowdhuryresearch/pyHFO/releases) | 
+[Manual](https://docs.google.com/document/d/1KzQpfuPFDk2lr9V3TgSkmc21jISB54ZOxo3pIYKQsp0/edit?usp=sharing) |
 
 PyHFO is a multi-window desktop application providing an integrated and user-friendly platform that includes time-efficient HFO detection algorithms such as short-term energy (STE) and Montreal Neurological Institute and Hospital (MNI) detectors and deep learning models for artifact and HFO with spike classification.
 
@@ -6,7 +9,7 @@ PyHFO is a multi-window desktop application providing an integrated and user-fri
 If you find our project is useful in your research, please cite:
 
 ```
-Zhang, Y., Liu, L., Ding, Y., Chen, X., Monsoor, T., Daida, A., ... & Roychowdhury, V. (2023). PyHFO: Lightweight Deep Learning-powered End-to-End High-Frequency Oscillations Analysis Application. bioRxiv, 2023-08.
+Zhang Y, Liu L, Ding Y, Chen X, Monsoor T, Daida A, Oana S, Hussain SA, Sankar R, Fallah A, Engel Jr J, Staba RJ, Speier W, Zhang J, Nariai H, Roychowdhury V. PyHFO: Lightweight Deep Learning-powered End-to-End High-Frequency Oscillations Analysis Application. bioRxiv. 2023;2023.08.25.554741.
 ```
 
 ## Related Projects
@@ -20,7 +23,7 @@ Zhang, Y., Liu, L., Ding, Y., Chen, X., Monsoor, T., Daida, A., ... & Roychowdhu
 
 ## Installation
 
-You can download the latest version of PyHFO from the [releases](https://github.com/roychowdhuryresearch/pyHFO/releases/tag/Initial-Release) page.
+You can download the latest version of PyHFO from the [releases](https://github.com/roychowdhuryresearch/pyHFO/releases) page.
 
 You can also install it from the source code:
 

@@ -1,8 +1,4 @@
 __pycache__
-__pycache__/
-.vscode/
-
-*.pyc
-*.DS_Store
-*.txt
-*.npy
+.DS_Store
+build
+dist   
