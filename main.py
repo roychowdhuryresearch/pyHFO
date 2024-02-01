@@ -365,7 +365,22 @@ class HFOMainWindow(QMainWindow):
 
     def init_default_spindle_input_params(self):
         default_params=ParamSpindle(2000)
+        self.spindle_pass_band_input.setText(str(default_params.freq_sp[0]))
+        self.spindle_stop_band_input.setText(str(default_params.freq_sp[1]))
+        self.spindle_broad_pass_input.setText(str(default_params.freq_broad[0]))
+        self.spindle_broad_stop_input.setText(str(default_params.freq_broad[1]))
+        self.spindle_duration_min_input.setText(str(default_params.duration[0]))
+        self.spindle_duration_max_input.setText(str(default_params.duration[1]))
+        self.spindle_rel_pow_input.setText(str(default_params.thresh['rel_pow']))
+        self.spindle_rms_input.setText(str(default_params.thresh['rms']))
+        self.spindle_corr_input.setText(str(default_params.thresh['corr']))
         self.spindle_min_distance_input.setText(str(default_params.min_distance))
+        self.spindle_verbose_input.setText(str(default_params.verbose))
+        self.spindle_remove_outliers_checkbox.setCheckState(default_params.remove_outliers)
+        self.spindle_multi_only_checkbox.setCheckState(default_params.multi_only)
+
+
+
 
     def scroll_time_waveform_plot(self, event):
         t_start=self.waveform_time_scroll_bar.value()*self.waveform_plot.get_time_window()*self.waveform_plot.get_time_increment()/100
@@ -581,36 +596,85 @@ class HFOMainWindow(QMainWindow):
             msg.exec_()
 
     def save_spindle_params(self):
-        try:
-            min_distance = self.spindle_min_distance_input.text()
+        # try:
+        fq_pass = self.spindle_pass_band_input.text()
+        fq_stop = self.spindle_stop_band_input.text()
+        broad_pass = self.spindle_broad_pass_input.text()
+        broad_stop = self.spindle_broad_stop_input.text()
+        duration_min = self.spindle_duration_min_input.text()
+        duration_max = self.spindle_duration_max_input.text()
+        rel_pow = self.spindle_rel_pow_input.text()
+        rms = self.spindle_rms_input.text()
+        corr = self.spindle_corr_input.text()
+        min_distance = self.spindle_min_distance_input.text()
+        verbose = False if self.spindle_verbose_input.text() == 'False' else self.spindle_verbose_input.text()
+        remove_outliers = self.spindle_remove_outliers_checkbox.checkState()
+        multi_only = self.spindle_multi_only_checkbox.checkState()
+        # except:
+        #     msg = QMessageBox()
+        #     msg.setIcon(QMessageBox.Critical)
+        #     msg.setText("Get Input Problem")
+        #     msg.setInformativeText('Detector (Spindle) could not be constructed given the parameters')
+        #     msg.setWindowTitle("Detector (Spindle) Construction Failed")
+        #     msg.exec_()
 
-            param_dict = {"sample_freq":2000,"pass_band":1, "stop_band":80, #these are placeholder params, will be updated later
-                        "hypno": None,
-                        "include": (1, 2, 3),
-                        "freq_broad": (1, 30),
-                        "duration": (0.5, 2),
-                        "min_distance": min_distance,
-                        "thresh": {'corr': 0.65, 'rel_pow': 0.2, 'rms': 1.5},
-                        "multi_only": False,
-                        "remove_outliers": False,
-                        "verbose": False,
-                        "n_jobs":self.hfo_app.n_jobs}
-            # param_dict = self.round_dict(param_dict, 3)
-            detector_params = {"detector_type":"Spindle", "detector_param":param_dict}
-            self.hfo_app.set_detector(ParamDetector.from_dict(detector_params))
+        # try:
+        param_dict = {"sample_freq":2000, "pass_band":fq_pass, "stop_band":fq_stop, #these are placeholder params, will be updated later (but not for spindles)
+                    "hypno": None,
+                    "include": (1, 2, 3),
+                    "freq_sp": (fq_pass, fq_stop),
+                    "freq_broad": (broad_pass, broad_stop),
+                    "duration": (duration_min, duration_max),
+                    "min_distance": min_distance,
+                    "thresh": {'corr': corr, 'rel_pow': rel_pow, 'rms': rms},
+                    "multi_only": multi_only,
+                    "remove_outliers": remove_outliers,
+                    "verbose": verbose,
+                    "n_jobs": self.hfo_app.n_jobs}
+        # param_dict = self.round_dict(param_dict, 3)
+        detector_params = {"detector_type":"Spindle", "detector_param":param_dict}
+        self.hfo_app.set_detector(ParamDetector.from_dict(detector_params))
+        # except:
+        #     msg = QMessageBox()
+        #     msg.setIcon(QMessageBox.Critical)
+        #     msg.setText("Dictionary Set Param Problem")
+        #     msg.setInformativeText('Detector (Spindle) could not be constructed given the parameters')
+        #     msg.setWindowTitle("Detector (Spindle) Construction Failed")
+        #     msg.exec_()
 
+        # try:
             #set display parameters
-            # TODO
+        self.spindle_pass_band_display.setText(fq_pass)
+        self.spindle_stop_band_display.setText(fq_stop)
+        self.spindle_broad_pass_display.setText(broad_pass)
+        self.spindle_broad_stop_display.setText(broad_stop)
+        self.spindle_duration_min_display.setText(duration_min)
+        self.spindle_duration_max_display.setText(duration_max)
+        self.spindle_rel_pow_display.setText(rel_pow)
+        self.spindle_corr_display.setText(corr)
+        self.spindle_rms_display.setText(rms)
+        self.spindle_min_distance_display.setText(min_distance)
+        self.spindle_verbose_display.setText(str(verbose))
+        self.spindle_remove_outliers_display.setCheckState(remove_outliers)
+        self.spindle_multi_only_display.setCheckState(multi_only)
+        # except:
+        #     msg = QMessageBox()
+        #     msg.setIcon(QMessageBox.Critical)
+        #     msg.setText("Set Display Problem")
+        #     msg.setInformativeText('Detector (Spindle) could not be constructed given the parameters')
+        #     msg.setWindowTitle("Detector (Spindle) Construction Failed")
+        #     msg.exec_()
 
-            self.update_detector_tab("mni")
+        # try:
+        self.update_detector_tab("Spindle")
             
-        except:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setText("Error setting params for Spindle detector!")
-            msg.setInformativeText('Detector (Spindle) could not be constructed given the parameters')
-            msg.setWindowTitle("Detector (Spindle) Construction Failed")
-            msg.exec_()
+        # except:
+        #     msg = QMessageBox()
+        #     msg.setIcon(QMessageBox.Critical)
+        #     msg.setText("Error setting params for Spindle detector!")
+        #     msg.setInformativeText('Detector (Spindle) could not be constructed given the parameters')
+        #     msg.setWindowTitle("Detector (Spindle) Construction Failed")
+        #     msg.exec_()
 
     def detect_HFOs(self):
         worker=Worker(self._detect)
@@ -620,7 +684,8 @@ class HFOMainWindow(QMainWindow):
     def _detect_finished(self):
         #right now do nothing beyond message handler saying that 
         # it has detected HFOs
-        self.message_handler("HFOs detected")
+        # self.message_handler("HFOs detected")
+        self.message_handler("Detection completed")
         self.update_statistics_label()
         self.waveform_plot.set_plot_HFOs(True)
         self.detect_all_button.setEnabled(True)

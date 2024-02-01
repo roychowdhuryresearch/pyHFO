@@ -122,14 +122,14 @@ class ParamMNI:
         )
 
 class ParamSpindle:
-    def __init__(self,sample_freq, pass_band=12, stop_band=15, hypno=None, include=(1, 2, 3),
+    def __init__(self, sample_freq, freq_sp=(12, 15), hypno=None, include=(1, 2, 3),
                  freq_broad=(1, 30), duration=(0.5, 2),
                  min_distance=500, thresh={'corr': 0.65, 'rel_pow': 0.2, 'rms': 1.5},
                  multi_only=False, remove_outliers=False, verbose=False):
-        self.freq_sp = (pass_band, stop_band)
+        self.freq_sp = freq_sp
         self.sample_freq = sample_freq
-        self.pass_band = pass_band
-        self.stop_band = stop_band
+        self.pass_band = freq_sp[0]
+        self.stop_band = freq_sp[1]
         self.hypno = hypno
         self.include = include
         self.freq_broad = freq_broad
@@ -144,8 +144,7 @@ class ParamSpindle:
     def from_dict(d):
         return ParamSpindle(
             sample_freq=d["sample_freq"],
-            pass_band=d["pass_band"],
-            stop_band=d["stop_band"],
+            freq_sp=(d["freq_sp"]),
             hypno=d["hypno"],
             include=d["include"],
             freq_broad=d["freq_broad"],

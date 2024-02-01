@@ -212,8 +212,13 @@ class HFO_App(object):
 
         self.param_detector = param
         self.param_detector.detector_param.sample_freq = self.sample_freq
-        self.param_detector.detector_param.pass_band = int(self.param_filter.fp)
-        self.param_detector.detector_param.stop_band = int(self.param_filter.fs)
+
+        # if it is spindle, use the user selected fp and fs
+        if param.detector_type.lower() == "ste" or param.detector_type.lower() == "mni":
+            self.param_detector.detector_param.pass_band = int(self.param_filter.fp)
+            self.param_detector.detector_param.stop_band = int(self.param_filter.fs)
+
+
         #print("detector param: ", param.detector_param.to_dict())
         if param.detector_type.lower() == "ste":
             self.detector = set_STE_detector(param.detector_param)
