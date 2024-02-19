@@ -10232,10 +10232,10 @@
   </action>
   <action name="actionOpen_EDF_toolbar">
    <property name="text">
-    <string>Open EDF</string>
+    <string>Open File</string>
    </property>
    <property name="toolTip">
-    <string>Open EDF</string>
+    <string>Open File</string>
    </property>
   </action>
   <action name="actionLoad_Detection_toolbar">

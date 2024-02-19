@@ -60,8 +60,29 @@ class HFO_App(object):
 
 
     def load_edf(self, file_path):
-        print("Loading edf: " + file_path)
-        self.raw = mne.io.read_raw_edf(file_path, verbose = 0)
+        print("Loading recording: " + file_path)
+        if file_path.split(".")[-1] == "edf":
+            self.raw = mne.io.read_raw_edf(file_path, verbose = 0)
+        #otherwise if its a brainvision file
+        elif file_path.split(".")[-1] == "vhdr":
+            #first check if the .eeg and .vmrk files also exist
+            assert os.path.exists(file_path.replace(".vhdr", ".eeg")), "The .eeg file does not exist, cannot load the data"
+            assert os.path.exists(file_path.replace(".vhdr", ".vmrk")), "The .vmrk file does not exist, cannot load the data"
+            self.raw = mne.io.read_raw_brainvision(file_path, verbose = 0)
+        elif file_path.split(".")[-1] == "eeg":
+            #first check if the .vhdr and .vmrk files also exist
+            assert os.path.exists(file_path.replace(".eeg", ".vhdr")), "The .vhdr file does not exist, cannot load the data"
+            assert os.path.exists(file_path.replace(".eeg", ".vmrk")), "The .vmrk file does not exist, cannot load the data"
+            self.raw = mne.io.read_raw_brainvision(file_path.replace(".eeg", ".vhdr")
+                                                   , verbose = 0)
+        elif file_path.split(".")[-1] == "vmrk":
+            #first check if the .vhdr and .eeg files also exist
+            assert os.path.exists(file_path.replace(".vmrk", ".vhdr")), "The .vhdr file does not exist, cannot load the data"
+            assert os.path.exists(file_path.replace(".vmrk", ".eeg")), "The .eeg file does not exist, cannot load the data"
+            self.raw = mne.io.read_raw_brainvision(file_path.replace(".vmrk", ".vhdr")
+                                                   , verbose = 0)
+        else:
+            raise ValueError("File type not supported")
         self.edf_param = get_edf_info(self.raw)
         self.sample_freq = int(self.edf_param['sfreq'])
         self.edf_param["edf_fn"] = file_path

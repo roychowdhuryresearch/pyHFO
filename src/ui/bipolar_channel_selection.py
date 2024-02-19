@@ -23,7 +23,7 @@ class BipolarChannelSelectionWindow(QtWidgets.QDialog):
         self.hfo_app = hfo_app
         self.main_window = main_window
         self.setWindowTitle("Bipolar Channel Selection")
-        self.setWindowIcon(QtGui.QIcon(os.path.join(ROOT_DIR, 'images/icon.png')))
+        self.setWindowIcon(QtGui.QIcon(os.path.join(ROOT_DIR, 'images/icon1.png')))
 
         eeg_data,channel_names = self.hfo_app.get_eeg_data()
 

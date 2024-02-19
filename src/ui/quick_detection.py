@@ -23,7 +23,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
         # print("initializing HFOQuickDetector")
         self.ui = uic.loadUi(os.path.join(ROOT_DIR, 'quick_detection.ui'), self)
         self.setWindowTitle("HFO Quick Detector")
-        self.setWindowIcon(QtGui.QIcon(os.path.join(ROOT_DIR, 'images/icon.png')))
+        self.setWindowIcon(QtGui.QIcon(os.path.join(ROOT_DIR, 'images/icon1.png')))
         # print("loaded ui")
         self.filename = None
         self.threadpool = QThreadPool()

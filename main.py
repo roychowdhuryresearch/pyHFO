@@ -396,7 +396,7 @@ class HFOMainWindow(QMainWindow):
     def open_file(self):
         #reinitialize the app
         self.hfo_app = HFO_App()
-        fname, _ = QFileDialog.getOpenFileName(self, "Open File", "", "EDF Files (*.edf)")
+        fname, _ = QFileDialog.getOpenFileName(self, "Open File", "", "Recordings Files (*.edf *.eeg *.vhdr *.vmrk)")
         if fname:
             worker = Worker(self.read_edf, fname)
             worker.signals.result.connect(self.update_edf_info)
