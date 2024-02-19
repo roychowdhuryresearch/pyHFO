@@ -649,7 +649,7 @@
               <enum>Qt::LeftToRight</enum>
              </property>
              <property name="title">
-              <string>EDF Information</string>
+              <string>Recording Information</string>
              </property>
              <layout class="QGridLayout" name="gridLayout_12">
               <item row="0" column="0">
@@ -829,7 +829,7 @@
                 <enum>Qt::LeftToRight</enum>
                </property>
                <property name="text">
-                <string>Load EDF</string>
+                <string>Load File</string>
                </property>
               </widget>
              </item>
@@ -1871,7 +1871,4 @@
    </hints>
   </connection>
  </connections>
- <buttongroups>
-  <buttongroup name="buttonGroup"/>
- </buttongroups>
 </ui>

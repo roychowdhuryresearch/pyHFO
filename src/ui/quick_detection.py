@@ -83,7 +83,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
         self.close_signal.connect(self.close)
 
     def open_file(self):
-        fname, _ = QFileDialog.getOpenFileName(self, "Open File", "", "EDF Files (*.edf)")
+        fname, _ = QFileDialog.getOpenFileName(self, "Open File", "", "Recordings Files (*.edf *.eeg *.vhdr *.vmrk)")
         if fname:
             worker = Worker(self.read_edf, fname)
             worker.signals.result.connect(self.update_edf_info)

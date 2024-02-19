@@ -619,7 +619,7 @@
               <enum>Qt::LeftToRight</enum>
              </property>
              <property name="title">
-              <string>EDF Information</string>
+              <string>Recording Information</string>
              </property>
              <layout class="QGridLayout" name="gridLayout_18">
               <item row="1" column="1">
@@ -10235,7 +10235,7 @@
     <string>Open File</string>
    </property>
    <property name="toolTip">
-    <string>Open File</string>
+    <string>Open EDF</string>
    </property>
   </action>
   <action name="actionLoad_Detection_toolbar">
