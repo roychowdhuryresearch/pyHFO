@@ -7,7 +7,7 @@ from src.hfo_feature import HFO_Feature
 from src.classifer import Classifier
 from src.utils.utils_feature import *
 from src.utils.utils_filter import construct_filter, filter_data
-from src.utils.utils_detector import set_STE_detector, set_MNI_detector, set_Spindle_detector
+from src.utils.utils_detector import set_STE_detector, set_MNI_detector, set_Spindle_detector, set_Spike_detector
 from src.utils.utils_io import get_edf_info, read_eeg_data, dump_to_npz
 from src.utils.utils_plotting import plot_feature
 
@@ -227,6 +227,8 @@ class HFO_App(object):
             # print(param.detector_param.to_dict())
         elif param.detector_type.lower() == "spindle":
             self.detector = set_Spindle_detector(param.detector_param)
+        elif param.detector_type.lower() == "spike":
+            self.detector = set_Spike_detector(param.detector_param)
     
     def detect_HFO(self, param_filter:ParamFilter=None, param_detector:ParamDetector=None):
         '''
@@ -247,10 +249,12 @@ class HFO_App(object):
             print("Detecting HFOs(MNI)...")
         elif (self.param_detector.detector_type.lower() == "spindle"):
             print("Detecting Spindles(yasa)...")
+        elif (self.param_detector.detector_type.lower() == "spike"):
+            print("Detecting Spikes...")
 
         self.channel_names, self.HFOs = self.detector.detect_multi_channels(self.filter_data, self.channel_names, filtered=True)
         new_features = HFO_Feature.construct(self.channel_names, self.HFOs, self.param_detector.detector_type, self.sample_freq)
-        self.hfo_features = HFO_Feature.join_features(self.hfo_features, new_features, self.channel_names)
+        self.channel_names, self.HFOs, self.hfo_features = HFO_Feature.join_features(self.hfo_features, new_features, self.channel_names)
 
         self.detected = True
 

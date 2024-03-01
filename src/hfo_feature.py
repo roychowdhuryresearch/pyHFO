@@ -1,18 +1,19 @@
 import numpy as np
 import pandas as pd
 class HFO_Feature():
-    def __init__(self, channel_names, interval, features = [], HFO_type = "STE", sample_freq = 2000, freq_range = [10, 500], time_range = [0, 1000], feature_size = 224):
+    def __init__(self, channel_names, start_end, num_HFO, num_spindle, features = [], HFO_type = "STE", sample_freq = 2000, freq_range = [10, 500], time_range = [0, 1000], feature_size = 224):
         self.channel_names = channel_names
         
         try:
-            self.starts = interval[:, 0]
+            self.starts = start_end[:, 0]
         except:
             self.starts = []
         try:
-            self.ends = interval[:, 1]
+            self.ends = start_end[:, 1]
         except:
             self.ends = []
 
+        self.start_end = start_end
         self.features = features
         self.artifact_predictions = np.zeros(self.starts.shape)
         self.spike_predictions = []
@@ -27,7 +28,8 @@ class HFO_Feature():
         self.feature_size = feature_size
         self.num_artifact = 0
         self.num_spike = 0
-        self.num_HFO = len(self.starts)
+        self.num_HFO = num_HFO
+        self.num_spindle = num_spindle
         self.num_real = 0
         self.index = 0
         self.artifact_predicted = False
@@ -42,14 +44,14 @@ class HFO_Feature():
         Construct HFO_Feature object from detector output
         '''
 
-        if HFO_type.lower() == "spindle":
-            return HFO_Feature(channel_names, start_end, np.array([]), HFO_type, sample_freq, freq_range, time_range, feature_size)
+        if HFO_type.lower() == "spindle" or HFO_type.lower() == "spike":
+            return HFO_Feature(channel_names, start_end, 0, len(start_end), np.array([]), HFO_type, sample_freq, freq_range, time_range, feature_size)
         
         # if output is from STE or MNI detector, need operations to flatten the result
         channel_names = np.concatenate([[channel_names[i]]*len(start_end[i]) for i in range(len(channel_names))])
         start_end = [start_end[i] for i in range(len(start_end)) if len(start_end[i])>0]
         start_end = np.concatenate(start_end) if len(start_end) > 0 else np.array([])
-        return HFO_Feature(channel_names, start_end, np.array([]), HFO_type, sample_freq, freq_range, time_range, feature_size)
+        return HFO_Feature(channel_names, start_end, len(start_end), 0, np.array([]), HFO_type, sample_freq, freq_range, time_range, feature_size)
     
     def get_num_HFO(self):
         return self.num_HFO
@@ -123,6 +125,9 @@ class HFO_Feature():
     
     def get_num_real(self):
         return self.num_real
+    
+    def get_num_Spindle(self):
+        return self.num_spindle
         
     def has_feature(self):
         return len(self.features) > 0
@@ -295,8 +300,8 @@ class HFO_Feature():
 
     @staticmethod
     def join_features(feature1, feature2, channel_names):
-        if feature1 is None and feature2 is not None: return feature2
-        elif feature2 is None: return feature1
+        if feature1 is None and feature2 is not None: return (feature2.channel_names, feature2.start_end, feature2)
+        elif feature2 is None: return (feature1.channel_names, feature1.start_end, feature1)
         if len(feature1.channel_names) == len(feature2.channel_names) == 0: return
         print(f'Joining {feature1.HFO_type} and {feature2.HFO_type} detection')
         
@@ -326,5 +331,8 @@ class HFO_Feature():
         freq_range = [min(feature1.freq_range[0], feature2.freq_range[0]), max(feature1.freq_range[1], feature2.freq_range[1])]
         time_range = [min(feature1.time_range[0], feature2.time_range[0]), max(feature1.time_range[1], feature2.time_range[1])]
         feature_size = max(feature1.feature_size, feature2.feature_size)
+        total_HFO = feature1.num_HFO + feature2.num_HFO
+        total_spindle = feature1.num_spindle + feature2.num_spindle
         print(f'Joined {feature1.HFO_type} and {feature2.HFO_type} features')
-        return HFO_Feature(channel_names, start_end, np.array([]), feature1.HFO_type, sample_freq, freq_range, time_range, feature_size)
+        joined_feature = HFO_Feature(channel_names, start_end, total_HFO, total_spindle, np.array([]), "Joined", sample_freq, freq_range, time_range, feature_size)
+        return (joined_feature.channel_names, joined_feature.start_end, joined_feature)
