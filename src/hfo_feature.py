@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 class HFO_Feature():
-    def __init__(self, channel_names, start_end, num_HFO, num_spindle, features = [], HFO_type = "STE", sample_freq = 2000, freq_range = [10, 500], time_range = [0, 1000], feature_size = 224):
+    def __init__(self, channel_names, start_end, features = [], HFO_type = "STE", sample_freq = 2000, freq_range = [10, 500], time_range = [0, 1000], feature_size = 224, num_HFO = 0, num_spindle = 0):
         self.channel_names = channel_names
         
         try:
@@ -44,14 +44,16 @@ class HFO_Feature():
         Construct HFO_Feature object from detector output
         '''
 
-        if HFO_type.lower() == "spindle" or HFO_type.lower() == "spike":
-            return HFO_Feature(channel_names, start_end, 0, len(start_end), np.array([]), HFO_type, sample_freq, freq_range, time_range, feature_size)
+        if HFO_type.lower() == "spindle":
+            return HFO_Feature(channel_names, start_end, np.array([]), HFO_type, sample_freq, freq_range, time_range, feature_size, num_HFO = 0, num_spindle = len(start_end))
+        if HFO_type.lower() == "spike":
+            return HFO_Feature(channel_names, start_end, np.array([]), HFO_type, sample_freq, freq_range, time_range, feature_size, num_HFO = 0, num_spindle = 0)
         
         # if output is from STE or MNI detector, need operations to flatten the result
         channel_names = np.concatenate([[channel_names[i]]*len(start_end[i]) for i in range(len(channel_names))])
         start_end = [start_end[i] for i in range(len(start_end)) if len(start_end[i])>0]
         start_end = np.concatenate(start_end) if len(start_end) > 0 else np.array([])
-        return HFO_Feature(channel_names, start_end, len(start_end), 0, np.array([]), HFO_type, sample_freq, freq_range, time_range, feature_size)
+        return HFO_Feature(channel_names, start_end, np.array([]), HFO_type, sample_freq, freq_range, time_range, feature_size,  num_HFO = len(start_end), num_spindle = 0)
     
     def get_num_HFO(self):
         return self.num_HFO
@@ -300,9 +302,10 @@ class HFO_Feature():
 
     @staticmethod
     def join_features(feature1, feature2, channel_names):
-        if feature1 is None and feature2 is not None: return (feature2.channel_names, feature2.start_end, feature2)
-        elif feature2 is None: return (feature1.channel_names, feature1.start_end, feature1)
-        if len(feature1.channel_names) == len(feature2.channel_names) == 0: return
+        if feature1 is None and feature2 is not None: return (feature2.start_end, feature2)
+        elif feature2 is None: return (feature1.start_end, feature1)
+        if len(feature1.channel_names) == len(feature2.channel_names) == 0: 
+            return ([], [])
         print(f'Joining {feature1.HFO_type} and {feature2.HFO_type} detection')
         
         channel_key = {string: index for index, string in enumerate(channel_names)}
@@ -334,5 +337,5 @@ class HFO_Feature():
         total_HFO = feature1.num_HFO + feature2.num_HFO
         total_spindle = feature1.num_spindle + feature2.num_spindle
         print(f'Joined {feature1.HFO_type} and {feature2.HFO_type} features')
-        joined_feature = HFO_Feature(channel_names, start_end, total_HFO, total_spindle, np.array([]), "Joined", sample_freq, freq_range, time_range, feature_size)
-        return (joined_feature.channel_names, joined_feature.start_end, joined_feature)
+        joined_feature = HFO_Feature(channel_names, start_end, np.array([]), "Joined", sample_freq, freq_range, time_range, feature_size, total_HFO, total_spindle)
+        return (joined_feature.start_end, joined_feature)

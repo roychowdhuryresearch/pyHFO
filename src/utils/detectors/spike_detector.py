@@ -79,6 +79,8 @@ class SpikeDetector(object):
                 len(data),
             )
 
+            start, end = int(start), int(end)
+
             signal = data[start:end]
             if not signal.any():
                 continue
@@ -252,8 +254,8 @@ class SpikeDetector(object):
             # np.concatenate(waveform, axis=0),
             # np.concatenate(starts),
             # np.concatenate(ends),
+            np.concatenate(channels),
             spikes,
-            np.concatenate(channels)
             # np.concatenate(window_starts),
             # np.concatenate(window_ends),
             # np.concatenate(thresholds),

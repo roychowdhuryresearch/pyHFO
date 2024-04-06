@@ -252,9 +252,9 @@ class HFO_App(object):
         elif (self.param_detector.detector_type.lower() == "spike"):
             print("Detecting Spikes...")
 
-        self.channel_names, self.HFOs = self.detector.detect_multi_channels(self.filter_data, self.channel_names, filtered=True)
-        new_features = HFO_Feature.construct(self.channel_names, self.HFOs, self.param_detector.detector_type, self.sample_freq)
-        self.channel_names, self.HFOs, self.hfo_features = HFO_Feature.join_features(self.hfo_features, new_features, self.channel_names)
+        ch_names, self.HFOs = self.detector.detect_multi_channels(self.filter_data, self.channel_names, filtered=True)
+        new_features = HFO_Feature.construct(ch_names, self.HFOs, self.param_detector.detector_type, self.sample_freq)
+        self.HFOs, self.hfo_features = HFO_Feature.join_features(self.hfo_features, new_features, self.channel_names)
 
         self.detected = True
 

@@ -30,7 +30,7 @@ class SpindleDetector:
 
     def detect_multi_channels(self, filter_data, channel_names, filtered=True):
         detection = spindles_detect(
-            filter_data,
+            data=filter_data,
             sf=self.sf,
             ch_names=channel_names,
             hypno=self.hypno,
@@ -44,13 +44,18 @@ class SpindleDetector:
             remove_outliers=self.remove_outliers,
             verbose=self.verbose,
         )
-        if detection is None:
+        if not detection:
             print("No spindles detected")
-            return [], np.array()
+            return [], np.array([])
         result = detection.summary()
-        # each spindles are represented by a list, which is an interval [start, end]
+        # print("start shape:", result.Start.shape)
+        # print("end shape:", result.End.shape)
+        # each spindle is represented by a list, which is an interval [start, end]
         spindles = np.concatenate(
-            (result.Start * self.sf, result.End * self.sf), axis=1
-        ).values
+            (np.array(result.Start)[:, np.newaxis] * self.sf, np.array(result.End)[:, np.newaxis] * self.sf), axis=1
+        )
+        # spindles = np.concatenate(
+        #     (result.Start * self.sf, result.End * self.sf)
+        # )
         channel_names_result = result.Channel.values
         return channel_names_result, spindles

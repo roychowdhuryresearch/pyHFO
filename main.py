@@ -504,6 +504,8 @@ class HFOMainWindow(QMainWindow):
     def filtering_complete(self):
         self.message_handler("Filtering COMPLETE!")
 
+        self.overview_filter_button.setEnabled(True)
+
         self.hfo_app.print_filter()
 
         filter_60 = self.Filter60Button.isChecked()
@@ -558,6 +560,7 @@ class HFOMainWindow(QMainWindow):
             msg.setWindowTitle("Filter Construction Error")
             msg.exec_()
             return
+        self.overview_filter_button.setEnabled(False)
         worker = Worker(self._filter)
         worker.signals.finished.connect(self.filtering_complete)
         self.threadpool.start(worker)
@@ -732,19 +735,19 @@ class HFOMainWindow(QMainWindow):
         try:
             param_dict = {
                 "sample_freq": 2000,
-                "pass_band": fq_pass,
-                "stop_band": fq_stop,  # these are placeholder params, will be updated later (but not for spindles)
+                "pass_band": float(fq_pass),
+                "stop_band": float(fq_stop),  # these are placeholder params, will be updated later (but not for spindles)
                 "hypno": None,
                 "include": (1, 2, 3),
-                "freq_sp": (fq_pass, fq_stop),
-                "freq_broad": (broad_pass, broad_stop),
-                "duration": (duration_min, duration_max),
-                "min_distance": min_distance,
-                "thresh": {"corr": corr, "rel_pow": rel_pow, "rms": rms},
+                "freq_sp": (float(fq_pass), float(fq_stop)),
+                "freq_broad": (float(broad_pass), float(broad_stop)),
+                "duration": (float(duration_min), float(duration_max)),
+                "min_distance": float(min_distance),
+                "thresh": {"corr": float(corr), "rel_pow": float(rel_pow), "rms": float(rms)},
                 "multi_only": multi_only,
                 "remove_outliers": remove_outliers,
                 "verbose": verbose,
-                "n_jobs": self.hfo_app.n_jobs,
+                "n_jobs": int(self.hfo_app.n_jobs),
             }
             # param_dict = self.round_dict(param_dict, 3)
             detector_params = {"detector_type": "Spindle", "detector_param": param_dict}
@@ -1045,7 +1048,7 @@ class HFOMainWindow(QMainWindow):
             + str(num_spike)
             + "\n Number of real HFOs: "
             + str(num_real)
-            + "\n Number of Spindles: "
+            + "\n Number of spindles: "
             + str(num_spindles)
         )
 
