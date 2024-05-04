@@ -50,6 +50,7 @@ class ChannelSelectionWindow(QtWidgets.QDialog):
         #disable horizontal scroll bar
         self.scroll_area.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.set_channels()
+        
         #add ok and cancel buttons
         self.ok_button = QtWidgets.QPushButton("OK")
         self.cancel_button = QtWidgets.QPushButton("Cancel")
