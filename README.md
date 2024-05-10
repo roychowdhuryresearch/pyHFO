@@ -9,7 +9,7 @@ PyHFO is a multi-window desktop application providing an integrated and user-fri
 If you find our project is useful in your research, please cite:
 
 ```
-Zhang Y, Liu L, Ding Y, Chen X, Monsoor T, Daida A, Oana S, Hussain SA, Sankar R, Fallah A, Engel Jr J, Staba RJ, Speier W, Zhang J, Nariai H, Roychowdhury V. PyHFO: Lightweight Deep Learning-powered End-to-End High-Frequency Oscillations Analysis Application. bioRxiv. 2023;2023.08.25.554741.
+Zhang, Y., Liu, L., Ding, Y., Chen, X., Monsoor, T., Daida, A., Oana, S., Hussain, S. A., Sankar, R., Fallah, A., Santana-Gomez, C., Engel, J., Staba, R. J., Speier, W., Zhang, J., Nariai, H., & Roychowdhury, V. (2024). PyHFO: lightweight deep learning-powered end-to-end high-frequency oscillations analysis application. Journal of neural engineering, 10.1088/1741-2552/ad4916. Advance online publication. https://doi.org/10.1088/1741-2552/ad4916
 ```
 
 ## Related Projects
