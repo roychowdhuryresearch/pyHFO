@@ -28,23 +28,13 @@ class ChannelSelectionWindow(QtWidgets.QDialog):
         self.setWindowTitle("Channel Selection")
         self.setWindowIcon(QtGui.QIcon(os.path.join(ROOT_DIR, 'images/icon1.png')))
         self.setLayout(self.layout)
-
-        # add select none and select all buttons
-        self.check_box_none = QtWidgets.QCheckBox('Select None')
-        self.check_box_all = QtWidgets.QCheckBox('Select All')
-        self.check_box_none.setCheckState(Qt.Unchecked)
-        self.check_box_all.setCheckState(Qt.Checked)
-        self.check_box_none.stateChanged.connect(lambda: self.select_channels(False))
-        self.check_box_all.stateChanged.connect(lambda: self.select_channels(True))
-        self.layout.addWidget(self.check_box_none, 0, 0)
-        self.layout.addWidget(self.check_box_all, 0, 1)
         
         #create the rest of the checkboxes in a scroll area
         self.scroll_area = QtWidgets.QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setWidget(QtWidgets.QWidget())
         # self.scroll_area.setFixedHeight(300)
-        self.layout.addWidget(self.scroll_area, 1, 0, 1, 2)
+        self.layout.addWidget(self.scroll_area, 0, 0, 1, 2)
         self.scroll_layout = QGridLayout()
         self.scroll_area.widget().setLayout(self.scroll_layout)
         #disable horizontal scroll bar
@@ -54,8 +44,8 @@ class ChannelSelectionWindow(QtWidgets.QDialog):
         #add ok and cancel buttons
         self.ok_button = QtWidgets.QPushButton("OK")
         self.cancel_button = QtWidgets.QPushButton("Cancel")
-        self.layout.addWidget(self.ok_button, 2, 0)
-        self.layout.addWidget(self.cancel_button, 2, 1)
+        self.layout.addWidget(self.ok_button, 1, 0)
+        self.layout.addWidget(self.cancel_button, 1, 1)
 
         #connect cancel button to close window
         self.cancel_button.clicked.connect(self.close)
@@ -72,6 +62,15 @@ class ChannelSelectionWindow(QtWidgets.QDialog):
         self.n_channels = len(channels)
         self.channels = channels
         # TODO group checkbox
+        # add select none and select all buttons
+        self.check_box_none = QtWidgets.QCheckBox('Select None')
+        self.check_box_all = QtWidgets.QCheckBox('Select All')
+        self.check_box_none.setCheckState(Qt.Unchecked)
+        self.check_box_all.setCheckState(Qt.Checked)
+        self.check_box_none.stateChanged.connect(lambda: self.select_channels(False))
+        self.check_box_all.stateChanged.connect(lambda: self.select_channels(True))
+        self.scroll_layout.addWidget(self.check_box_none, 0, 0)
+        self.scroll_layout.addWidget(self.check_box_all, 0, 1)
         for i,channel in enumerate(channels):
             # print(channel)
             #add checkbox
@@ -82,12 +81,12 @@ class ChannelSelectionWindow(QtWidgets.QDialog):
             checkbox.stateChanged.connect(self.channel_clicked)
             # checkbox.setChecked(True)
             self.scroll_layout.addWidget(QtWidgets.QCheckBox(f"{channel}, amplitude: {round(np.ptp(eeg_data[i]),3)} uV"),
-                                  i//2, i % 2)
+                                  i//2 + 1, i % 2)
 
         for i in range(self.n_channels):
             if i in channels_indexes_to_plot:
-                self.scroll_layout.itemAtPosition(i//2,i%2).widget().setChecked(True)
-                self.scroll_layout.itemAtPosition(i // 2, i % 2).widget().stateChanged.connect(self.check_channel_state)
+                self.scroll_layout.itemAtPosition(i//2 +1 ,i%2).widget().setChecked(True)
+                self.scroll_layout.itemAtPosition(i // 2 + 1, i % 2).widget().stateChanged.connect(self.check_channel_state)
    
     def channel_clicked(self):
         #print("clicked")
@@ -95,13 +94,13 @@ class ChannelSelectionWindow(QtWidgets.QDialog):
     
     def select_channels(self, state):
         for i in range(self.n_channels):
-            self.layout.itemAtPosition(1+i//2, i % 2).widget().blockSignals(True)
-            self.layout.itemAtPosition(1+i//2, i % 2).widget().setChecked(state)
-            self.layout.itemAtPosition(1 + i // 2, i % 2).widget().blockSignals(False)
+            self.scroll_layout.itemAtPosition(1+i//2, i % 2).widget().blockSignals(True)
+            self.scroll_layout.itemAtPosition(1+i//2, i % 2).widget().setChecked(state)
+            self.scroll_layout.itemAtPosition(1 + i // 2, i % 2).widget().blockSignals(False)
         self.check_channel_state()
 
     def check_channel_state(self):
-        states = [self.layout.itemAtPosition(1+i//2, i % 2).widget().isChecked() for i in range(self.n_channels)]
+        states = [self.scroll_layout.itemAtPosition(1+i//2, i % 2).widget().isChecked() for i in range(self.n_channels)]
         self.check_box_none.blockSignals(True)
         self.check_box_all.blockSignals(True)
         self.check_box_none.setCheckState(Qt.Unchecked if not any(states) else Qt.PartiallyChecked)
@@ -113,7 +112,7 @@ class ChannelSelectionWindow(QtWidgets.QDialog):
         channels_to_show = []
 
         for i in range(self.n_channels):
-            if self.layout.itemAtPosition(1+i//2,i%2).widget().isChecked():
+            if self.scroll_layout.itemAtPosition(1+i//2,i%2).widget().isChecked():
                 channels_to_show.append(self.channels[i])
         
         if self.main_window is not None:

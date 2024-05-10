@@ -3,14 +3,22 @@ import pandas as pd
 class HFO_Feature():
     def __init__(self, channel_names, interval, features = [], HFO_type = "STE", sample_freq = 2000, freq_range = [10, 500], time_range = [0, 1000], feature_size = 224):
         self.channel_names = channel_names
-        self.starts = interval[:, 0]
-        self.ends = interval[:, 1]
-        self.features = features
-        self.artifact_predictions = np.zeros(self.starts.shape)
-        self.spike_predictions = []
-        self.artifact_annotations = np.zeros(self.starts.shape)
-        self.spike_annotations = np.zeros(self.starts.shape)
-        self.annotated = np.zeros(self.starts.shape)
+        if interval.size == 0:
+            self.starts = np.array([])
+            self.ends = np.array([])
+            self.artifact_predictions = np.array([])
+            self.artifact_annotations = np.array([])
+            self.spike_annotations = np.array([])
+            self.annotated = np.array([])
+        else:
+            self.starts = interval[:, 0]
+            self.ends = interval[:, 1]
+            self.features = features
+            self.artifact_predictions = np.zeros(self.starts.shape)
+            self.spike_predictions = []
+            self.artifact_annotations = np.zeros(self.starts.shape)
+            self.spike_annotations = np.zeros(self.starts.shape)
+            self.annotated = np.zeros(self.starts.shape)
         self.HFO_type = HFO_type
         self.sample_freq = sample_freq
         self.feature_size = 0
