@@ -91,7 +91,7 @@ class PlotWaveform(QtWidgets.QGraphicsView):
         self.waveform_display.getPlotItem().showAxis('bottom')
         self.waveform_display.getPlotItem().showAxis('left')
         # print(self.plot_loc.x(),self.plot_loc.y(),self.plot_loc.width(),self.plot_loc.height())
-
+      
     def init_hfo_display(self):
         # print("init hfo display")
         self.hfo_display.getPlotItem().showAxis('bottom')
@@ -183,12 +183,35 @@ class PlotWaveform(QtWidgets.QGraphicsView):
             eeg_data_to_display = (eeg_data_to_display-eeg_data_to_display.min(axis = 1,keepdims = True))
             eeg_data_to_display = eeg_data_to_display/np.max(eeg_data_to_display)
         else:
-            eeg_data_to_display = (eeg_data_to_display-eeg_data_to_display.min(axis = 1,keepdims = True))/(np.ptp(eeg_data_to_display,axis = 1,keepdims = True))
-            #replace nans with 0
-            eeg_data_to_display[np.isnan(eeg_data_to_display)] = 0
+            # eeg_data_to_display = (eeg_data_to_display-eeg_data_to_display.min(axis = 1,keepdims = True))/(np.ptp(eeg_data_to_display,axis = 1,keepdims = True))
+
+            # standardized signal by channel
+            # means = np.mean(eeg_data_to_display, axis=1, keepdims=True)
+            # stds = np.std(eeg_data_to_display, axis=1, keepdims=True)
+            if self.filtered:
+                means = np.mean(eeg_data_to_display)
+                stds = np.ptp(eeg_data_to_display)
+                eeg_data_to_display = (eeg_data_to_display - means) / stds
+                eeg_data_to_display[np.isnan(eeg_data_to_display)] = 0
+            else:
+                # standardized signal globally
+                means = np.mean(eeg_data_to_display)
+                stds = np.std(eeg_data_to_display)
+                eeg_data_to_display = (eeg_data_to_display - means) / stds
+                #replace nans with 0
+                eeg_data_to_display[np.isnan(eeg_data_to_display)] = 0
         #shift the ith channel by 1.1*i
-        eeg_data_to_display = eeg_data_to_display-1.1*np.arange(eeg_data_to_display.shape[0])[:,None]
-        
+        # eeg_data_to_display = eeg_data_to_display-1.1*np.arange(eeg_data_to_display.shape[0])[:,None]
+        if self.filtered:
+            # Add scale indicators
+            # Set the length of the scale lines
+            y_100_length = 50  # 100 microvolts
+            offset_value = 1
+            y_scale_length = y_100_length / stds
+        else:
+            y_100_length = 100  # 100 microvolts
+            offset_value = 6
+            y_scale_length = y_100_length / stds
         time_to_display = self.time[int(t_start*self.sample_freq):int(t_end*self.sample_freq)]
         top_value=eeg_data_to_display[first_channel_to_plot].max()
         # print("top value:",top_value)
@@ -197,8 +220,8 @@ class PlotWaveform(QtWidgets.QGraphicsView):
         # print("channel means",np.mean(eeg_data_to_display,axis = 1))
         for i in range(first_channel_to_plot,first_channel_to_plot+self.n_channels_to_plot):
             channel = self.channels_to_plot[i]
-            self.waveform_display.plot(time_to_display,eeg_data_to_display[i],pen = pg.mkPen(color = self.waveform_color,
-                                                                                    width=0.5))
+
+            self.waveform_display.plot(time_to_display, eeg_data_to_display[i] - i*offset_value, pen=pg.mkPen(color=self.waveform_color, width=0.5))
             if self.plot_HFOs:
                 starts, ends, artifacts, spikes = self.backend.hfo_features.get_HFOs_for_channel(channel,int(t_start*self.sample_freq),int(t_end*self.sample_freq))
                 # print("channel:", channel, starts,ends, artifacts, spikes)
@@ -217,7 +240,8 @@ class PlotWaveform(QtWidgets.QGraphicsView):
                         color = self.HFO_color
                         name="HFO"
                     # print(time_to_display[starts[j]:ends[j]])
-                    self.waveform_display.plot(self.time[int(starts[j]):int(ends[j])],eeg_data_to_display[i,int(starts[j])-int(t_start*self.sample_freq):int(ends[j])-int(t_start*self.sample_freq)],
+                    self.waveform_display.plot(self.time[int(starts[j]):int(ends[j])],
+                                               eeg_data_to_display[i,int(starts[j])-int(t_start*self.sample_freq):int(ends[j])-int(t_start*self.sample_freq)]-i*offset_value,
                                                pen = pg.mkPen(color = color,width=2))
                     # print("plotting",self.time[int(starts[j])],self.time[int(ends[j])],"name:",name,"channel:",channel)
                     # print(starts[j],ends[j])
@@ -254,9 +278,32 @@ class PlotWaveform(QtWidgets.QGraphicsView):
                         top_value, top_value
                     ], pen=pg.mkPen(color=color, width=5))
 
+        # Determine the position for the scale indicator (bottom right corner of the plot)
+        x_pos = t_end #+ 0.15
+        # y_pos = top_value - 0.1 * (top_value - np.min(eeg_data_to_display))  # Adjust as needed
+        y_pos = np.min(eeg_data_to_display[-1]) - self.n_channels_to_plot * offset_value + 0.8 * offset_value
+
+        # # Draw the x and y scale lines
+        # self.waveform_display.plot([x_pos, x_pos], [y_pos, y_pos + y_scale_length], pen=pg.mkPen('black', width=2))
+
+        # # Add text annotations for the scale lines
+        # text_item = pg.TextItem(f'{y_100_length} μV', color='black', anchor=(1, 0.5))
+        # text_item.setPos(x_pos, y_pos + y_scale_length / 2)
+        # self.waveform_display.addItem(text_item)
+
+        # Use a dashed line for the scale
+        scale_line = pg.PlotDataItem([x_pos, x_pos], [y_pos, y_pos + y_scale_length],
+                             pen=pg.mkPen('black', width=10), fill=(0, 128, 255, 150)) 
+        self.waveform_display.addItem(scale_line)
+        
+        text_item = pg.TextItem(f'Scale: {y_100_length} μV ', color='black', anchor=(1, 0.5))
+        text_item.setFont(QtGui.QFont('Arial', 10, QtGui.QFont.Bold))
+        text_item.setPos(x_pos, y_pos + y_scale_length / 2)
+        self.waveform_display.addItem(text_item)
+
         # print("time to plot:",time.time()-start_time)
         #set y ticks to channel names
-        channel_names_locs = -1.1*np.arange(eeg_data_to_display.shape[0])[:, None]+1.1/2
+        channel_names_locs = -offset_value * np.arange(eeg_data_to_display.shape[0])[:, None] # + offset_value/2
         self.waveform_display.getAxis('left').setTicks([[(channel_names_locs[i], self.channels_to_plot[i])
                  for i in range(first_channel_to_plot,first_channel_to_plot+self.n_channels_to_plot)]])
         #set the max and min of the x axis
