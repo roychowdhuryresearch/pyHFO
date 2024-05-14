@@ -10,15 +10,23 @@ import sys
 import os
 sys.setrecursionlimit(1500)
 APP = ['main.py']
-DATA_FILES = []
-for folder in ['src', 'ckpt']:
+DATA_FILES = [] 
+# for folder in ['src', 'ckpt']:
+#     for root, dirs, files in os.walk(folder):
+#         for file in files:
+#             DATA_FILES.append((root, [os.path.join(root, file)]))
+    
+directories_to_include = ['src', 'sckpt']
+for folder in directories_to_include:
     for root, dirs, files in os.walk(folder):
-        for file in files:
-            DATA_FILES.append((root, [os.path.join(root, file)]))
+        file_paths = [os.path.join(root, file) for file in files]
+        DATA_FILES.append((root, file_paths))
+        
 print(DATA_FILES)
 
 OPTIONS = {
-    'argv_emulation': False,
+    'argv_emulation': True,
+    'resources': ['ckpt/model_a.tar'],
     'iconfile': 'src/ui/images/icon1.icns',
     'packages': [
         'matplotlib',
@@ -27,19 +35,93 @@ OPTIONS = {
         'p_tqdm',
         'pandas',
         'openpyxl',
-        'pyqt5',  # Uncomment this if PyQt5 is a dependency
-        #'PyQt5_sip',
+        'PyQt5',  # Uncomment this if PyQt5 is a dependency
+        'PyQt5',
         'pyqtgraph',
         'scipy',
-        #'scikit-image',
-        # 'torch',
-        # 'torchvision',
-        'xy'
-        "chardet",
+        'skimage',
+        'torch',
+        'torchvision',
+        # 'xy',
+        # "chardet",
         'tqdm',
-        'ctypes'
+        'ctypes',
+        'HFODetector',
+        'altgraph', 
+        'certifi',
+        'charset_normalizer',
+        'contourpy',
+        'cycler',
+        'decorator', 
+        'dill',
+        'et_xmlfile',
+        'filelock',
+        # 'fonttools',
+        'fsspec',
+        'idna',
+        'imageio',
+        'jinja2',
+        'kiwisolver',
+        'lazy_loader',
+        'macholib',
+        'markupsafe',
+        'matplotlib',
+        'mne',
+        'modulegraph',
+        'mpmath',
+        'multiprocess',
+        'networkx',
+        'numpy',
+        'openpyxl',
+        'p_tqdm',
+        'packaging',
+        'pandas',
+        'pathos',
+        'PIL',
+        'platformdirs',
+        'pooch',
+        'pox',
+        'ppft',
+        'py2app',
+        'pyparsing',
+        'PyQt5',
+        'pyqtgraph',
+        'dateutil',
+        'pytz',
+        'requests',
+        'skimage',
+        'scipy',
+        'setuptools',
+        'six',
+        'sympy',
+        'tifffile',
+        'torch',
+        'torchvision',
+        'torchvision.ops',
+        'tqdm',
+        'typing_extensions',
+        'tzdata',
+        'urllib3',
+        'wheel'
     ],
-    'includes': ['liblzma'],
+    'includes': [
+        # 'liblzma', 
+        'matplotlib',
+        'mne',
+        'numpy',
+        'p_tqdm',
+        'pandas',
+        'openpyxl',
+        'PyQt5',  # Uncomment this if PyQt5 is a dependency
+        'pyqtgraph',
+        'scipy',
+        'skimage',
+        'torch',
+        'torchvision',
+         'tqdm']
+        # 'xy',
+        # "chardet",
+        # 'ctypes']
     #'frameworks': ['/Users/yipengzhang/miniconda3/lib/liblzma.5.dylib'],
 }
 
