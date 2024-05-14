@@ -20,7 +20,7 @@ ROOT_DIR = Path(__file__).parent
 
 class ChannelSelectionWindow(QtWidgets.QDialog):
     def __init__(self, hfo_app=None, main_window=None, close_signal = None):
-        super(ChannelSelectionWindow, self).__init__()
+        super(ChannelSelectionWindow, self).__init__(main_window)
         
         self.hfo_app = hfo_app
         self.main_window = main_window
@@ -54,6 +54,8 @@ class ChannelSelectionWindow(QtWidgets.QDialog):
         
         self.close_signal = close_signal
         self.close_signal.connect(self.close_me)
+        
+        self.setWindowModality(QtCore.Qt.ApplicationModal)  # Set as modal dialog
 
     def set_channels(self):
         eeg_data,channels = self.hfo_app.get_eeg_data()
