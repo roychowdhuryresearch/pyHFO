@@ -10,7 +10,7 @@ a = Analysis(
     binaries=[],
     datas=[("C:\\Users\\Lawrence\\anaconda3\\envs\\pyHFO\\Lib\\site-packages\\mne", "mne"),
             ('C:\\Users\\Lawrence\\anaconda3\\envs\\pyHFO\\Lib\\site-packages\\torch', "torch"),
-            ('C:\\Users\\Lawrpience\\anaconda3\\envs\\pyHFO\\Lib\\site-packages\\torchvision', "torchvision"),
+            ('C:\\Users\\Lawrence\\anaconda3\\envs\\pyHFO\\Lib\\site-packages\\torchvision', "torchvision"),
             ('src','src'),
             ('ckpt','ckpt')],
     hiddenimports=[],
