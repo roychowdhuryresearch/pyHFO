@@ -25,7 +25,7 @@ Zhang, Y., Liu, L., Ding, Y., Chen, X., Monsoor, T., Daida, A., Oana, S., Hussai
 
 You can download the latest version of PyHFO from the [releases](https://github.com/roychowdhuryresearch/pyHFO/releases) page.
 
-If you choose to use the macOS version of the distributable application, please follow these additional steps:
+If you choose to use the **macOS version** of the standalone distributable application, please follow these additional steps:
 
 1. **Download and unzip** the `.zip` file.
 2. You will get a file named `pyHFO.dmg`.
