@@ -24,6 +24,7 @@ Zhang, Y., Liu, L., Ding, Y., Chen, X., Monsoor, T., Daida, A., Oana, S., Hussai
 ## Installation
 
 You can download the latest version of PyHFO from the [releases](https://github.com/roychowdhuryresearch/pyHFO/releases) page.
+xattr -cr pyHFO.dmg
 
 You can also install it from the source code:
 
