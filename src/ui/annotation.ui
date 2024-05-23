@@ -28,7 +28,34 @@
         <item row="3" column="0">
          <layout class="QHBoxLayout" name="FFT_layout"/>
         </item>
+
         <item row="6" column="0">
+         <widget class="QComboBox" name="IntervalDropdownBox">
+          <property name="font">
+           <font>
+            <family>Arial</family>
+            <pointsize>9</pointsize>
+           </font>
+          </property>
+          <item>
+           <property name="text">
+            <string>1s</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>0.5s</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>0.25s</string>
+           </property>
+          </item>
+         </widget>
+        </item>
+
+        <item row="7" column="0">
          <layout class="QHBoxLayout" name="horizontalLayout_2">
           <item>
            <widget class="QPushButton" name="Accept">
@@ -105,6 +132,7 @@
           </item>
          </widget>
         </item>
+
         <item row="2" column="0">
          <layout class="QHBoxLayout" name="FFT_layout_2"/>
         </item>

@@ -48,10 +48,9 @@ ROOT_DIR = Path(__file__).parent
 
 class HFOAnnotation(QtWidgets.QMainWindow):
     def __init__(self, hfo_app=None, main_window=None, close_signal=None):
-        super(HFOAnnotation, self).__init__()
+        super(HFOAnnotation, self).__init__(main_window)
         print("initializing HFOAnnotation")
         self.hfo_app = hfo_app
-        self.time = np.arange(0, self.hfo_app.get_eeg_data_shape()[1]) / self.hfo_app.get_sample_freq()
         self.ui = uic.loadUi(os.path.join(ROOT_DIR, 'annotation.ui'), self)
         self.setWindowTitle("HFO Annotator")
         self.setWindowIcon(QtGui.QIcon(os.path.join(ROOT_DIR, 'src/ui/images/icon.png')))
@@ -61,57 +60,74 @@ class HFOAnnotation(QtWidgets.QMainWindow):
         self.PreviousButton.clicked.connect(self.plot_prev)
         self.NextButton.clicked.connect(self.plot_next)
         self.Accept.clicked.connect(self.update_button_clicked)
+        
+        self.IntervalDropdownBox.currentIndexChanged.connect(self.update_interval)  # Connect the interval dropdown box
         # create the main waveform plot which we want to embed in VisulaizationVerticalLayout
         self.waveform_plot = AnnotationPlot(hfo_app=self.hfo_app)
         self.VisulaizationVerticalLayout.addWidget(self.waveform_plot)
 
         self.fft_plot = FFTPlot(hfo_app=self.hfo_app)
         self.FFT_layout.addWidget(self.fft_plot)
-        #
 
-        # if not self.hfo_app.hfo_features.has_prediction():
-        #     self.hfo_app.hfo_features.generate_psedo_label()
         channel, start, end = self.hfo_app.hfo_features.get_current()
-        self.waveform_plot.plot(start, end, channel)
-        self.fft_plot.plot(start, end, channel)
+        self.waveform_plot.plot(start, end, channel, interval=1.0)  # Default interval
+        self.fft_plot.plot(start, end, channel, interval=1.0)  # Default interval
         self.init_annotation_dropdown()
         self.update_infos()
         self.setInitialSize()
-
+        
+        self.setWindowModality(QtCore.Qt.ApplicationModal)  # Set as modal dialog
+    
     def setInitialSize(self):
         # Getting screen resolution of your monitor
         screen = QApplication.primaryScreen()
         rect = screen.availableGeometry()
 
         # Calculating the window size as a fraction of the screen size
-        width = rect.width() * 0.6  # 80% of the screen width
-        height = rect.height() * 0.6  # 80% of the screen height
+        width = rect.width() * 0.6  # 60% of the screen width
+        height = rect.height() * 0.6  # 60% of the screen height
         width = int(width)
         height = int(height)
         # Setting the initial size and fixing it
         self.setGeometry(100, 100, width, height)
         self.setFixedSize(QSize(width, height))
-
+    
+    def get_current_interval(self):
+        interval_text = self.IntervalDropdownBox.currentText()
+        try:
+            return float(interval_text.rstrip('s'))
+        except (ValueError, AttributeError):
+            return 1.0  # Default interval
+        
     def plot_prev(self):
         # start, end: index of the prev hfo
         channel, start, end = self.hfo_app.hfo_features.get_prev()
-        self.waveform_plot.plot(start, end, channel)
-        self.fft_plot.plot(start, end, channel)
+        interval = self.get_current_interval()
+        # interval = float(self.IntervalDropdownBox.currentText().rstrip('s'))  # Get the current interval
+        self.waveform_plot.plot(start, end, channel, interval=interval)
+        self.fft_plot.plot(start, end, channel, interval=interval)
         self.update_infos()
 
     def plot_next(self):
         # start, end: index of the next hfo
         channel, start, end = self.hfo_app.hfo_features.get_next()
-        self.waveform_plot.plot(start, end, channel)
-        self.fft_plot.plot(start, end, channel)
+        interval = self.get_current_interval()
+        # interval = float(self.IntervalDropdownBox.currentText().rstrip('s'))  # Get the current interval
+        self.waveform_plot.plot(start, end, channel, interval=interval)
+        self.fft_plot.plot(start, end, channel, interval=interval)
         self.update_infos()
 
     def plot_jump(self):
         selected_index = self.AnotationDropdownBox.currentIndex()
         # start, end: index of the next hfo
         channel, start, end = self.hfo_app.hfo_features.get_jump(selected_index)
-        self.waveform_plot.plot(start, end, channel)
-        self.fft_plot.plot(start, end, channel)
+        try:
+            interval = float(self.IntervalDropdownBox.currentText().rstrip('s'))
+        except (ValueError, AttributeError):
+            interval = 1.0  # Default interval
+        # interval = float(self.IntervalDropdownBox.currentText().rstrip('s'))  # Get the current interval
+        self.waveform_plot.plot(start, end, channel, interval=interval)
+        self.fft_plot.plot(start, end, channel, interval=interval)
         self.update_infos()
 
     def update_infos(self):
@@ -147,6 +163,14 @@ class HFOAnnotation(QtWidgets.QMainWindow):
             text = self.hfo_app.hfo_features.get_annotation_text(i)
             self.AnotationDropdownBox.addItem(text)
         self.AnotationDropdownBox.activated.connect(self.plot_jump)
+    
+    def update_interval(self):
+        interval = self.get_current_interval()
+        
+        # Update the plots to reflect the new interval
+        channel, start, end = self.hfo_app.hfo_features.get_current()
+        self.waveform_plot.plot(start, end, channel, interval=interval)
+        self.fft_plot.plot(start, end, channel, interval=interval)
 
 
 if __name__ == '__main__':
