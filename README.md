@@ -24,7 +24,17 @@ Zhang, Y., Liu, L., Ding, Y., Chen, X., Monsoor, T., Daida, A., Oana, S., Hussai
 ## Installation
 
 You can download the latest version of PyHFO from the [releases](https://github.com/roychowdhuryresearch/pyHFO/releases) page.
+
+If you choose to use the macOS version of the distributable application, please follow these additional steps:
+
+1. **Download and unzip** the `.zip` file.
+2. You will get a file named `pyHFO.dmg`.
+3. Navigate to the directory containing the `pyHFO.dmg` file.
+4. Open the terminal and run the following command to remove the quarantine attribute:
+
+```
 xattr -cr pyHFO.dmg
+```
 
 You can also install it from the source code:
 
