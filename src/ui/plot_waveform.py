@@ -50,6 +50,7 @@ class PlotWaveform(QtWidgets.QGraphicsView):
                          "non_spike":self.non_spike_color,"HFO":self.HFO_color}
         self.plot_HFOs = False
         self.normalize_vertical = False
+        self.stds = None
     
     def set_filtered(self,filtered:bool):
         self.filtered = filtered
@@ -190,14 +191,14 @@ class PlotWaveform(QtWidgets.QGraphicsView):
             # stds = np.std(eeg_data_to_display, axis=1, keepdims=True)
             if self.filtered:
                 means = np.mean(eeg_data_to_display)
-                stds = np.ptp(eeg_data_to_display)
-                eeg_data_to_display = (eeg_data_to_display - means) / stds
+                self.stds = np.ptp(eeg_data_to_display)
+                eeg_data_to_display = (eeg_data_to_display - means) / self.stds
                 eeg_data_to_display[np.isnan(eeg_data_to_display)] = 0
             else:
                 # standardized signal globally
                 means = np.mean(eeg_data_to_display)
-                stds = np.std(eeg_data_to_display)
-                eeg_data_to_display = (eeg_data_to_display - means) / stds
+                self.stds = np.std(eeg_data_to_display)
+                eeg_data_to_display = (eeg_data_to_display - means) / self.stds
                 #replace nans with 0
                 eeg_data_to_display[np.isnan(eeg_data_to_display)] = 0
         #shift the ith channel by 1.1*i
@@ -207,11 +208,11 @@ class PlotWaveform(QtWidgets.QGraphicsView):
             # Set the length of the scale lines
             y_100_length = 50  # 100 microvolts
             offset_value = 1
-            y_scale_length = y_100_length / stds
+            y_scale_length = y_100_length / self.stds
         else:
             y_100_length = 100  # 100 microvolts
             offset_value = 6
-            y_scale_length = y_100_length / stds
+            y_scale_length = y_100_length / self.stds
         time_to_display = self.time[int(t_start*self.sample_freq):int(t_end*self.sample_freq)]
         top_value=eeg_data_to_display[first_channel_to_plot].max()
         # print("top value:",top_value)
