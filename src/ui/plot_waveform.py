@@ -191,7 +191,7 @@ class PlotWaveform(QtWidgets.QGraphicsView):
             # stds = np.std(eeg_data_to_display, axis=1, keepdims=True)
             if self.filtered:
                 means = np.mean(eeg_data_to_display)
-                self.stds = np.ptp(eeg_data_to_display)
+                self.stds = np.std(eeg_data_to_display) * 2
                 eeg_data_to_display = (eeg_data_to_display - means) / self.stds
                 eeg_data_to_display[np.isnan(eeg_data_to_display)] = 0
             else:
@@ -207,7 +207,7 @@ class PlotWaveform(QtWidgets.QGraphicsView):
             # Add scale indicators
             # Set the length of the scale lines
             y_100_length = 50  # 100 microvolts
-            offset_value = 1
+            offset_value = 6
             y_scale_length = y_100_length / self.stds
         else:
             y_100_length = 100  # 100 microvolts
@@ -219,10 +219,10 @@ class PlotWaveform(QtWidgets.QGraphicsView):
         # bottom_value=eeg_data_to_display[-1].min()
         # print("bottom value:",bottom_value)
         # print("channel means",np.mean(eeg_data_to_display,axis = 1))
-        for i in range(first_channel_to_plot,first_channel_to_plot+self.n_channels_to_plot):
-            channel = self.channels_to_plot[i]
+        for disp_i, ch_i in enumerate(range(first_channel_to_plot,first_channel_to_plot+self.n_channels_to_plot)):
+            channel = self.channels_to_plot[ch_i]
 
-            self.waveform_display.plot(time_to_display, eeg_data_to_display[i] - i*offset_value, pen=pg.mkPen(color=self.waveform_color, width=0.5))
+            self.waveform_display.plot(time_to_display, eeg_data_to_display[ch_i] - disp_i*offset_value, pen=pg.mkPen(color=self.waveform_color, width=0.5))
             if self.plot_HFOs:
                 starts, ends, artifacts, spikes = self.backend.hfo_features.get_HFOs_for_channel(channel,int(t_start*self.sample_freq),int(t_end*self.sample_freq))
                 # print("channel:", channel, starts,ends, artifacts, spikes)
@@ -242,8 +242,8 @@ class PlotWaveform(QtWidgets.QGraphicsView):
                         name="HFO"
                     # print(time_to_display[starts[j]:ends[j]])
                     self.waveform_display.plot(self.time[int(starts[j]):int(ends[j])],
-                                               eeg_data_to_display[i,int(starts[j])-int(t_start*self.sample_freq):int(ends[j])-int(t_start*self.sample_freq)]-i*offset_value,
-                                               pen = pg.mkPen(color = color,width=2))
+                                               eeg_data_to_display[ch_i, int(starts[j])-int(t_start*self.sample_freq):int(ends[j])-int(t_start*self.sample_freq)]-disp_i*offset_value,
+                                               pen=pg.mkPen(color=color, width=2))
                     # print("plotting",self.time[int(starts[j])],self.time[int(ends[j])],"name:",name,"channel:",channel)
                     # print(starts[j],ends[j])
                     # print(eeg_data_to_display[i,int(starts[j]):int(ends[j])])
@@ -304,9 +304,11 @@ class PlotWaveform(QtWidgets.QGraphicsView):
 
         # print("time to plot:",time.time()-start_time)
         #set y ticks to channel names
-        channel_names_locs = -offset_value * np.arange(eeg_data_to_display.shape[0])[:, None] # + offset_value/2
-        self.waveform_display.getAxis('left').setTicks([[(channel_names_locs[i], self.channels_to_plot[i])
-                 for i in range(first_channel_to_plot,first_channel_to_plot+self.n_channels_to_plot)]])
+        # channel_names_locs = -offset_value * np.arange(eeg_data_to_display.shape[0])[:, None] # + offset_value/2
+        channel_names_locs = -offset_value * np.arange(self.n_channels_to_plot)[:, None]  # + offset_value/2
+
+        self.waveform_display.getAxis('left').setTicks([[(channel_names_locs[disp_i], self.channels_to_plot[chi_i])
+                 for disp_i, chi_i in enumerate(range(first_channel_to_plot,first_channel_to_plot+self.n_channels_to_plot))]])
         #set the max and min of the x axis
         self.waveform_display.setXRange(t_start,t_end)
 

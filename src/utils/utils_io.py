@@ -34,6 +34,9 @@ def dump_to_npz(data, fn):
     # import torch
     # torch.save(data, fn)
 
+def sort_filename(filename):
+    """Extract the numeric part of the filename and use it as the sort key"""
+    return [int(x) if x.isdigit() else x for x in re.findall(r'\d+|\D+', filename)]
 
 def sort_channel(channel_names):
     def get_key(item):
@@ -51,9 +54,9 @@ def sort_channel(channel_names):
                     return (2, letter, int(number), ref.lower())
                 else:
                     # If no match, return a high sort key to sort these items last
-                    return (3, channel)
+                    return (3, sort_filename(channel))
         except:
-            return (3, channel)
+            return (3, sort_filename(channel))
 
     sorted_channels = sorted(enumerate(channel_names), key=get_key)
     

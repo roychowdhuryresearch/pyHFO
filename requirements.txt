@@ -1,4 +1,4 @@
-HFODetector==0.0.21
+HFODetector==0.0.22
 matplotlib==3.7.1
 mne==1.4.2
 numpy==1.25.0
