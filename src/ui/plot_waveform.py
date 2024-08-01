@@ -14,14 +14,13 @@ curr_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.dirname(curr_dir))
 
 
-class PlotWaveform(QtWidgets.QGraphicsView):
+class CenterWaveformAndMiniPlotController():
     def __init__(self, plot_loc:pg.PlotWidget, hfo_loc:pg.PlotWidget, backend: HFO_App):
         super().__init__()
         self.hfo_display = hfo_loc
         self.hfo_display.setMouseEnabled(x=False, y=False)
         self.hfo_display.getPlotItem().hideAxis('bottom')
         self.hfo_display.getPlotItem().hideAxis('left')
-        self.hfo_loc = hfo_loc
         self.hfo_display.setBackground('w')
 
         self.waveform_display = plot_loc #pg.PlotWidget(plot_loc)

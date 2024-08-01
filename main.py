@@ -77,7 +77,7 @@ class HFOMainWindow(QMainWindow):
         self.widget.layout().addWidget(self.waveform_mini_widget, 1, 1)
         self.widget.layout().setRowStretch(0, 9)
         self.widget.layout().setRowStretch(1, 1)
-        self.waveform_plot = PlotWaveform(self.waveform_plot_widget, self.waveform_mini_widget, self.hfo_app)
+        self.waveform_plot = CenterWaveformAndMiniPlotController(self.waveform_plot_widget, self.waveform_mini_widget, self.hfo_app)
 
         ## top toolbar buttoms
         self.actionOpen_EDF_toolbar.triggered.connect(self.open_file)
