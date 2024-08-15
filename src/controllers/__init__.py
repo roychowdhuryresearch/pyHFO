@@ -1,0 +1,1 @@
+from mini_plot_controller import MiniPlotController

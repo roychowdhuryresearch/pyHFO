@@ -9,19 +9,14 @@ from tqdm import tqdm
 import os
 from src.hfo_app import HFO_App
 import random
+from src.controllers import MiniPlotController
 
 curr_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.dirname(curr_dir))
 
-
 class CenterWaveformAndMiniPlotController():
-    def __init__(self, plot_loc:pg.PlotWidget, hfo_loc:pg.PlotWidget, backend: HFO_App):
-        super().__init__()
-        self.hfo_display = hfo_loc
-        self.hfo_display.setMouseEnabled(x=False, y=False)
-        self.hfo_display.getPlotItem().hideAxis('bottom')
-        self.hfo_display.getPlotItem().hideAxis('left')
-        self.hfo_display.setBackground('w')
+    def __init__(self, plot_loc: pg.PlotWidget, mini_plot_widget: pg.PlotWidget, backend: HFO_App):
+        self.mini_plot_controller = MiniPlotController(mini_plot_widget, backend)
 
         self.waveform_display = plot_loc #pg.PlotWidget(plot_loc)
         # self.waveform_display.getPlotItem().getAxis('bottom').setHeight(10)
@@ -57,6 +52,7 @@ class CenterWaveformAndMiniPlotController():
 
     def update_backend(self,new_backend:HFO_App,init_eeg_data:bool=True):
         self.backend = new_backend
+        self.mini_plot_controller.update_backend(new_backend)
         if init_eeg_data:
             self.init_eeg_data()
 
@@ -71,7 +67,7 @@ class CenterWaveformAndMiniPlotController():
         # self.eeg_data = self.eeg_data-1.1*np.arange(self.eeg_data.shape[0])[:,None]
         self.filtered = False
         self.plot_HFOs = False
-        self.hfo_display.clear()
+        self.mini_plot_controller.clear()
         self.waveform_display.clear()
         eeg_data,self.channel_names=self.backend.get_eeg_data()
         ## print("eeg_data.shape",eeg_data.shape)
@@ -87,19 +83,11 @@ class CenterWaveformAndMiniPlotController():
         self.n_channels_to_plot = min(self.n_channels,self.n_channels_to_plot)
         self.channels_to_plot = self.channel_names.copy()
         self.channel_indices_to_plot = np.arange(self.n_channels)
-        self.init_hfo_display()
+        self.mini_plot_controller.init_hfo_display()
         self.waveform_display.getPlotItem().showAxis('bottom')
         self.waveform_display.getPlotItem().showAxis('left')
         # print(self.plot_loc.x(),self.plot_loc.y(),self.plot_loc.width(),self.plot_loc.height())
       
-    def init_hfo_display(self):
-        # print("init hfo display")
-        self.hfo_display.getPlotItem().showAxis('bottom')
-        self.hfo_display.getPlotItem().showAxis('left')
-        self.lr = pg.LinearRegionItem([0,0], movable = False)
-        self.lr.setZValue(-20)
-        self.hfo_display.addItem(self.lr)
-
     def get_n_channels(self):
         return self.n_channels
     
@@ -158,7 +146,7 @@ class CenterWaveformAndMiniPlotController():
         # print("plot HFOs",self.plot_HFOs)
         if empty:
             self.waveform_display.clear()
-            self.hfo_display.clear()
+            self.mini_plot_controller.clear()
             return
         if t_start is None:
             t_start = self.t_start
@@ -170,8 +158,8 @@ class CenterWaveformAndMiniPlotController():
             self.first_channel_to_plot = first_channel_to_plot
         self.waveform_display.clear()
         if update_hfo:
-            self.hfo_display.clear()
-            self.init_hfo_display()
+            self.mini_plot_controller.clear()
+            self.mini_plot_controller.init_hfo_display()
         #to show changes
         t_end = min(t_start+self.time_window,self.time[-1])
         # print(t_start,t_end,self.time[-1])
@@ -252,31 +240,7 @@ class CenterWaveformAndMiniPlotController():
 
             # mini plot
             if self.plot_HFOs and update_hfo:
-                starts, ends, artifacts, spikes = self.backend.hfo_features.get_HFOs_for_channel(channel,
-                                                                                                 0,
-                                                                                                 sys.maxsize)
-                for j in range(len(starts)):
-                    try:
-                        if int(artifacts[j])<1:
-                            color = self.artifact_color
-                            name="artifact"
-                        elif spikes[j]:
-                            color = self.spike_color
-                            name="spike"
-                        else:
-                            color = self.non_spike_color
-                            name="non-spike"
-                    except:
-                        color = self.HFO_color
-                        name="HFO"
-                    # x = self.time[int(starts[j]):int(ends[j])]
-                    # y = eeg_data_to_display[i, int(starts[j]):int(ends[j])]
-                    # # self.waveform_mini_item.setData(x, y, pen=pg.mkPen(color=color, width=2))
-                    # self.hfo_display.plot(x, y, pen=pg.mkPen(color=color, width=2))
-                    end = min(int(ends[j]), len(self.time)-1)
-                    self.hfo_display.plot([self.time[int(starts[j])], self.time[end]], [
-                        top_value, top_value
-                    ], pen=pg.mkPen(color=color, width=5))
+                self.mini_plot_controller.plot_all_current_hfos_for_channel(channel, top_value)
 
         # Determine the position for the scale indicator (bottom right corner of the plot)
         x_pos = t_end #+ 0.15
@@ -311,12 +275,10 @@ class CenterWaveformAndMiniPlotController():
         #set the max and min of the x axis
         self.waveform_display.setXRange(t_start,t_end)
 
-        self.hfo_display.getAxis('left').setTicks([[(top_value, '   HFO   ')]])
-        self.hfo_display.setXRange(0, int(self.time.shape[0] / self.sample_freq))
-        self.hfo_display.setYRange(top_value-0.25, top_value+0.25)
-        
-        self.lr.setRegion([t_start,t_end])
-        self.lr.setZValue(top_value)
+        self.mini_plot_controller.set_miniplot_title('HFO', top_value)
+        self.mini_plot_controller.set_x_y_range([0, int(self.time.shape[0] / self.sample_freq)], [top_value-0.25, top_value+0.25])
+        self.mini_plot_controller.update_highlight_window(t_start, t_end, top_value)
+
         #set background to white
         # self.waveform_display.setBackground('w')
 

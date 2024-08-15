@@ -1,36 +1,39 @@
 from PyQt5 import QtWidgets
 import pyqtgraph as pg
 
-class MiniPlotView(pg.PlotWidget):
-    def __init__(self):
-        super().__init__()
-        self._init_mini_plot_display()
+class MiniPlotView:
+    def __init__(self, plot_widget: pg.PlotWidget):
+        self.plot_widget = plot_widget
+        self._init_plot_widget(plot_widget)
 
-    def _init_mini_plot_display(self):
-        self.setMouseEnabled(x=False, y=False)
-        self.getPlotItem().hideAxis('bottom')
-        self.getPlotItem().hideAxis('left')
-        self.setBackground('w')
-        self.clear()
-
+    def _init_plot_widget(self, plot_widget):
+        plot_widget.setMouseEnabled(x=False, y=False)
+        plot_widget.getPlotItem().hideAxis('bottom')
+        plot_widget.getPlotItem().hideAxis('left')
+        plot_widget.setBackground('w')
+        
     def enable_axis_information(self):
-        self.getPlotItem().showAxis('bottom')
-        self.getPlotItem().showAxis('left')
+        self.plot_widget.getPlotItem().showAxis('bottom')
+        self.plot_widget.getPlotItem().showAxis('left')
 
-    def update_highlight_window(self, start, end):
-        if hasattr(self, 'linear_region'):
-            self.removeItem(self.linear_region)
-        self.linear_region = pg.LinearRegionItem([start, end], movable=False)
+    def add_linear_region(self):
+        self.linear_region = pg.LinearRegionItem([0, 0], movable=False)
         self.linear_region.setZValue(-20)
-        self.addItem(self.linear_region)
+        self.plot_widget.addItem(self.linear_region)
 
-    def update_plot(self, x, y):
-        self.plot(x, y, clear=True)
+    def update_highlight_window(self, start, end, height):
+        self.linear_region.setRegion([start,end])
+        self.linear_region.setZValue(height)
 
-    def set_miniplot_title(self, title):
-        top_value = max(self.yData)
-        self.getAxis('left').setTicks([[(top_value, f'   {title}   ')]])
+    def plot_hfo(self, start_time, end_time, top_value, color, width):
+        self.plot_widget.plot([start_time, end_time], [top_value, top_value], pen=pg.mkPen(color=color, width=width))
+
+    def set_miniplot_title(self, title, height):
+        self.plot_widget.getAxis('left').setTicks([[(height, f'   {title}   ')]])
 
     def set_x_y_range(self, x_range, y_range):
-        self.setXRange(x_range[0], x_range[1])
-        self.setYRange(y_range[0], y_range[1])
+        self.plot_widget.setXRange(x_range[0], x_range[1])
+        self.plot_widget.setYRange(y_range[0], y_range[1])
+
+    def clear(self):
+        self.plot_widget.clear()
