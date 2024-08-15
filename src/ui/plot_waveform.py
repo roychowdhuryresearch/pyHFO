@@ -9,26 +9,19 @@ from tqdm import tqdm
 import os
 from src.hfo_app import HFO_App
 import random
-from src.controllers import MiniPlotController
+from src.controllers import MiniPlotController, MainWaveformPlotController
 
 curr_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.dirname(curr_dir))
 
 class CenterWaveformAndMiniPlotController():
-    def __init__(self, plot_loc: pg.PlotWidget, mini_plot_widget: pg.PlotWidget, backend: HFO_App):
+    def __init__(self, main_waveform_plot_widget: pg.PlotWidget, mini_plot_widget: pg.PlotWidget, backend: HFO_App):
         self.mini_plot_controller = MiniPlotController(mini_plot_widget, backend)
-
-        self.waveform_display = plot_loc #pg.PlotWidget(plot_loc)
-        # self.waveform_display.getPlotItem().getAxis('bottom').setHeight(10)
-        self.waveform_display.setMouseEnabled(x=False, y=False)
-        self.waveform_display.getPlotItem().hideAxis('bottom')
-        self.waveform_display.getPlotItem().hideAxis('left')
-        self.plot_loc = plot_loc
-        self.waveform_display.setBackground('w')
+        self.main_waveform_plot_controller = MainWaveformPlotController(main_waveform_plot_widget, backend)
 
         self.time_window = 20 #20 second time window
-        self.time_increment =20
-        self.old_size = (self.plot_loc.x(),self.plot_loc.y(),self.plot_loc.width(),self.plot_loc.height())
+        self.time_increment = 20
+        # self.old_size = (self.waveform_display.x(),self.waveform_display.y(),self.waveform_display.width(),self.waveform_display.height())
         self.t_start = 0
         self.first_channel_to_plot = 0
         self.n_channels_to_plot = 10
@@ -47,46 +40,25 @@ class CenterWaveformAndMiniPlotController():
         self.stds = None
     
     def set_filtered(self,filtered:bool):
-        self.filtered = filtered
+        self.main_waveform_plot_controller.set_waveform_filter(filtered)
         self.plot(self.t_start)
 
     def update_backend(self,new_backend:HFO_App,init_eeg_data:bool=True):
         self.backend = new_backend
         self.mini_plot_controller.update_backend(new_backend)
+        self.main_waveform_plot_controller.update_backend(new_backend)
         if init_eeg_data:
             self.init_eeg_data()
 
     def init_eeg_data(self):
-        # print("reinit eeg data")
-        #reinitalize self
-        # self = PlotWaveform(self.plot_loc,self.hfo_loc,self.backend)
-        # self.eeg_data = eeg_data
-        # #normalize each to 0-1
-        # self.eeg_data = (self.eeg_data-self.eeg_data.min(axis = 1,keepdims = True))/(np.ptp(self.eeg_data,axis = 1,keepdims = True))
-        # #shift the ith channel by 1.1*i
-        # self.eeg_data = self.eeg_data-1.1*np.arange(self.eeg_data.shape[0])[:,None]
-        self.filtered = False
-        self.plot_HFOs = False
         self.mini_plot_controller.clear()
-        self.waveform_display.clear()
-        eeg_data,self.channel_names=self.backend.get_eeg_data()
-        ## print("eeg_data.shape",eeg_data.shape)
-        # print("self.channel_names",self.channel_names)
-        self.channel_names = list(self.channel_names)
-        self.edf_info=self.backend.get_edf_info()
-        # print(self.edf_info)
-        # self.channel_names_locs=np.mean(self.eeg_data,axis = 1)
-        self.sample_freq = self.edf_info['sfreq']
-        self.time = np.arange(0,eeg_data.shape[1]/self.sample_freq,1/self.sample_freq) # time in seconds
-        self.n_channels = len(self.channel_names)
-        # print("here")
-        self.n_channels_to_plot = min(self.n_channels,self.n_channels_to_plot)
-        self.channels_to_plot = self.channel_names.copy()
-        self.channel_indices_to_plot = np.arange(self.n_channels)
+        self.main_waveform_plot_controller.clear()
+
+        self.mini_plot_controller.init_eeg_data()
+        self.main_waveform_plot_controller.init_eeg_data()
+
         self.mini_plot_controller.init_hfo_display()
-        self.waveform_display.getPlotItem().showAxis('bottom')
-        self.waveform_display.getPlotItem().showAxis('left')
-        # print(self.plot_loc.x(),self.plot_loc.y(),self.plot_loc.width(),self.plot_loc.height())
+        self.main_waveform_plot_controller.init_waveform_display()
       
     def get_n_channels(self):
         return self.n_channels
@@ -105,9 +77,11 @@ class CenterWaveformAndMiniPlotController():
     
     def set_normalize_vertical(self,normalize_vertical:bool):
         self.normalize_vertical = normalize_vertical
+        self.main_waveform_plot_controller.set_normalize_vertical(normalize_vertical)
 
     def set_time_window(self,time_window:float):
         self.time_window = time_window
+        self.main_waveform_plot_controller.set_time_window(time_window)
         #replot
         # self.plot(self.t_start)
 
@@ -116,177 +90,61 @@ class CenterWaveformAndMiniPlotController():
         
     def set_n_channels_to_plot(self,n_channels_to_plot:int):
         self.n_channels_to_plot = n_channels_to_plot
+        self.main_waveform_plot_controller.set_n_channels_to_plot(n_channels_to_plot)
+        self.mini_plot_controller.set_n_channels_to_plot(n_channels_to_plot)
 
     def set_plot_HFOs(self,plot_HFOs:bool):
         self.plot_HFOs = plot_HFOs
+        self.main_waveform_plot_controller.set_plot_HFOs(plot_HFOs)
         self.plot(self.t_start, update_hfo=True)
 
     def get_channels_to_plot(self):
-        return self.channels_to_plot
+        return self.main_waveform_plot_controller.model.channels_to_plot
     
     def get_channel_indices_to_plot(self):
-        return self.channel_indices_to_plot
+        return self.main_waveform_plot_controller.model.channel_indices_to_plot
     
     def update_channel_names(self,new_channel_names):
-        self.channel_names = list(new_channel_names)
+        self.mini_plot_controller.update_channel_names(new_channel_names)
+        self.main_waveform_plot_controller.update_channel_names(new_channel_names)
 
     def set_channels_to_plot(self,channels_to_plot:list):
-        self.channels_to_plot = channels_to_plot
-        self.channel_indices_to_plot = [self.channel_names.index(channel) for channel in channels_to_plot]
-        # self.n_channels_to_plot = len(self.channels_to_plot)
-        # self.plot(self.t_start)
+        self.main_waveform_plot_controller.set_channels_to_plot(channels_to_plot)
+        self.mini_plot_controller.set_channels_to_plot(channels_to_plot)
 
     def set_channel_indices_to_plot(self,channel_indices_to_plot:list):
-        self.channel_indices_to_plot = channel_indices_to_plot
-        self.channels_to_plot = [self.channel_names[index] for index in channel_indices_to_plot]
-        # self.n_channels_to_plot = len(self.channels_to_plot)
-        # self.plot(self.t_start)
+        self.main_waveform_plot_controller.set_channel_indices_to_plot(channel_indices_to_plot)
+        self.mini_plot_controller.set_channel_indices_to_plot(channel_indices_to_plot)
     
-    def plot(self,t_start:float = None,first_channel_to_plot:int = None, empty=False, update_hfo=False):
-        # print("plot HFOs",self.plot_HFOs)
+    def plot(self, start_in_time:float = None, first_channel_to_plot:int = None, empty=False, update_hfo=False):
+
         if empty:
-            self.waveform_display.clear()
+            self.main_waveform_plot_controller.clear()
             self.mini_plot_controller.clear()
             return
-        if t_start is None:
-            t_start = self.t_start
-        else:
-            self.t_start = t_start #this allows us to keep track of the start time of the plot and thus replot when the time window changes or when the number of channels
-        if first_channel_to_plot is None:
-            first_channel_to_plot = self.first_channel_to_plot
-        else:
-            self.first_channel_to_plot = first_channel_to_plot
-        self.waveform_display.clear()
+        
+        if start_in_time is not None:
+            self.main_waveform_plot_controller.set_current_time_window(start_in_time)
+        start_in_time, end_in_time = self.main_waveform_plot_controller.get_current_start_end()
+
+        if first_channel_to_plot is not None:
+            self.main_waveform_plot_controller.set_first_channel_to_plot(first_channel_to_plot)
+        first_channel_to_plot = self.main_waveform_plot_controller.get_first_channel_to_plot()
+
+        self.main_waveform_plot_controller.clear()
+
         if update_hfo:
             self.mini_plot_controller.clear()
             self.mini_plot_controller.init_hfo_display()
-        #to show changes
-        t_end = min(t_start+self.time_window,self.time[-1])
-        # print(t_start,t_end,self.time[-1])
-        # start_time = time.time()
-        eeg_data_to_display,_=self.backend.get_eeg_data(int(t_start*self.sample_freq),int(t_end*self.sample_freq), self.filtered)
-        #normalize each to 0-1
-        eeg_data_to_display = eeg_data_to_display[self.channel_indices_to_plot,:]
-        if self.normalize_vertical:
-            eeg_data_to_display = (eeg_data_to_display-eeg_data_to_display.min(axis = 1,keepdims = True))
-            eeg_data_to_display = eeg_data_to_display/np.max(eeg_data_to_display)
-        else:
-            # eeg_data_to_display = (eeg_data_to_display-eeg_data_to_display.min(axis = 1,keepdims = True))/(np.ptp(eeg_data_to_display,axis = 1,keepdims = True))
 
-            # standardized signal by channel
-            # means = np.mean(eeg_data_to_display, axis=1, keepdims=True)
-            # stds = np.std(eeg_data_to_display, axis=1, keepdims=True)
-            if self.filtered:
-                means = np.mean(eeg_data_to_display)
-                self.stds = np.std(eeg_data_to_display) * 2
-                eeg_data_to_display = (eeg_data_to_display - means) / self.stds
-                eeg_data_to_display[np.isnan(eeg_data_to_display)] = 0
-            else:
-                # standardized signal globally
-                means = np.mean(eeg_data_to_display)
-                self.stds = np.std(eeg_data_to_display)
-                eeg_data_to_display = (eeg_data_to_display - means) / self.stds
-                #replace nans with 0
-                eeg_data_to_display[np.isnan(eeg_data_to_display)] = 0
-        #shift the ith channel by 1.1*i
-        # eeg_data_to_display = eeg_data_to_display-1.1*np.arange(eeg_data_to_display.shape[0])[:,None]
-        if self.filtered:
-            # Add scale indicators
-            # Set the length of the scale lines
-            y_100_length = 50  # 100 microvolts
-            offset_value = 6
-            y_scale_length = y_100_length / self.stds
-        else:
-            y_100_length = 100  # 100 microvolts
-            offset_value = 6
-            y_scale_length = y_100_length / self.stds
-        time_to_display = self.time[int(t_start*self.sample_freq):int(t_end*self.sample_freq)]
-        top_value=eeg_data_to_display[first_channel_to_plot].max()
-        # print("top value:",top_value)
-        # bottom_value=eeg_data_to_display[-1].min()
-        # print("bottom value:",bottom_value)
-        # print("channel means",np.mean(eeg_data_to_display,axis = 1))
-        for disp_i, ch_i in enumerate(range(first_channel_to_plot,first_channel_to_plot+self.n_channels_to_plot)):
-            channel = self.channels_to_plot[ch_i]
+        eeg_data_to_display, y_100_length, y_scale_length, offset_value = self.main_waveform_plot_controller.plot_all_current_channels_for_window()
+        top_value = eeg_data_to_display[first_channel_to_plot].max()
+        self.main_waveform_plot_controller.plot_all_current_hfos_for_window(eeg_data_to_display, offset_value, top_value)
+        self.mini_plot_controller.plot_all_current_hfos_for_all_channels(top_value)
 
-            self.waveform_display.plot(time_to_display, eeg_data_to_display[ch_i] - disp_i*offset_value, pen=pg.mkPen(color=self.waveform_color, width=0.5))
-            if self.plot_HFOs:
-                starts, ends, artifacts, spikes = self.backend.hfo_features.get_HFOs_for_channel(channel,int(t_start*self.sample_freq),int(t_end*self.sample_freq))
-                # print("channel:", channel, starts,ends, artifacts, spikes)
-                for j in range(len(starts)):
-                    try:
-                        if int(artifacts[j])<1:
-                            color = self.artifact_color
-                            name="artifact"
-                        elif spikes[j]:
-                            color = self.spike_color
-                            name="spike"
-                        else:
-                            color = self.non_spike_color
-                            name="non-spike"
-                    except:
-                        color = self.HFO_color
-                        name="HFO"
-                    # print(time_to_display[starts[j]:ends[j]])
-                    self.waveform_display.plot(self.time[int(starts[j]):int(ends[j])],
-                                               eeg_data_to_display[ch_i, int(starts[j])-int(t_start*self.sample_freq):int(ends[j])-int(t_start*self.sample_freq)]-disp_i*offset_value,
-                                               pen=pg.mkPen(color=color, width=2))
-                    # print("plotting",self.time[int(starts[j])],self.time[int(ends[j])],"name:",name,"channel:",channel)
-                    # print(starts[j],ends[j])
-                    # print(eeg_data_to_display[i,int(starts[j]):int(ends[j])])
-                    self.waveform_display.plot([self.time[int(starts[j])],self.time[int(ends[j])]],[
-                        top_value+0.2,top_value+0.2
-                    ],pen = pg.mkPen(color = color,width=10))
-
-            # mini plot
-            if self.plot_HFOs and update_hfo:
-                self.mini_plot_controller.plot_all_current_hfos_for_channel(channel, top_value)
-
-        # Determine the position for the scale indicator (bottom right corner of the plot)
-        x_pos = t_end #+ 0.15
-        # y_pos = top_value - 0.1 * (top_value - np.min(eeg_data_to_display))  # Adjust as needed
-        y_pos = np.min(eeg_data_to_display[-1]) - self.n_channels_to_plot * offset_value + 0.8 * offset_value
-
-        # # Draw the x and y scale lines
-        # self.waveform_display.plot([x_pos, x_pos], [y_pos, y_pos + y_scale_length], pen=pg.mkPen('black', width=2))
-
-        # # Add text annotations for the scale lines
-        # text_item = pg.TextItem(f'{y_100_length} μV', color='black', anchor=(1, 0.5))
-        # text_item.setPos(x_pos, y_pos + y_scale_length / 2)
-        # self.waveform_display.addItem(text_item)
-
-        # Use a dashed line for the scale
-        scale_line = pg.PlotDataItem([x_pos, x_pos], [y_pos, y_pos + y_scale_length],
-                             pen=pg.mkPen('black', width=10), fill=(0, 128, 255, 150)) 
-        self.waveform_display.addItem(scale_line)
-        
-        text_item = pg.TextItem(f'Scale: {y_100_length} μV ', color='black', anchor=(1, 0.5))
-        text_item.setFont(QtGui.QFont('Arial', 10, QtGui.QFont.Bold))
-        text_item.setPos(x_pos, y_pos + y_scale_length / 2)
-        self.waveform_display.addItem(text_item)
-
-        # print("time to plot:",time.time()-start_time)
-        #set y ticks to channel names
-        # channel_names_locs = -offset_value * np.arange(eeg_data_to_display.shape[0])[:, None] # + offset_value/2
-        channel_names_locs = -offset_value * np.arange(self.n_channels_to_plot)[:, None]  # + offset_value/2
-
-        self.waveform_display.getAxis('left').setTicks([[(channel_names_locs[disp_i], self.channels_to_plot[chi_i])
-                 for disp_i, chi_i in enumerate(range(first_channel_to_plot,first_channel_to_plot+self.n_channels_to_plot))]])
-        #set the max and min of the x axis
-        self.waveform_display.setXRange(t_start,t_end)
+        self.main_waveform_plot_controller.draw_scale_bar(eeg_data_to_display, offset_value, y_100_length, y_scale_length)
+        self.main_waveform_plot_controller.draw_channel_names(offset_value)
 
         self.mini_plot_controller.set_miniplot_title('HFO', top_value)
-        self.mini_plot_controller.set_x_y_range([0, int(self.time.shape[0] / self.sample_freq)], [top_value-0.25, top_value+0.25])
-        self.mini_plot_controller.update_highlight_window(t_start, t_end, top_value)
-
-        #set background to white
-        # self.waveform_display.setBackground('w')
-
-        # plot out on top bars of where the HFOs are
-        # all_channels_starts = np.array(all_channels_starts)
-        # all_channels_ends = np.array(all_channels_ends)
-        # all_channels_names = np.array(all_channels_names)
-        # for name in np.unique(all_channels_names):
-        #     self.waveform_display.plot(self.time[all_channels_starts[all_channels_names==name]],
-        #                                [0]*
-        #                                ,pen = pg.mkPen(color = self.color_dict[name],width=5))
+        self.mini_plot_controller.set_total_x_y_range(top_value)
+        self.mini_plot_controller.update_highlight_window(start_in_time, end_in_time, top_value)
