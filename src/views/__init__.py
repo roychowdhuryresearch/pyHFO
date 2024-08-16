@@ -1,2 +1,2 @@
-from mini_plot_view import MiniPlotView
-from main_waveform_plot_view import MainWaveformPlotView
+from .mini_plot_view import MiniPlotView
+from .main_waveform_plot_view import MainWaveformPlotView
