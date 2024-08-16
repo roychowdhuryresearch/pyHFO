@@ -26,6 +26,9 @@ class MiniPlotController:
     def set_channels_to_plot(self, channels_to_plot):
         self.model.set_channels_to_plot(channels_to_plot)
 
+    def set_n_channels_to_plot(self, n_channels_to_plot):
+        self.model.set_n_channels_to_plot(n_channels_to_plot)
+
     def update_channel_names(self, new_channel_names):
         self.model.update_channel_names(new_channel_names)
 
@@ -46,8 +49,8 @@ class MiniPlotController:
             channel = channels_to_plot[ch_i]
             self.plot_all_current_hfos_for_one_channel(channel, plot_height)
 
-    def set_miniplot_title(self, title):
-        self.view.set_miniplot_title(title)
+    def set_miniplot_title(self, title, height):
+        self.view.set_miniplot_title(title, height)
 
     def set_total_x_y_range(self, top_value):
         time_max = int(self.model.time.shape[0] / self.model.sample_freq)

@@ -6,6 +6,7 @@ import numpy as np
 class MainWaveformPlotView:
     def __init__(self, plot_widget: pg.PlotWidget):
         self.plot_widget = plot_widget
+        self._init_plot_widget(plot_widget)
 
     def _init_plot_widget(self, plot_widget: pg.PlotWidget):
         plot_widget.setMouseEnabled(x=False, y=False)

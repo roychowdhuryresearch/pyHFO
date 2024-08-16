@@ -12,7 +12,6 @@ class MiniPlotModel:
                          }
         self.first_channel_to_plot = 0
         self.n_channels_to_plot = 10
-        self.channel_indices_to_plot = np.arange(self.n_channels)
 
     def update_backend(self, new_backend):
         self.backend = new_backend

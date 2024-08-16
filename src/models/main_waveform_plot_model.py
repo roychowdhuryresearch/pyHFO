@@ -17,7 +17,6 @@ class MainWaveformPlotModel:
         self.time_window = 20 #20 second time window
         self.first_channel_to_plot = 0
         self.n_channels_to_plot = 10
-        self.channel_indices_to_plot = np.arange(self.n_channels)
         self.filtered = False
         self.normalize_vertical = False
     
@@ -53,7 +52,7 @@ class MainWaveformPlotModel:
         return self.start_in_time, self.end_in_time
     
     def get_current_time_window(self):
-        return self.time[int(self.start_in_time * self.sample_freq), int(self.end_in_time * self.sample_freq)]
+        return self.time[int(self.start_in_time * self.sample_freq): int(self.end_in_time * self.sample_freq)]
 
     def set_first_channel_to_plot(self, first_channel_to_plot):
         self.first_channel_to_plot = first_channel_to_plot

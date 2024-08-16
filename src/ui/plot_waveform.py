@@ -61,13 +61,13 @@ class CenterWaveformAndMiniPlotController():
         self.main_waveform_plot_controller.init_waveform_display()
       
     def get_n_channels(self):
-        return self.n_channels
+        return self.main_waveform_plot_controller.model.n_channels
     
     def get_n_channels_to_plot(self):
         return self.n_channels_to_plot
 
     def get_total_time(self):
-        return self.time[-1]
+        return self.main_waveform_plot_controller.model.time[-1]
 
     def get_time_window(self):
         return self.time_window
@@ -139,8 +139,12 @@ class CenterWaveformAndMiniPlotController():
 
         eeg_data_to_display, y_100_length, y_scale_length, offset_value = self.main_waveform_plot_controller.plot_all_current_channels_for_window()
         top_value = eeg_data_to_display[first_channel_to_plot].max()
-        self.main_waveform_plot_controller.plot_all_current_hfos_for_window(eeg_data_to_display, offset_value, top_value)
-        self.mini_plot_controller.plot_all_current_hfos_for_all_channels(top_value)
+
+        if self.plot_HFOs:
+            self.main_waveform_plot_controller.plot_all_current_hfos_for_window(eeg_data_to_display, offset_value, top_value)
+
+        if self.plot_HFOs and update_hfo:
+            self.mini_plot_controller.plot_all_current_hfos_for_all_channels(top_value)
 
         self.main_waveform_plot_controller.draw_scale_bar(eeg_data_to_display, offset_value, y_100_length, y_scale_length)
         self.main_waveform_plot_controller.draw_channel_names(offset_value)
