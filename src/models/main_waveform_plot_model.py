@@ -116,7 +116,7 @@ class MainWaveformPlotModel:
         return eeg_data_to_display, y_100_length, y_scale_length, offset_value
 
     def get_all_hfos_for_all_current_channels_and_color(self, channel_in_name):
-        starts, ends, artifacts, spikes = self.backend.hfo_features.get_HFOs_for_channel(channel_in_name, int(self.start_in_time*self.sample_freq),int(self.end_in_time*self.sample_freq))
+        starts, ends, artifacts, spikes = self.backend.event_features.get_HFOs_for_channel(channel_in_name, int(self.start_in_time*self.sample_freq),int(self.end_in_time*self.sample_freq))
         colors = []
         windows_in_time = []
 

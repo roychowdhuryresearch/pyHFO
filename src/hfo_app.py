@@ -49,7 +49,7 @@ class HFO_App(object):
 
         ## feature related
         self.feature_param = None
-        self.hfo_features = None
+        self.event_features = None
 
         ## classifier related
         self.param_classifier = None
@@ -245,7 +245,7 @@ class HFO_App(object):
         if self.filter_data is None or len(self.filter_data) == 0:
             self.filter_eeg_data()
         self.channel_names, self.HFOs = self.detector.detect_multi_channels(self.filter_data, self.channel_names, filtered=True)
-        self.hfo_features = HFO_Feature.construct(self.channel_names, self.HFOs, self.param_detector.detector_type, self.sample_freq)
+        self.event_features = HFO_Feature.construct(self.channel_names, self.HFOs, self.param_detector.detector_type, self.sample_freq)
         self.detected = True
 
     '''
@@ -261,9 +261,9 @@ class HFO_App(object):
         win_size = 224
         time_range = [0, 1000] # 0~1000ms
 
-        starts = self.hfo_features.starts
-        ends = self.hfo_features.ends
-        channel_names = self.hfo_features.channel_names
+        starts = self.event_features.starts
+        ends = self.event_features.ends
+        channel_names = self.event_features.channel_names
         hfo_waveforms = extract_waveforms(self.eeg_data, starts, ends, channel_names, self.channel_names, self.sample_freq, time_range)
         param_list = [{"start":starts[i], "end":ends[i], "data":hfo_waveforms[i], "channel_name":channel_names[i], 
                        "sample_rate": self.sample_freq,
@@ -278,7 +278,7 @@ class HFO_App(object):
             channel_names[i], starts[i], ends[i], time_frequncy_img[i], amplitude_coding_plot[i] = ret[i]
         interval = np.concatenate([starts[:, None], ends[:, None]], axis=1)
         feature = np.concatenate([time_frequncy_img[:, None, :, :], amplitude_coding_plot[:, None, :, :]], axis=1)
-        self.hfo_features = HFO_Feature(channel_names, interval, feature, sample_freq = self.sample_freq, HFO_type=self.param_detector.detector_type, feature_size=win_size, freq_range=freq_range, time_range=time_range)
+        self.event_features = HFO_Feature(channel_names, interval, feature, sample_freq = self.sample_freq, HFO_type=self.param_detector.detector_type, feature_size=win_size, freq_range=freq_range, time_range=time_range)
 
 
     '''
@@ -352,17 +352,17 @@ class HFO_App(object):
 
 
     def classify_artifacts(self, ignore_region = [1, 1], threshold=0.5):
-        if not self.hfo_features.has_feature():
+        if not self.event_features.has_feature():
             self.generate_HFO_features()
         ignore_region = np.array(ignore_region) * self.sample_freq
         ignore_region = np.array([ignore_region[0], len(self.eeg_data[0]) - ignore_region[1]])
-        self.classifier.artifact_detection(self.hfo_features, ignore_region, threshold=threshold)
+        self.classifier.artifact_detection(self.event_features, ignore_region, threshold=threshold)
         self.classified = True
     
     def classify_spikes(self):
-        if not self.hfo_features.has_feature():
+        if not self.event_features.has_feature():
             self.generate_HFO_features()
-        self.classifier.spike_detection(self.hfo_features)
+        self.classifier.spike_detection(self.event_features)
 
     '''
         results APIs 
@@ -372,24 +372,24 @@ class HFO_App(object):
         '''
         return the overview of the results
         '''
-        if not self.hfo_features.has_feature():
+        if not self.event_features.has_feature():
             self.generate_HFO_features()
         return {
-            "n_HFO": self.hfo_features.num_HFO,
-            "n_artifact": self.hfo_features.num_artifact,
-            "n_real": self.hfo_features.num_real,
-            "n_spike": self.hfo_features.num_spike
+            "n_HFO": self.event_features.num_HFO,
+            "n_artifact": self.event_features.num_artifact,
+            "n_real": self.event_features.num_real,
+            "n_spike": self.event_features.num_spike
         }
 
     def export_report(self, path):
-        if not self.hfo_features:
+        if not self.event_features:
             return None
-        self.hfo_features.export_csv(path)
+        self.event_features.export_csv(path)
 
     def export_excel(self, path):
-        if not self.hfo_features:
+        if not self.event_features:
             return None
-        self.hfo_features.export_excel(path)
+        self.event_features.export_excel(path)
     
     def export_app(self, path):
         '''
@@ -404,16 +404,16 @@ class HFO_App(object):
             "param_filter": self.param_filter.to_dict() if self.param_filter else None,
             "HFOs": self.HFOs,
             "param_detector": self.param_detector.to_dict() if self.param_detector else None,
-            "HFO_features": self.hfo_features.to_dict() if self.hfo_features else None,
+            "HFO_features": self.event_features.to_dict() if self.event_features else None,
             "param_classifier": self.param_classifier.to_dict() if self.param_classifier else None,
             "classified": self.classified,
             "filtered": self.filtered,
             "detected": self.detected,
-            "artifact_predictions": np.array(self.hfo_features.artifact_predictions),
-            "spike_predictions": np.array(self.hfo_features.spike_predictions),
-            "artifact_annotations": np.array(self.hfo_features.artifact_annotations),
-            "spike_annotations": np.array(self.hfo_features.spike_annotations),
-            "annotated": np.array(self.hfo_features.annotated),
+            "artifact_predictions": np.array(self.event_features.artifact_predictions),
+            "spike_predictions": np.array(self.event_features.spike_predictions),
+            "artifact_annotations": np.array(self.event_features.artifact_annotations),
+            "spike_annotations": np.array(self.event_features.spike_annotations),
+            "annotated": np.array(self.event_features.annotated),
         }
         dump_to_npz(checkpoint, path)
     
@@ -432,11 +432,11 @@ class HFO_App(object):
         app.classified = checkpoint["classified"].item()
         app.filtered = checkpoint["filtered"].item()
         app.detected = checkpoint["detected"].item()
-        app.hfo_features.artifact_predictions = checkpoint["artifact_predictions"].item()
-        app.hfo_features.spike_predictions = checkpoint["spike_predictions"].item()
-        app.hfo_features.artifact_annotations = checkpoint["artifact_annotations"].item()
-        app.hfo_features.spike_annotations = checkpoint["spike_annotations"].item()
-        app.hfo_features.annotated = checkpoint["annotated"].item()
+        app.event_features.artifact_predictions = checkpoint["artifact_predictions"].item()
+        app.event_features.spike_predictions = checkpoint["spike_predictions"].item()
+        app.event_features.artifact_annotations = checkpoint["artifact_annotations"].item()
+        app.event_features.spike_annotations = checkpoint["spike_annotations"].item()
+        app.event_features.annotated = checkpoint["annotated"].item()
         if app.filtered:
             app.param_filter = ParamFilter.from_dict(checkpoint["param_filter"].item())
             app.filter_eeg_data(app.param_filter)
@@ -445,8 +445,8 @@ class HFO_App(object):
             app.HFOs = checkpoint["HFOs"]
             app.param_detector = ParamDetector.from_dict(checkpoint["param_detector"].item())
             #print("new HFO features")
-            app.hfo_features = HFO_Feature.from_dict(checkpoint["HFO_features"].item())
-            # print(app.hfo_features)
+            app.event_features = HFO_Feature.from_dict(checkpoint["HFO_features"].item())
+            # print(app.event_features)
         if app.classified:
             app.param_classifier = ParamClassifier.from_dict(checkpoint["param_classifier"].item())
         return app
@@ -490,7 +490,7 @@ class HFO_App(object):
                 hfo_end_l.append(hfo_end)
             return hfo_waveform_l, hfo_waveform_f_l, np.array(hfo_start_l), np.array(hfo_end_l)
 
-        if not self.hfo_features:
+        if not self.event_features:
             return None
         os.makedirs(folder, exist_ok=True)
         artifact_folder = os.path.join(folder, "artifact")
@@ -499,11 +499,11 @@ class HFO_App(object):
         clean_folder(artifact_folder)
         clean_folder(spike_folder)
         clean_folder(non_spike_folder)
-        starts = self.hfo_features.starts
-        ends = self.hfo_features.ends
-        feature = self.hfo_features.features
-        channel_names = self.hfo_features.channel_names
-        spike_predictions = self.hfo_features.spike_predictions
+        starts = self.event_features.starts
+        ends = self.event_features.ends
+        feature = self.event_features.features
+        channel_names = self.event_features.channel_names
+        spike_predictions = self.event_features.spike_predictions
         index_s = np.where(spike_predictions == 1)[0]
         start_s, end_s, feature_s, channel_names_s = starts[index_s], ends[index_s], feature[index_s], channel_names[index_s]
         index_a = np.where(spike_predictions == -1)[0]

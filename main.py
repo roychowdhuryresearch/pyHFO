@@ -683,10 +683,10 @@ class HFOMainWindow(QMainWindow):
         self.threadpool.start(worker)
 
     def update_statistics_label(self):
-        num_HFO = self.hfo_app.hfo_features.get_num_HFO()
-        num_artifact = self.hfo_app.hfo_features.get_num_artifact()
-        num_spike = self.hfo_app.hfo_features.get_num_spike()
-        num_real = self.hfo_app.hfo_features.get_num_real()
+        num_HFO = self.hfo_app.event_features.get_num_HFO()
+        num_artifact = self.hfo_app.event_features.get_num_artifact()
+        num_spike = self.hfo_app.event_features.get_num_spike()
+        num_real = self.hfo_app.event_features.get_num_real()
 
         self.statistics_label.setText(" Number of HFOs: " + str(num_HFO) +\
                                       "\n Number of artifacts: " + str(num_artifact) +\
