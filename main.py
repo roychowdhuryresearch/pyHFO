@@ -19,9 +19,10 @@ from src.param.param_filter import ParamFilter
 from src.ui.quick_detection import HFOQuickDetector
 from src.ui.channels_selection import ChannelSelectionWindow
 from src.ui.bipolar_channel_selection import BipolarChannelSelectionWindow
-from src.ui.annotation import HFOAnnotation
+from src.ui.annotation import Annotation
 from src.utils.utils_gui import *
 from src.ui.plot_waveform import *
+
 from PyQt5.QtCore import pyqtSignal
 # import tkinter as tk
 # from tkinter import *
@@ -837,7 +838,7 @@ class HFOMainWindow(QMainWindow):
 
     def open_annotation(self):
         self.save_csv_button.setEnabled(True)
-        annotation = HFOAnnotation(self.hfo_app, self, self.close_signal)
+        annotation = Annotation(self.hfo_app, self, self.close_signal)
         annotation.show()
 
 

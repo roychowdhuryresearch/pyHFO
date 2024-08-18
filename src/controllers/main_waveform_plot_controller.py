@@ -89,7 +89,7 @@ class MainWaveformPlotController:
 
             if self.model.plot_HFOs:
                 for i in range(len(hfo_starts)):
-                    self.view.plot_waveform(windows_in_time[i], eeg_data_to_display[ch_i, hfo_starts[i]-start_in_time*self.model.sample_freq:hfo_ends[i]-start_in_time*self.model.sample_freq]-disp_i*offset_value, colors[i], 2)
+                    self.view.plot_waveform(windows_in_time[i], eeg_data_to_display[ch_i, hfo_starts[i]-int(start_in_time*self.model.sample_freq):hfo_ends[i]-int(start_in_time*self.model.sample_freq)]-disp_i*offset_value, colors[i], 2)
                     self.view.plot_waveform([hfo_starts_in_time[i], hfo_ends_in_time[i]], [top_value+0.2,top_value+0.2], colors[i], 10)
 
 
