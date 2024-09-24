@@ -7,7 +7,7 @@ from src.hfo_feature import HFO_Feature
 from src.classifer import Classifier
 from src.utils.utils_feature import *
 from src.utils.utils_filter import construct_filter, filter_data
-from src.utils.utils_detector import set_STE_detector, set_MNI_detector
+from src.utils.utils_detector import set_STE_detector, set_MNI_detector, set_HIL_detector
 from src.utils.utils_io import get_edf_info, read_eeg_data, dump_to_npz
 from src.utils.utils_plotting import plot_feature
 
@@ -216,7 +216,7 @@ class HFO_App(object):
 
         param should be a type of ParamDetector param/param_detector.py
         it should contain the following fields:
-        detector_type: str, "STE" or "MNI"
+        detector_type: str, "STE", "MNI" or "HIL"
         detector_param: param_detector/ParamSTE or param_detector/ParamMNI
         
         '''
@@ -230,8 +230,8 @@ class HFO_App(object):
             self.detector = set_STE_detector(param.detector_param)
         elif param.detector_type.lower() == "mni":
             self.detector = set_MNI_detector(param.detector_param)
-            # print(param.detector_param.to_dict())
-    
+        elif param.detector_type.lower() == "hil":
+            self.detector = set_HIL_detector(param.detector_param)          
     def detect_HFO(self, param_filter:ParamFilter =None, param_detector:ParamDetector=None):
         '''
         This the function should be linked to the detect button in the overview window, 

@@ -1,12 +1,12 @@
-HFODetector==0.0.22
+HFODetector==0.0.21
 matplotlib==3.7.1
 mne==1.4.2
 numpy==1.25.0
 p_tqdm==1.4.0
 pandas==2.0.3
 openpyxl==3.1.2
-PyQt5==5.15.9
-PyQt5_sip==12.12.1
+PyQt5==5.15.10
+PyQt5_sip==12.13
 pyqtgraph==0.13.3
 scipy==1.11.1
 scikit-image==0.21.0

@@ -14,7 +14,7 @@ from PyQt5.QtWidgets import QMessageBox
 
 from src.hfo_app import HFO_App
 from src.param.param_classifier import ParamClassifier
-from src.param.param_detector import ParamDetector, ParamSTE, ParamMNI
+from src.param.param_detector import ParamDetector, ParamSTE, ParamMNI, ParamHIL
 from src.param.param_filter import ParamFilter
 from src.ui.quick_detection import HFOQuickDetector
 from src.ui.channels_selection import ChannelSelectionWindow
@@ -53,7 +53,6 @@ class HFOMainWindow(QMainWindow):
         self.stderr = Queue()
         sys.stdout = WriteStream(self.stdout)
         sys.stderr = WriteStream(self.stderr)
-
         self.thread_stdout = STDOutReceiver(self.stdout)
         self.thread_stdout.std_received_signal.connect(self.message_handler)
         self.thread_stdout.start()
@@ -89,6 +88,9 @@ class HFOMainWindow(QMainWindow):
         self.mni_detect_button.setEnabled(False)
         self.ste_detect_button.clicked.connect(self.detect_HFOs)
         self.ste_detect_button.setEnabled(False)
+        self.hil_detect_button.clicked.connect(self.detect_HFOs)
+        self.hil_detect_button.setEnabled(False)
+
 
         #classifier tab buttons
         self.classifier_param = ParamClassifier()
@@ -98,6 +100,7 @@ class HFOMainWindow(QMainWindow):
         self.init_default_filter_input_params()
         self.init_default_ste_input_params()
         self.init_default_mni_input_params()
+        self.init_default_hil_input_params()
     
         #classifier default buttons
         self.default_cpu_button.clicked.connect(self.set_classifier_param_cpu_default)
@@ -128,8 +131,10 @@ class HFOMainWindow(QMainWindow):
 
         self.STE_save_button.clicked.connect(self.save_ste_params)
         self.MNI_save_button.clicked.connect(self.save_mni_params)
+        self.HIL_save_button.clicked.connect(self.save_hil_params)
         self.STE_save_button.setEnabled(False)
         self.MNI_save_button.setEnabled(False)
+        self.HIL_save_button.setEnabled(False)
 
         self.save_npz_button.clicked.connect(self.save_to_npz)
         self.save_npz_button.setEnabled(False)
@@ -159,17 +164,20 @@ class HFOMainWindow(QMainWindow):
         self.quick_detect_open = False
         self.set_mni_input_len(8)
         self.set_ste_input_len(8)
+        self.set_hil_input_len(8)
        
         #close window signal
         
     def reinitialize_buttons(self):
         self.mni_detect_button.setEnabled(False)
         self.ste_detect_button.setEnabled(False)
+        self.hil_detect_button.setEnabled(False)
         self.detect_all_button.setEnabled(False)
         self.save_csv_button.setEnabled(False)
         self.save_npz_button.setEnabled(False)
         self.STE_save_button.setEnabled(False)
         self.MNI_save_button.setEnabled(False)
+        self.HIL_save_button.setEnabled(False)
         self.Filter60Button.setEnabled(False)
 
     def set_mni_input_len(self,max_len = 5):
@@ -192,6 +200,16 @@ class HFOMainWindow(QMainWindow):
         self.ste_min_oscillation_input.setMaxLength(max_len)
         self.ste_rms_threshold_input.setMaxLength(max_len)
         self.ste_peak_threshold_input.setMaxLength(max_len)
+
+    def set_hil_input_len(self, max_len=5):
+        self.hil_sample_freq_input.setMaxLength(max_len)
+        self.hil_pass_band_input.setMaxLength(max_len)
+        self.hil_stop_band_input.setMaxLength(max_len)
+        self.hil_epoch_time_input.setMaxLength(max_len)
+        self.hil_sliding_window_input.setMaxLength(max_len)
+        self.hil_min_window_input.setMaxLength(max_len)
+        self.hil_n_jobs_input.setMaxLength(max_len)
+
 
 
     def close_other_window(self):
@@ -359,6 +377,16 @@ class HFOMainWindow(QMainWindow):
         self.mni_baseline_threshold_input.setText(str(default_params.base_thrd))
         self.mni_baseline_min_time_input.setText(str(default_params.base_min))
 
+    def init_default_hil_input_params(self):
+        default_params = ParamHIL(2000)  # 初始化默认参数，假设采样率是 2000
+        self.hil_sample_freq_input.setText(str(default_params.sample_freq))
+        self.hil_pass_band_input.setText(str(default_params.pass_band))
+        self.hil_stop_band_input.setText(str(default_params.stop_band))
+        self.hil_epoch_time_input.setText(str(default_params.epoch_time))
+        self.hil_sliding_window_input.setText(str(default_params.sliding_window))
+        self.hil_min_window_input.setText(str(default_params.min_window))
+        self.hil_n_jobs_input.setText(str(default_params.n_jobs))
+
     def scroll_time_waveform_plot(self, event):
         t_start=self.waveform_time_scroll_bar.value()*self.waveform_plot.get_time_window()*self.waveform_plot.get_time_increment()/100
         self.waveform_plot.plot(t_start)
@@ -418,6 +446,8 @@ class HFOMainWindow(QMainWindow):
         self.ste_detect_button.setEnabled(True)
         self.MNI_save_button.setEnabled(True)
         self.mni_detect_button.setEnabled(True)
+        self.HIL_save_button.setEnabled(True)
+        self.hil_detect_button.setEnabled(True)
         self.is_data_filtered = True
         self.show_filtered = True
         self.waveform_plot.set_filtered(True)
@@ -556,12 +586,54 @@ class HFOMainWindow(QMainWindow):
             self.mni_baseline_min_time_display.setText(base_min)
 
             self.update_detector_tab("MNI")
-        except:
+        except Exception as e:
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
             msg.setText("Error!")
             msg.setInformativeText('Detector could not be constructed given the parameters')
             msg.setWindowTitle("Detector Construction Failed")
+            msg.exec_()
+
+    def save_hil_params(self):
+        try:
+            sample_freq = self.hil_sample_freq_input.text()
+            pass_band = self.hil_pass_band_input.text()
+            stop_band = self.hil_stop_band_input.text()
+            epoch_time = self.hil_epoch_time_input.text()
+            sliding_window = self.hil_sliding_window_input.text()
+            min_window = self.hil_min_window_input.text()
+            n_jobs = self.hil_n_jobs_input.text()
+
+            param_dict = {
+                "sample_freq": float(sample_freq),
+                "pass_band": float(pass_band),
+                "stop_band": float(stop_band),
+                "epoch_time": float(epoch_time),
+                "sliding_window": float(sliding_window),
+                "min_window": float(min_window),
+                "n_jobs": int(n_jobs)
+            }
+
+            detector_params = {"detector_type": "HIL", "detector_param": param_dict}
+            self.hfo_app.set_detector(ParamDetector.from_dict(detector_params))
+
+            # 设置显示参数
+            self.hil_sample_freq_display.setText(sample_freq)
+            self.hil_pass_band_display.setText(pass_band)
+            self.hil_stop_band_display.setText(stop_band)
+            self.hil_epoch_time_display.setText(epoch_time)
+            self.hil_sliding_window_display.setText(sliding_window)
+            self.hil_min_window_display.setText(min_window)
+            self.hil_n_jobs_display.setText(n_jobs)
+
+            self.update_detector_tab("HIL")
+
+        except Exception as e:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setText("Error!")
+            msg.setInformativeText(f'HIL Detector could not be constructed given the parameters. Error: {str(e)}')
+            msg.setWindowTitle("HIL Detector Construction Failed")
             msg.exec_()
 
     def detect_HFOs(self):
@@ -600,6 +672,8 @@ class HFOMainWindow(QMainWindow):
             self.stackedWidget.setCurrentIndex(0)
         elif index == "STE":
             self.stackedWidget.setCurrentIndex(1)
+        elif index == "HIL":
+            self.stackedWidget.setCurrentIndex(2)
 
     def set_classifier_param_display(self):
         classifier_param = self.hfo_app.get_classifier_param()
@@ -824,6 +898,36 @@ class HFOMainWindow(QMainWindow):
         self.update_detector_tab("MNI")
         self.detector_subtabs.setCurrentIndex(1)
 
+    def update_hil_params(self, hil_params):
+        sample_freq = str(hil_params["sample_freq"])
+        pass_band = str(hil_params["pass_band"])
+        stop_band = str(hil_params["stop_band"])
+        epoch_time = str(hil_params["epoch_time"])
+        sliding_window = str(hil_params["sliding_window"])
+        min_window = str(hil_params["min_window"])
+        n_jobs = str(hil_params["n_jobs"])
+
+        self.hil_sample_freq_input.setText(sample_freq)
+        self.hil_pass_band_input.setText(pass_band)
+        self.hil_stop_band_input.setText(stop_band)
+        self.hil_epoch_time_input.setText(epoch_time)
+        self.hil_sliding_window_input.setText(sliding_window)
+        self.hil_min_window_input.setText(min_window)
+        self.hil_n_jobs_input.setText(n_jobs)
+
+        # set display parameters
+        self.hil_sample_freq_display.setText(sample_freq)
+        self.hil_pass_band_display.setText(pass_band)
+        self.hil_stop_band_display.setText(stop_band)
+        self.hil_epoch_time_display.setText(epoch_time)
+        self.hil_sliding_window_display.setText(sliding_window)
+        self.hil_min_window_display.setText(min_window)
+        self.hil_n_jobs_display.setText(n_jobs)
+
+        self.update_detector_tab("HIL")
+        self.detector_subtabs.setCurrentIndex(2)
+
+
     def set_detector_param_display(self):
         detector_params = self.hfo_app.param_detector
         detector_type = detector_params.detector_type.lower()
@@ -831,6 +935,8 @@ class HFOMainWindow(QMainWindow):
             self.update_ste_params(detector_params.detector_param.to_dict())
         elif detector_type == "mni":
             self.update_mni_params(detector_params.detector_param.to_dict())
+        elif detector_type == "hil":
+            self.update_hil_params(detector_params.detector_param.to_dict())
     
     def open_bipolar_channel_selection(self):
         self.bipolar_channel_selection_window = BipolarChannelSelectionWindow(self.hfo_app, self, self.close_signal,self.waveform_plot)
