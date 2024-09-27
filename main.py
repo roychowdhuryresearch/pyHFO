@@ -14,7 +14,7 @@ from PyQt5.QtWidgets import QMessageBox
 
 from src.hfo_app import HFO_App
 from src.param.param_classifier import ParamClassifier
-from src.param.param_detector import ParamDetector, ParamSTE, ParamMNI
+from src.param.param_detector import ParamDetector, ParamSTE, ParamMNI, ParamHIL
 from src.param.param_filter import ParamFilter
 from src.ui.quick_detection import HFOQuickDetector
 from src.ui.channels_selection import ChannelSelectionWindow
@@ -53,7 +53,6 @@ class HFOMainWindow(QMainWindow):
         self.stderr = Queue()
         sys.stdout = WriteStream(self.stdout)
         sys.stderr = WriteStream(self.stderr)
-
         self.thread_stdout = STDOutReceiver(self.stdout)
         self.thread_stdout.std_received_signal.connect(self.message_handler)
         self.thread_stdout.start()
@@ -65,6 +64,64 @@ class HFOMainWindow(QMainWindow):
         self.action_Open_EDF.triggered.connect(self.open_file)
         self.actionQuick_Detection.triggered.connect(self.open_quick_detection)
         self.action_Load_Detection.triggered.connect(self.load_from_npz)
+
+        ## top toolbar buttoms
+        self.actionOpen_EDF_toolbar.triggered.connect(self.open_file)
+        self.actionQuick_Detection_toolbar.triggered.connect(self.open_quick_detection)
+        self.actionLoad_Detection_toolbar.triggered.connect(self.load_from_npz)
+
+        # waveform display widget
+        self.waveform_plot_widget = pg.PlotWidget()
+        self.waveform_mini_widget = pg.PlotWidget()
+        self.widget.layout().addWidget(self.waveform_plot_widget, 0, 1)
+        self.widget.layout().addWidget(self.waveform_mini_widget, 1, 1)
+        self.widget.layout().setRowStretch(0, 9)
+        self.widget.layout().setRowStretch(1, 1)
+
+        # dynamically create window for different biomarkers
+        self.frame_biomarker_layout = QHBoxLayout(self.frame_biomarker_type)
+
+        # # dynamically create detection parameters groupbox for different biomarkers
+        # self.ste_parameter_layout = QGridLayout(self.detection_groupbox_ste)
+        # self.mni_parameter_layout = QGridLayout(self.detection_groupbox_mni)
+        # self.hil_parameter_layout = QGridLayout(self.detection_groupbox_hil)
+
+        self.combo_box_biomarker.currentIndexChanged.connect(self.switch_biomarker)
+        self.supported_biomarker = {
+            'HFO': self.create_hfo_window,
+            'Spindle': self.create_spindle_window,
+            'Hypsarrhythmia': self.create_hypsarrhythmia_window,
+        }
+        default_biomarker = self.combo_box_biomarker.currentText()
+        self.supported_biomarker[default_biomarker]()
+
+        #close window signal
+
+    def switch_biomarker(self):
+        selected_biomarker = self.combo_box_biomarker.currentText()
+        self.supported_biomarker[selected_biomarker]()
+
+    def create_hfo_window(self):
+        clear_stacked_widget(self.stacked_widget_detection_param)
+        page_ste = self.create_detection_parameter_page_ste('Detection Parameters (STE)')
+        page_mni = self.create_detection_parameter_page_mni('Detection Parameters (MNI)')
+        page_hil = self.create_detection_parameter_page_hil('Detection Parameters (HIL)')
+        self.stacked_widget_detection_param.addWidget(page_ste)
+        self.stacked_widget_detection_param.addWidget(page_mni)
+        self.stacked_widget_detection_param.addWidget(page_hil)
+
+        self.detector_subtabs.clear()
+        tab_ste = self.create_detection_parameter_tab_ste()
+        tab_mni = self.create_detection_parameter_tab_mni()
+        tab_hil = self.create_detection_parameter_tab_hil()
+        self.detector_subtabs.addTab(tab_ste, 'STE')
+        self.detector_subtabs.addTab(tab_mni, 'MNI')
+        self.detector_subtabs.addTab(tab_hil, 'HIL')
+
+        # create biomarker type
+        clear_layout(self.frame_biomarker_layout)
+        self.create_frame_biomarker_hfo()
+
         self.overview_filter_button.clicked.connect(self.filter_data)
         # set filter button to be disabled by default
         self.overview_filter_button.setEnabled(False)
@@ -72,64 +129,59 @@ class HFOMainWindow(QMainWindow):
 
         self.is_data_filtered = False
 
-        self.waveform_plot_widget = pg.PlotWidget()
-        self.waveform_mini_widget = pg.PlotWidget()
-        self.widget.layout().addWidget(self.waveform_plot_widget, 0, 1)
-        self.widget.layout().addWidget(self.waveform_mini_widget, 1, 1)
-        self.widget.layout().setRowStretch(0, 9)
-        self.widget.layout().setRowStretch(1, 1)
-        self.waveform_plot = CenterWaveformAndMiniPlotController(self.waveform_plot_widget, self.waveform_mini_widget, self.hfo_app)
+        self.waveform_plot = CenterWaveformAndMiniPlotController(self.waveform_plot_widget, self.waveform_mini_widget,
+                                                                 self.hfo_app)
 
-        ## top toolbar buttoms
-        self.actionOpen_EDF_toolbar.triggered.connect(self.open_file)
-        self.actionQuick_Detection_toolbar.triggered.connect(self.open_quick_detection)
-        self.actionLoad_Detection_toolbar.triggered.connect(self.load_from_npz)
-        
         self.mni_detect_button.clicked.connect(self.detect_HFOs)
         self.mni_detect_button.setEnabled(False)
         self.ste_detect_button.clicked.connect(self.detect_HFOs)
         self.ste_detect_button.setEnabled(False)
+        self.hil_detect_button.clicked.connect(self.detect_HFOs)
+        self.hil_detect_button.setEnabled(False)
 
-        #classifier tab buttons
+        # classifier tab buttons
         self.classifier_param = ParamClassifier()
-        #self.classifier_save_button.clicked.connect(self.hfo_app.set_classifier())
+        # self.classifier_save_button.clicked.connect(self.hfo_app.set_classifier())
 
-        #init inputs
+        # init inputs
         self.init_default_filter_input_params()
         self.init_default_ste_input_params()
         self.init_default_mni_input_params()
-    
-        #classifier default buttons
+        self.init_default_hil_input_params()
+
+        # classifier default buttons
         self.default_cpu_button.clicked.connect(self.set_classifier_param_cpu_default)
         self.default_gpu_button.clicked.connect(self.set_classifier_param_gpu_default)
 
-        #choose model files connection
-        self.choose_artifact_model_button.clicked.connect(lambda : self.choose_model_file("artifact"))
-        self.choose_spike_model_button.clicked.connect(lambda : self.choose_model_file("spike"))
-        
-        #custom model param connection
+        # choose model files connection
+        self.choose_artifact_model_button.clicked.connect(lambda: self.choose_model_file("artifact"))
+        self.choose_spike_model_button.clicked.connect(lambda: self.choose_model_file("spike"))
+
+        # custom model param connection
         self.classifier_save_button.clicked.connect(self.set_custom_classifier_param)
-        
-        #detect_all_button
+
+        # detect_all_button
         self.detect_all_button.clicked.connect(lambda: self.classify(True))
         self.detect_all_button.setEnabled(False)
         # self.detect_artifacts_button.clicked.connect(lambda : self.classify(False))
-        
+
         self.save_csv_button.clicked.connect(self.save_to_excel)
         self.save_csv_button.setEnabled(False)
 
-        #set n_jobs min and max
+        # set n_jobs min and max
         self.n_jobs_spinbox.setMinimum(1)
         self.n_jobs_spinbox.setMaximum(mp.cpu_count())
 
-        #set default n_jobs
+        # set default n_jobs
         self.n_jobs_spinbox.setValue(self.hfo_app.n_jobs)
         self.n_jobs_ok_button.clicked.connect(self.set_n_jobs)
 
         self.STE_save_button.clicked.connect(self.save_ste_params)
         self.MNI_save_button.clicked.connect(self.save_mni_params)
+        self.HIL_save_button.clicked.connect(self.save_hil_params)
         self.STE_save_button.setEnabled(False)
         self.MNI_save_button.setEnabled(False)
+        self.HIL_save_button.setEnabled(False)
 
         self.save_npz_button.clicked.connect(self.save_to_npz)
         self.save_npz_button.setEnabled(False)
@@ -140,7 +192,7 @@ class HFOMainWindow(QMainWindow):
         self.bipolar_button.clicked.connect(self.open_bipolar_channel_selection)
         self.bipolar_button.setEnabled(False)
 
-        #annotation button
+        # annotation button
         self.annotation_button.clicked.connect(self.open_annotation)
         self.annotation_button.setEnabled(False)
 
@@ -149,27 +201,708 @@ class HFOMainWindow(QMainWindow):
 
         self.channels_to_plot = []
 
-        #check if gpu is available
+        # check if gpu is available
         self.gpu = torch.cuda.is_available()
         # print(f"GPU available: {self.gpu}")
         if not self.gpu:
-            #disable gpu buttons
+            # disable gpu buttons
             self.default_gpu_button.setEnabled(False)
 
         self.quick_detect_open = False
         self.set_mni_input_len(8)
         self.set_ste_input_len(8)
-       
-        #close window signal
-        
+        self.set_hil_input_len(8)
+
+    def create_spindle_window(self):
+        clear_stacked_widget(self.stacked_widget_detection_param)
+        page_yasa = self.create_detection_parameter_page_yasa('Detection Parameters (YASA)')
+        self.stacked_widget_detection_param.addWidget(page_yasa)
+
+        self.detector_subtabs.clear()
+        tab_yasa = self.create_detection_parameter_tab_yasa()
+        self.detector_subtabs.addTab(tab_yasa, 'YASA')
+
+        # create biomarker type
+        clear_layout(self.frame_biomarker_layout)
+        self.create_frame_biomarker_spindle()
+
+        self.overview_filter_button.clicked.connect(self.filter_data)
+        # set filter button to be disabled by default
+        self.overview_filter_button.setEnabled(False)
+        # self.show_original_button.clicked.connect(self.toggle_filtered)
+
+        self.is_data_filtered = False
+
+        self.waveform_plot = CenterWaveformAndMiniPlotController(self.waveform_plot_widget, self.waveform_mini_widget,
+                                                                 self.hfo_app)
+
+    def create_hypsarrhythmia_window(self):
+        print('not implemented yet')
+
+    def create_frame_biomarker_hfo(self):
+        # self.frame_biomarker_layout = QHBoxLayout(self.frame_biomarker_type)
+        self.frame_biomarker_layout.addStretch(1)
+
+        # Add three QLabel widgets to the QFrame
+        self.label_type1 = QLabel("Artifact")
+        self.label_type1.setFixedWidth(150)
+        self.label_type2 = QLabel("spk-HFO")
+        self.label_type2.setFixedWidth(150)
+        self.label_type3 = QLabel("HFO")
+        self.label_type3.setFixedWidth(150)
+
+        self.line_type1 = QLineEdit()
+        self.line_type1.setReadOnly(True)
+        self.line_type1.setFrame(True)
+        self.line_type1.setFixedWidth(50)
+        self.line_type1.setStyleSheet("background-color: orange;")
+        self.line_type2 = QLineEdit()
+        self.line_type2.setReadOnly(True)
+        self.line_type2.setFrame(True)
+        self.line_type2.setFixedWidth(50)
+        self.line_type2.setStyleSheet("background-color: purple;")
+        self.line_type3 = QLineEdit()
+        self.line_type3.setReadOnly(True)
+        self.line_type3.setFrame(True)
+        self.line_type3.setFixedWidth(50)
+        self.line_type3.setStyleSheet("background-color: green;")
+
+        # Add labels to the layout
+        self.frame_biomarker_layout.addWidget(self.line_type1)
+        self.frame_biomarker_layout.addWidget(self.label_type1)
+        self.frame_biomarker_layout.addWidget(self.line_type2)
+        self.frame_biomarker_layout.addWidget(self.label_type2)
+        self.frame_biomarker_layout.addWidget(self.line_type3)
+        self.frame_biomarker_layout.addWidget(self.label_type3)
+        self.frame_biomarker_layout.addStretch(1)
+
+    def create_frame_biomarker_spindle(self):
+        # self.frame_biomarker_layout = QHBoxLayout(self.frame_biomarker_type)
+        self.frame_biomarker_layout.addStretch(1)
+
+        # Add three QLabel widgets to the QFrame
+        self.label_type1 = QLabel("Artifact")
+        self.label_type1.setFixedWidth(150)
+        self.label_type2 = QLabel("spk-Spindle")
+        self.label_type2.setFixedWidth(150)
+        self.label_type3 = QLabel("Spindle")
+        self.label_type3.setFixedWidth(150)
+
+        self.line_type1 = QLineEdit()
+        self.line_type1.setReadOnly(True)
+        self.line_type1.setFrame(True)
+        self.line_type1.setFixedWidth(50)
+        self.line_type1.setStyleSheet("background-color: orange;")
+        self.line_type2 = QLineEdit()
+        self.line_type2.setReadOnly(True)
+        self.line_type2.setFrame(True)
+        self.line_type2.setFixedWidth(50)
+        self.line_type2.setStyleSheet("background-color: purple;")
+        self.line_type3 = QLineEdit()
+        self.line_type3.setReadOnly(True)
+        self.line_type3.setFrame(True)
+        self.line_type3.setFixedWidth(50)
+        self.line_type3.setStyleSheet("background-color: green;")
+
+        # Add labels to the layout
+        self.frame_biomarker_layout.addWidget(self.line_type1)
+        self.frame_biomarker_layout.addWidget(self.label_type1)
+        self.frame_biomarker_layout.addWidget(self.line_type2)
+        self.frame_biomarker_layout.addWidget(self.label_type2)
+        self.frame_biomarker_layout.addWidget(self.line_type3)
+        self.frame_biomarker_layout.addWidget(self.label_type3)
+        self.frame_biomarker_layout.addStretch(1)
+
+    def create_detection_parameter_page_ste(self, groupbox_title):
+        page = QWidget()
+        layout = QGridLayout()
+
+        detection_groupbox_ste = QGroupBox(groupbox_title)
+        ste_parameter_layout = QGridLayout(detection_groupbox_ste)
+
+        clear_layout(ste_parameter_layout)
+        # Create widgets
+        text_font = QFont('Arial', 11)
+        label1 = QLabel('Epoch (s)')
+        label2 = QLabel('Min Window (s)')
+        label3 = QLabel('RMS Window (s)')
+        label4 = QLabel('Min Gap Time (s)')
+        label5 = QLabel('Min Oscillations')
+        label6 = QLabel('Peak Threshold')
+        label7 = QLabel('RMS Threshold')
+
+        self.ste_epoch_display = QLabel()
+        self.ste_epoch_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.ste_epoch_display.setFont(text_font)
+        self.ste_min_window_display = QLabel()
+        self.ste_min_window_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.ste_min_window_display.setFont(text_font)
+        self.ste_rms_window_display = QLabel()
+        self.ste_rms_window_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.ste_rms_window_display.setFont(text_font)
+        self.ste_min_gap_time_display = QLabel()
+        self.ste_min_gap_time_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.ste_min_gap_time_display.setFont(text_font)
+        self.ste_min_oscillations_display = QLabel()
+        self.ste_min_oscillations_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.ste_min_oscillations_display.setFont(text_font)
+        self.ste_peak_threshold_display = QLabel()
+        self.ste_peak_threshold_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.ste_peak_threshold_display.setFont(text_font)
+        self.ste_rms_threshold_display = QLabel()
+        self.ste_rms_threshold_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.ste_rms_threshold_display.setFont(text_font)
+        self.ste_detect_button = QPushButton('Detect')
+
+        # Add widgets to the grid layout
+        ste_parameter_layout.addWidget(label1, 0, 0)  # Row 0, Column 0
+        ste_parameter_layout.addWidget(label2, 0, 1)  # Row 0, Column 1
+        ste_parameter_layout.addWidget(self.ste_epoch_display, 1, 0)  # Row 1, Column 0
+        ste_parameter_layout.addWidget(self.ste_min_window_display, 1, 1)  # Row 1, Column 1
+        ste_parameter_layout.addWidget(label3, 2, 0)
+        ste_parameter_layout.addWidget(label4, 2, 1)
+        ste_parameter_layout.addWidget(self.ste_rms_window_display, 3, 0)
+        ste_parameter_layout.addWidget(self.ste_min_gap_time_display, 3, 1)
+        ste_parameter_layout.addWidget(label5, 4, 0)
+        ste_parameter_layout.addWidget(label6, 4, 1)
+        ste_parameter_layout.addWidget(self.ste_min_oscillations_display, 5, 0)
+        ste_parameter_layout.addWidget(self.ste_peak_threshold_display, 5, 1)
+        ste_parameter_layout.addWidget(label7, 6, 0)
+        ste_parameter_layout.addWidget(self.ste_rms_threshold_display, 7, 0)
+        ste_parameter_layout.addWidget(self.ste_detect_button, 7, 1)
+
+        # Set the layout for the page
+        layout.addWidget(detection_groupbox_ste)
+        page.setLayout(layout)
+        return page
+
+    def create_detection_parameter_page_mni(self, groupbox_title):
+        page = QWidget()
+        layout = QGridLayout()
+
+        detection_groupbox_mni = QGroupBox(groupbox_title)
+        mni_parameter_layout = QGridLayout(detection_groupbox_mni)
+
+        clear_layout(mni_parameter_layout)
+        # self.detection_groupbox_mni.setTitle("Detection Parameters (MNI)")
+
+        # Create widgets
+        text_font = QFont('Arial', 11)
+        label1 = QLabel('Epoch (s)')
+        label2 = QLabel('Min Window (s)')
+        label3 = QLabel('Epoch CHF (s)')
+        label4 = QLabel('Min Gap Time (s)')
+        label5 = QLabel('CHF Percentage')
+        label6 = QLabel('Threshold Percentile')
+        label7 = QLabel('Window (s)')
+        label8 = QLabel('Shift')
+        label9 = QLabel('Threshold')
+        label10 = QLabel('Min Time')
+
+        self.mni_epoch_display = QLabel()
+        self.mni_epoch_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.mni_epoch_display.setFont(text_font)
+        self.mni_min_window_display = QLabel()
+        self.mni_min_window_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.mni_min_window_display.setFont(text_font)
+        self.mni_epoch_chf_display = QLabel()
+        self.mni_epoch_chf_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.mni_epoch_chf_display.setFont(text_font)
+        self.mni_min_gap_time_display = QLabel()
+        self.mni_min_gap_time_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.mni_min_gap_time_display.setFont(text_font)
+        self.mni_chf_percentage_display = QLabel()
+        self.mni_chf_percentage_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.mni_chf_percentage_display.setFont(text_font)
+        self.mni_threshold_percentile_display = QLabel()
+        self.mni_threshold_percentile_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.mni_threshold_percentile_display.setFont(text_font)
+        self.mni_baseline_window_display = QLabel()
+        self.mni_baseline_window_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.mni_baseline_window_display.setFont(text_font)
+        self.mni_baseline_shift_display = QLabel()
+        self.mni_baseline_shift_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.mni_baseline_shift_display.setFont(text_font)
+        self.mni_baseline_threshold_display = QLabel()
+        self.mni_baseline_threshold_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.mni_baseline_threshold_display.setFont(text_font)
+        self.mni_baseline_min_time_display = QLabel()
+        self.mni_baseline_min_time_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.mni_baseline_min_time_display.setFont(text_font)
+        self.mni_detect_button = QPushButton('Detect')
+
+        # Add widgets to the grid layout
+        mni_parameter_layout.addWidget(label1, 0, 0)  # Row 0, Column 0
+        mni_parameter_layout.addWidget(label2, 0, 1)  # Row 0, Column 1
+        mni_parameter_layout.addWidget(self.mni_epoch_display, 1, 0)  # Row 1, Column 0
+        mni_parameter_layout.addWidget(self.mni_min_window_display, 1, 1)  # Row 1, Column 1
+        mni_parameter_layout.addWidget(label3, 2, 0)
+        mni_parameter_layout.addWidget(label4, 2, 1)
+        mni_parameter_layout.addWidget(self.mni_epoch_chf_display, 3, 0)
+        mni_parameter_layout.addWidget(self.mni_min_gap_time_display, 3, 1)
+        mni_parameter_layout.addWidget(label5, 4, 0)
+        mni_parameter_layout.addWidget(label6, 4, 1)
+        mni_parameter_layout.addWidget(self.mni_chf_percentage_display, 5, 0)
+        mni_parameter_layout.addWidget(self.mni_threshold_percentile_display, 5, 1)
+
+        group_box = QGroupBox('Baseline')
+        baseline_parameter_layout = QVBoxLayout(group_box)
+        baseline_parameter_layout.addWidget(label7)
+        baseline_parameter_layout.addWidget(self.mni_baseline_window_display)
+        baseline_parameter_layout.addWidget(label8)
+        baseline_parameter_layout.addWidget(self.mni_baseline_shift_display)
+        baseline_parameter_layout.addWidget(label9)
+        baseline_parameter_layout.addWidget(self.mni_baseline_threshold_display)
+        baseline_parameter_layout.addWidget(label10)
+        baseline_parameter_layout.addWidget(self.mni_baseline_min_time_display)
+
+        mni_parameter_layout.addWidget(group_box, 0, 2, 6, 1)  # Row 0, Column 2, span 1 row, 6 columns
+        mni_parameter_layout.addWidget(self.mni_detect_button, 6, 2)
+
+        # Set the layout for the page
+        layout.addWidget(detection_groupbox_mni)
+        page.setLayout(layout)
+        return page
+
+    def create_detection_parameter_page_hil(self, groupbox_title):
+        page = QWidget()
+        layout = QGridLayout()
+
+        detection_groupbox_hil = QGroupBox(groupbox_title)
+        hil_parameter_layout = QGridLayout(detection_groupbox_hil)
+
+        clear_layout(hil_parameter_layout)
+        # self.detection_groupbox_hil.setTitle("Detection Parameters (HIL)")
+
+        # Create widgets
+        text_font = QFont('Arial', 11)
+        label1 = QLabel('Epoch (s)')
+        label2 = QLabel('Min Window (s)')
+        label3 = QLabel('Pass Band (Hz)')
+        label4 = QLabel('Stop Band (Hz)')
+        label5 = QLabel('Sample Frequency')
+        label6 = QLabel('Sliding Window')
+        label7 = QLabel('Number of Jobs')
+
+        self.hil_epoch_time_display = QLabel()
+        self.hil_epoch_time_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.hil_epoch_time_display.setFont(text_font)
+        self.hil_min_window_display = QLabel()
+        self.hil_min_window_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.hil_min_window_display.setFont(text_font)
+        self.hil_pass_band_display = QLabel()
+        self.hil_pass_band_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.hil_pass_band_display.setFont(text_font)
+        self.hil_stop_band_display = QLabel()
+        self.hil_stop_band_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.hil_stop_band_display.setFont(text_font)
+        self.hil_sample_freq_display = QLabel()
+        self.hil_sample_freq_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.hil_sample_freq_display.setFont(text_font)
+        self.hil_sliding_window_display = QLabel()
+        self.hil_sliding_window_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.hil_sliding_window_display.setFont(text_font)
+        self.hil_n_jobs_display = QLabel()
+        self.hil_n_jobs_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.hil_n_jobs_display.setFont(text_font)
+        self.hil_detect_button = QPushButton('Detect')
+
+        # Add widgets to the grid layout
+        hil_parameter_layout.addWidget(label1, 0, 0)  # Row 0, Column 0
+        hil_parameter_layout.addWidget(label2, 0, 1)  # Row 0, Column 1
+        hil_parameter_layout.addWidget(self.hil_epoch_time_display, 1, 0)  # Row 1, Column 0
+        hil_parameter_layout.addWidget(self.hil_min_window_display, 1, 1)  # Row 1, Column 1
+        hil_parameter_layout.addWidget(label3, 2, 0)
+        hil_parameter_layout.addWidget(label4, 2, 1)
+        hil_parameter_layout.addWidget(self.hil_pass_band_display, 3, 0)
+        hil_parameter_layout.addWidget(self.hil_stop_band_display, 3, 1)
+        hil_parameter_layout.addWidget(label5, 4, 0)
+        hil_parameter_layout.addWidget(label6, 4, 1)
+        hil_parameter_layout.addWidget(self.hil_sample_freq_display, 5, 0)
+        hil_parameter_layout.addWidget(self.hil_sliding_window_display, 5, 1)
+        hil_parameter_layout.addWidget(label7, 6, 0)
+        hil_parameter_layout.addWidget(self.hil_n_jobs_display, 7, 0)
+        hil_parameter_layout.addWidget(self.hil_detect_button, 7, 1)
+
+        # Set the layout for the page
+        layout.addWidget(detection_groupbox_hil)
+        page.setLayout(layout)
+        return page
+
+    def create_detection_parameter_page_yasa(self, groupbox_title):
+        page = QWidget()
+        layout = QGridLayout()
+
+        detection_groupbox_yasa = QGroupBox(groupbox_title)
+        yasa_parameter_layout = QGridLayout(detection_groupbox_yasa)
+
+        clear_layout(yasa_parameter_layout)
+        # self.detection_groupbox_hil.setTitle("Detection Parameters (HIL)")
+
+        # Create widgets
+        text_font = QFont('Arial', 11)
+        label1 = QLabel('Freq Spindle (Hz)')
+        label2 = QLabel('Freq Broad (Hz)')
+        label3 = QLabel('Duration (s)')
+        label4 = QLabel('Min Distance (ms)')
+        label5 = QLabel('rel_pow')
+        label6 = QLabel('corr')
+        label7 = QLabel('rms')
+
+        self.yasa_freq_sp_display = QLabel()
+        self.yasa_freq_sp_display .setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.yasa_freq_sp_display .setFont(text_font)
+        self.yasa_freq_broad_display = QLabel()
+        self.yasa_freq_broad_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.yasa_freq_broad_display.setFont(text_font)
+        self.yasa_duration_display = QLabel()
+        self.yasa_duration_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.yasa_duration_display.setFont(text_font)
+        self.yasa_min_distance_display = QLabel()
+        self.yasa_min_distance_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.yasa_min_distance_display.setFont(text_font)
+        self.yasa_thresh_rel_pow_display = QLabel()
+        self.yasa_thresh_rel_pow_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.yasa_thresh_rel_pow_display.setFont(text_font)
+        self.yasa_thresh_corr_display = QLabel()
+        self.yasa_thresh_corr_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.yasa_thresh_corr_display.setFont(text_font)
+        self.yasa_thresh_rms_display = QLabel()
+        self.yasa_thresh_rms_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.yasa_thresh_rms_display.setFont(text_font)
+
+        self.yasa_detect_button = QPushButton('Detect')
+
+        # Add widgets to the grid layout
+        yasa_parameter_layout.addWidget(label1, 0, 0)  # Row 0, Column 0
+        yasa_parameter_layout.addWidget(label2, 0, 1)  # Row 0, Column 1
+        yasa_parameter_layout.addWidget(self.yasa_freq_sp_display, 1, 0)  # Row 1, Column 0
+        yasa_parameter_layout.addWidget(self.yasa_freq_broad_display, 1, 1)  # Row 1, Column 1
+        yasa_parameter_layout.addWidget(label3, 2, 0)
+        yasa_parameter_layout.addWidget(label4, 2, 1)
+        yasa_parameter_layout.addWidget(self.yasa_duration_display, 3, 0)
+        yasa_parameter_layout.addWidget(self.yasa_min_distance_display, 3, 1)
+
+        group_box = QGroupBox('thresh')
+        thresh_parameter_layout = QVBoxLayout(group_box)
+        thresh_parameter_layout.addWidget(label5)
+        thresh_parameter_layout.addWidget(self.yasa_thresh_rel_pow_display)
+        thresh_parameter_layout.addWidget(label6)
+        thresh_parameter_layout.addWidget(self.yasa_thresh_corr_display)
+        thresh_parameter_layout.addWidget(label7)
+        thresh_parameter_layout.addWidget(self.yasa_thresh_rms_display)
+
+        yasa_parameter_layout.addWidget(group_box, 0, 2, 4, 1)  # Row 0, Column 2, span 1 row, 6 columns
+        yasa_parameter_layout.addWidget(self.mni_detect_button, 4, 2)
+
+        # Set the layout for the page
+        layout.addWidget(detection_groupbox_yasa)
+        page.setLayout(layout)
+        return page
+
+    def create_detection_parameter_tab_ste(self):
+        tab = QWidget()
+        layout = QGridLayout()
+
+        detection_groupbox = QGroupBox('Detection Parameters')
+        parameter_layout = QGridLayout(detection_groupbox)
+
+        clear_layout(parameter_layout)
+
+        # Create widgets
+        text_font = QFont('Arial', 11)
+        label1 = QLabel('RMS Window')
+        label2 = QLabel('Min Window')
+        label3 = QLabel('Min Gap')
+        label4 = QLabel('Epoch Length')
+        label5 = QLabel('Min Oscillations')
+        label6 = QLabel('RMS Threshold')
+        label7 = QLabel('Peak Threshold')
+        label8 = QLabel('sec')
+        label9 = QLabel('sec')
+        label10 = QLabel('sec')
+        label11 = QLabel('sec')
+
+        self.ste_rms_window_input = QLineEdit()
+        self.ste_rms_window_input.setFont(text_font)
+        self.ste_min_window_input = QLineEdit()
+        self.ste_min_window_input.setFont(text_font)
+        self.ste_min_gap_input = QLineEdit()
+        self.ste_min_gap_input.setFont(text_font)
+        self.ste_epoch_length_input = QLineEdit()
+        self.ste_epoch_length_input.setFont(text_font)
+        self.ste_min_oscillation_input = QLineEdit()
+        self.ste_min_oscillation_input.setFont(text_font)
+        self.ste_rms_threshold_input = QLineEdit()
+        self.ste_rms_threshold_input.setFont(text_font)
+        self.ste_peak_threshold_input = QLineEdit()
+        self.ste_peak_threshold_input.setFont(text_font)
+        self.STE_save_button = QPushButton('Save')
+
+        # Add widgets to the grid layout
+        parameter_layout.addWidget(label1, 0, 0)  # Row 0, Column 0
+        parameter_layout.addWidget(self.ste_rms_window_input, 0, 1)  # Row 0, Column 1
+        parameter_layout.addWidget(label8, 0, 2)
+        parameter_layout.addWidget(label2, 1, 0)
+        parameter_layout.addWidget(self.ste_min_window_input, 1, 1)
+        parameter_layout.addWidget(label9, 1, 2)
+        parameter_layout.addWidget(label3, 2, 0)
+        parameter_layout.addWidget(self.ste_min_gap_input, 2, 1)
+        parameter_layout.addWidget(label10, 2, 2)
+        parameter_layout.addWidget(label4, 3, 0)
+        parameter_layout.addWidget(self.ste_epoch_length_input, 3, 1)
+        parameter_layout.addWidget(label11, 3, 2)
+
+        parameter_layout.addWidget(label5, 4, 0)
+        parameter_layout.addWidget(self.ste_min_oscillation_input, 4, 1)
+        parameter_layout.addWidget(label6, 5, 0)
+        parameter_layout.addWidget(self.ste_rms_threshold_input, 5, 1)
+        parameter_layout.addWidget(label7, 6, 0)
+        parameter_layout.addWidget(self.ste_peak_threshold_input, 6, 1)
+
+        parameter_layout.addWidget(self.STE_save_button, 7, 2)
+
+        # Set the layout for the page
+        layout.addWidget(detection_groupbox)
+        tab.setLayout(layout)
+        return tab
+
+    def create_detection_parameter_tab_mni(self):
+        tab = QWidget()
+        layout = QGridLayout()
+
+        detection_groupbox = QGroupBox('Detection Parameters')
+        parameter_layout = QGridLayout(detection_groupbox)
+
+        clear_layout(parameter_layout)
+
+        # Create widgets
+        text_font = QFont('Arial', 11)
+        label1 = QLabel('Epoch Time')
+        label2 = QLabel('Epoch CHF')
+        label3 = QLabel('CHF Percentage')
+        label4 = QLabel('Min Window')
+        label5 = QLabel('Min Gap Time')
+        label6 = QLabel('Threshold Percentage')
+        label7 = QLabel('Baseline Window')
+        label8 = QLabel('Baseline Shift')
+        label9 = QLabel('Baseline Threshold')
+        label10 = QLabel('Baseline Minimum Time')
+        label11 = QLabel('sec')
+        label12 = QLabel('sec')
+        label13 = QLabel('sec')
+        label14 = QLabel('sec')
+        label15 = QLabel('sec')
+        label16 = QLabel('%')
+        label17 = QLabel('%')
+
+        self.mni_epoch_time_input = QLineEdit()
+        self.mni_epoch_time_input.setFont(text_font)
+        self.mni_epoch_chf_input = QLineEdit()
+        self.mni_epoch_chf_input.setFont(text_font)
+        self.mni_chf_percentage_input = QLineEdit()
+        self.mni_chf_percentage_input.setFont(text_font)
+        self.mni_min_window_input = QLineEdit()
+        self.mni_min_window_input.setFont(text_font)
+        self.mni_min_gap_time_input = QLineEdit()
+        self.mni_min_gap_time_input.setFont(text_font)
+        self.mni_threshold_percentage_input = QLineEdit()
+        self.mni_threshold_percentage_input.setFont(text_font)
+        self.mni_baseline_window_input = QLineEdit()
+        self.mni_baseline_window_input.setFont(text_font)
+        self.mni_baseline_shift_input = QLineEdit()
+        self.mni_baseline_shift_input.setFont(text_font)
+        self.mni_baseline_threshold_input = QLineEdit()
+        self.mni_baseline_threshold_input.setFont(text_font)
+        self.mni_baseline_min_time_input = QLineEdit()
+        self.mni_baseline_min_time_input.setFont(text_font)
+        self.MNI_save_button = QPushButton('Save')
+
+        # Add widgets to the grid layout
+        parameter_layout.addWidget(label1, 0, 0)  # Row 0, Column 0
+        parameter_layout.addWidget(self.mni_epoch_time_input, 0, 1)  # Row 0, Column 1
+        parameter_layout.addWidget(label11, 0, 2)
+        parameter_layout.addWidget(label2, 1, 0)
+        parameter_layout.addWidget(self.mni_epoch_chf_input, 1, 1)
+        parameter_layout.addWidget(label12, 1, 2)
+        parameter_layout.addWidget(label3, 2, 0)
+        parameter_layout.addWidget(self.mni_chf_percentage_input, 2, 1)
+        parameter_layout.addWidget(label16, 2, 2)
+        parameter_layout.addWidget(label4, 3, 0)
+        parameter_layout.addWidget(self.mni_min_window_input, 3, 1)
+        parameter_layout.addWidget(label13, 3, 2)
+        parameter_layout.addWidget(label5, 4, 0)
+        parameter_layout.addWidget(self.mni_min_gap_time_input, 4, 1)
+        parameter_layout.addWidget(label14, 4, 2)
+        parameter_layout.addWidget(label6, 5, 0)
+        parameter_layout.addWidget(self.mni_threshold_percentage_input, 5, 1)
+        parameter_layout.addWidget(label17, 5, 2)
+        parameter_layout.addWidget(label7, 6, 0)
+        parameter_layout.addWidget(self.mni_baseline_window_input, 6, 1)
+        parameter_layout.addWidget(label15, 6, 2)
+
+        parameter_layout.addWidget(label8, 7, 0)
+        parameter_layout.addWidget(self.mni_baseline_shift_input, 7, 1)
+        parameter_layout.addWidget(label9, 8, 0)
+        parameter_layout.addWidget(self.mni_baseline_threshold_input, 8, 1)
+        parameter_layout.addWidget(label10, 9, 0)
+        parameter_layout.addWidget(self.mni_baseline_min_time_input, 9, 1)
+
+        parameter_layout.addWidget(self.MNI_save_button, 10, 2)
+
+        # Set the layout for the page
+        layout.addWidget(detection_groupbox)
+        tab.setLayout(layout)
+        return tab
+
+    def create_detection_parameter_tab_hil(self):
+        tab = QWidget()
+        layout = QGridLayout()
+
+        detection_groupbox = QGroupBox('Detection Parameters')
+        parameter_layout = QGridLayout(detection_groupbox)
+
+        clear_layout(parameter_layout)
+
+        # Create widgets
+        text_font = QFont('Arial', 11)
+        label1 = QLabel('Sample Frequency')
+        label2 = QLabel('Pass Band')
+        label3 = QLabel('Stop Band')
+        label4 = QLabel('Epoch Time')
+        label5 = QLabel('Sliding Window')
+        label6 = QLabel('Min Window')
+        label7 = QLabel('Number of Jobs')
+        label8 = QLabel('sec')
+        label9 = QLabel('sec')
+        label10 = QLabel('sec')
+        label11 = QLabel('Hz')
+        label12 = QLabel('Hz')
+        label13 = QLabel('Hz')
+
+        self.hil_sample_freq_input = QLineEdit()
+        self.hil_sample_freq_input.setFont(text_font)
+        self.hil_pass_band_input = QLineEdit()
+        self.hil_pass_band_input.setFont(text_font)
+        self.hil_stop_band_input = QLineEdit()
+        self.hil_stop_band_input.setFont(text_font)
+        self.hil_epoch_time_input = QLineEdit()
+        self.hil_epoch_time_input.setFont(text_font)
+        self.hil_sliding_window_input = QLineEdit()
+        self.hil_sliding_window_input.setFont(text_font)
+        self.hil_min_window_input = QLineEdit()
+        self.hil_min_window_input.setFont(text_font)
+        self.hil_n_jobs_input = QLineEdit()
+        self.hil_n_jobs_input.setFont(text_font)
+        self.HIL_save_button = QPushButton('Save')
+
+        # Add widgets to the grid layout
+        parameter_layout.addWidget(label1, 0, 0)  # Row 0, Column 0
+        parameter_layout.addWidget(self.hil_sample_freq_input, 0, 1)  # Row 0, Column 1
+        parameter_layout.addWidget(label11, 0, 2)
+        parameter_layout.addWidget(label2, 1, 0)
+        parameter_layout.addWidget(self.hil_pass_band_input, 1, 1)
+        parameter_layout.addWidget(label12, 1, 2)
+        parameter_layout.addWidget(label3, 2, 0)
+        parameter_layout.addWidget(self.hil_stop_band_input, 2, 1)
+        parameter_layout.addWidget(label13, 2, 2)
+        parameter_layout.addWidget(label4, 3, 0)
+        parameter_layout.addWidget(self.hil_epoch_time_input, 3, 1)
+        parameter_layout.addWidget(label8, 3, 2)
+        parameter_layout.addWidget(label5, 4, 0)
+        parameter_layout.addWidget(self.hil_sliding_window_input, 4, 1)
+        parameter_layout.addWidget(label9, 4, 2)
+        parameter_layout.addWidget(label6, 5, 0)
+        parameter_layout.addWidget(self.hil_min_window_input, 5, 1)
+        parameter_layout.addWidget(label10, 5, 2)
+
+        parameter_layout.addWidget(label7, 6, 0)
+        parameter_layout.addWidget(self.hil_n_jobs_input, 6, 1)
+
+        parameter_layout.addWidget(self.HIL_save_button, 7, 2)
+
+        # Set the layout for the page
+        layout.addWidget(detection_groupbox)
+        tab.setLayout(layout)
+        return tab
+
+    def create_detection_parameter_tab_yasa(self):
+        tab = QWidget()
+        layout = QGridLayout()
+
+        detection_groupbox = QGroupBox('Detection Parameters')
+        parameter_layout = QGridLayout(detection_groupbox)
+
+        clear_layout(parameter_layout)
+
+        # Create widgets
+        text_font = QFont('Arial', 11)
+        label1 = QLabel('Freq Spindle')
+        label2 = QLabel('Freq Broad')
+        label3 = QLabel('Duration')
+        label4 = QLabel('Min Distance')
+        label5 = QLabel('Thresh-rel_pow')
+        label6 = QLabel('Thresh-corr')
+        label7 = QLabel('Thresh-rms')
+        label8 = QLabel('Hz')
+        label9 = QLabel('Hz')
+        label10 = QLabel('sec')
+        label11 = QLabel('ms')
+
+        self.yasa_freq_sp_input = QLineEdit()
+        self.yasa_freq_sp_input.setFont(text_font)
+        self.yasa_freq_broad_input = QLineEdit()
+        self.yasa_freq_broad_input.setFont(text_font)
+        self.yasa_duration_input = QLineEdit()
+        self.yasa_duration_input.setFont(text_font)
+        self.yasa_min_distance_input = QLineEdit()
+        self.yasa_min_distance_input.setFont(text_font)
+        self.yasa_thresh_rel_pow_input = QLineEdit()
+        self.yasa_thresh_rel_pow_input.setFont(text_font)
+        self.yasa_thresh_corr_input = QLineEdit()
+        self.yasa_thresh_corr_input.setFont(text_font)
+        self.yasa_thresh_rms_input = QLineEdit()
+        self.yasa_thresh_rms_input.setFont(text_font)
+        self.YASA_save_button = QPushButton('Save')
+
+        # Add widgets to the grid layout
+        parameter_layout.addWidget(label1, 0, 0)  # Row 0, Column 0
+        parameter_layout.addWidget(self.yasa_freq_sp_input, 0, 1)  # Row 0, Column 1
+        parameter_layout.addWidget(label8, 0, 2)
+        parameter_layout.addWidget(label2, 1, 0)
+        parameter_layout.addWidget(self.yasa_freq_broad_input, 1, 1)
+        parameter_layout.addWidget(label9, 1, 2)
+        parameter_layout.addWidget(label3, 2, 0)
+        parameter_layout.addWidget(self.yasa_duration_input, 2, 1)
+        parameter_layout.addWidget(label10, 2, 2)
+        parameter_layout.addWidget(label4, 3, 0)
+        parameter_layout.addWidget(self.yasa_min_distance_input, 3, 1)
+        parameter_layout.addWidget(label11, 3, 2)
+
+        parameter_layout.addWidget(label5, 4, 0)
+        parameter_layout.addWidget(self.yasa_thresh_rel_pow_input, 4, 1)
+        parameter_layout.addWidget(label6, 5, 0)
+        parameter_layout.addWidget(self.yasa_thresh_corr_input, 5, 1)
+        parameter_layout.addWidget(label7, 6, 0)
+        parameter_layout.addWidget(self.yasa_thresh_rms_input, 6, 1)
+
+        parameter_layout.addWidget(self.YASA_save_button, 7, 2)
+
+        # Set the layout for the page
+        layout.addWidget(detection_groupbox)
+        tab.setLayout(layout)
+        return tab
+
     def reinitialize_buttons(self):
         self.mni_detect_button.setEnabled(False)
         self.ste_detect_button.setEnabled(False)
+        self.hil_detect_button.setEnabled(False)
         self.detect_all_button.setEnabled(False)
         self.save_csv_button.setEnabled(False)
         self.save_npz_button.setEnabled(False)
         self.STE_save_button.setEnabled(False)
         self.MNI_save_button.setEnabled(False)
+        self.HIL_save_button.setEnabled(False)
         self.Filter60Button.setEnabled(False)
 
     def set_mni_input_len(self,max_len = 5):
@@ -193,6 +926,14 @@ class HFOMainWindow(QMainWindow):
         self.ste_rms_threshold_input.setMaxLength(max_len)
         self.ste_peak_threshold_input.setMaxLength(max_len)
 
+    def set_hil_input_len(self, max_len=5):
+        self.hil_sample_freq_input.setMaxLength(max_len)
+        self.hil_pass_band_input.setMaxLength(max_len)
+        self.hil_stop_band_input.setMaxLength(max_len)
+        self.hil_epoch_time_input.setMaxLength(max_len)
+        self.hil_sliding_window_input.setMaxLength(max_len)
+        self.hil_min_window_input.setMaxLength(max_len)
+        self.hil_n_jobs_input.setMaxLength(max_len)
 
     def close_other_window(self):
         self.close_signal.emit() 
@@ -359,6 +1100,16 @@ class HFOMainWindow(QMainWindow):
         self.mni_baseline_threshold_input.setText(str(default_params.base_thrd))
         self.mni_baseline_min_time_input.setText(str(default_params.base_min))
 
+    def init_default_hil_input_params(self):
+        default_params = ParamHIL(2000)  # 初始化默认参数，假设采样率是 2000
+        self.hil_sample_freq_input.setText(str(default_params.sample_freq))
+        self.hil_pass_band_input.setText(str(default_params.pass_band))
+        self.hil_stop_band_input.setText(str(default_params.stop_band))
+        self.hil_epoch_time_input.setText(str(default_params.epoch_time))
+        self.hil_sliding_window_input.setText(str(default_params.sliding_window))
+        self.hil_min_window_input.setText(str(default_params.min_window))
+        self.hil_n_jobs_input.setText(str(default_params.n_jobs))
+
     def scroll_time_waveform_plot(self, event):
         t_start=self.waveform_time_scroll_bar.value()*self.waveform_plot.get_time_window()*self.waveform_plot.get_time_increment()/100
         self.waveform_plot.plot(t_start)
@@ -418,6 +1169,8 @@ class HFOMainWindow(QMainWindow):
         self.ste_detect_button.setEnabled(True)
         self.MNI_save_button.setEnabled(True)
         self.mni_detect_button.setEnabled(True)
+        self.HIL_save_button.setEnabled(True)
+        self.hil_detect_button.setEnabled(True)
         self.is_data_filtered = True
         self.show_filtered = True
         self.waveform_plot.set_filtered(True)
@@ -556,12 +1309,54 @@ class HFOMainWindow(QMainWindow):
             self.mni_baseline_min_time_display.setText(base_min)
 
             self.update_detector_tab("MNI")
-        except:
+        except Exception as e:
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
             msg.setText("Error!")
             msg.setInformativeText('Detector could not be constructed given the parameters')
             msg.setWindowTitle("Detector Construction Failed")
+            msg.exec_()
+
+    def save_hil_params(self):
+        try:
+            sample_freq = self.hil_sample_freq_input.text()
+            pass_band = self.hil_pass_band_input.text()
+            stop_band = self.hil_stop_band_input.text()
+            epoch_time = self.hil_epoch_time_input.text()
+            sliding_window = self.hil_sliding_window_input.text()
+            min_window = self.hil_min_window_input.text()
+            n_jobs = self.hil_n_jobs_input.text()
+
+            param_dict = {
+                "sample_freq": float(sample_freq),
+                "pass_band": float(pass_band),
+                "stop_band": float(stop_band),
+                "epoch_time": float(epoch_time),
+                "sliding_window": float(sliding_window),
+                "min_window": float(min_window),
+                "n_jobs": int(n_jobs)
+            }
+
+            detector_params = {"detector_type": "HIL", "detector_param": param_dict}
+            self.hfo_app.set_detector(ParamDetector.from_dict(detector_params))
+
+            # 设置显示参数
+            self.hil_sample_freq_display.setText(sample_freq)
+            self.hil_pass_band_display.setText(pass_band)
+            self.hil_stop_band_display.setText(stop_band)
+            self.hil_epoch_time_display.setText(epoch_time)
+            self.hil_sliding_window_display.setText(sliding_window)
+            self.hil_min_window_display.setText(min_window)
+            self.hil_n_jobs_display.setText(n_jobs)
+
+            self.update_detector_tab("HIL")
+
+        except Exception as e:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setText("Error!")
+            msg.setInformativeText(f'HIL Detector could not be constructed given the parameters. Error: {str(e)}')
+            msg.setWindowTitle("HIL Detector Construction Failed")
             msg.exec_()
 
     def detect_HFOs(self):
@@ -596,10 +1391,12 @@ class HFOMainWindow(QMainWindow):
         self.quick_detect_open = open
 
     def update_detector_tab(self, index):
-        if index == "MNI":
-            self.stackedWidget.setCurrentIndex(0)
-        elif index == "STE":
-            self.stackedWidget.setCurrentIndex(1)
+        if index == "STE":
+            self.stacked_widget_detection_param.setCurrentIndex(0)
+        elif index == "MNI":
+            self.stacked_widget_detection_param.setCurrentIndex(1)
+        elif index == "HIL":
+            self.stacked_widget_detection_param.setCurrentIndex(2)
 
     def set_classifier_param_display(self):
         classifier_param = self.hfo_app.get_classifier_param()
@@ -824,6 +1621,36 @@ class HFOMainWindow(QMainWindow):
         self.update_detector_tab("MNI")
         self.detector_subtabs.setCurrentIndex(1)
 
+    def update_hil_params(self, hil_params):
+        sample_freq = str(hil_params["sample_freq"])
+        pass_band = str(hil_params["pass_band"])
+        stop_band = str(hil_params["stop_band"])
+        epoch_time = str(hil_params["epoch_time"])
+        sliding_window = str(hil_params["sliding_window"])
+        min_window = str(hil_params["min_window"])
+        n_jobs = str(hil_params["n_jobs"])
+
+        self.hil_sample_freq_input.setText(sample_freq)
+        self.hil_pass_band_input.setText(pass_band)
+        self.hil_stop_band_input.setText(stop_band)
+        self.hil_epoch_time_input.setText(epoch_time)
+        self.hil_sliding_window_input.setText(sliding_window)
+        self.hil_min_window_input.setText(min_window)
+        self.hil_n_jobs_input.setText(n_jobs)
+
+        # set display parameters
+        self.hil_sample_freq_display.setText(sample_freq)
+        self.hil_pass_band_display.setText(pass_band)
+        self.hil_stop_band_display.setText(stop_band)
+        self.hil_epoch_time_display.setText(epoch_time)
+        self.hil_sliding_window_display.setText(sliding_window)
+        self.hil_min_window_display.setText(min_window)
+        self.hil_n_jobs_display.setText(n_jobs)
+
+        self.update_detector_tab("HIL")
+        self.detector_subtabs.setCurrentIndex(2)
+
+
     def set_detector_param_display(self):
         detector_params = self.hfo_app.param_detector
         detector_type = detector_params.detector_type.lower()
@@ -831,6 +1658,8 @@ class HFOMainWindow(QMainWindow):
             self.update_ste_params(detector_params.detector_param.to_dict())
         elif detector_type == "mni":
             self.update_mni_params(detector_params.detector_param.to_dict())
+        elif detector_type == "hil":
+            self.update_hil_params(detector_params.detector_param.to_dict())
     
     def open_bipolar_channel_selection(self):
         self.bipolar_channel_selection_window = BipolarChannelSelectionWindow(self.hfo_app, self, self.close_signal,self.waveform_plot)

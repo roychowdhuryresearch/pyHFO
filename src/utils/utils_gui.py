@@ -122,3 +122,32 @@ class STDErrReceiver(QThread):
 
     def stop(self):
         self._isRunning = False
+
+
+def clear_layout(layout):
+    if layout is not None:
+        while layout.count():
+            item = layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()  # Safely delete the widget
+            else:
+                layout.removeItem(item)
+
+
+def clear_stacked_widget(stacked_widget):
+    # Remove all pages from the QStackedWidget
+    while stacked_widget.count() > 0:
+        widget = stacked_widget.widget(0)  # Get the first page
+        stacked_widget.removeWidget(widget)  # Remove the widget
+        widget.deleteLater()  # Delete the widget
+
+
+# def clear_frame(frame):
+#     # Clear the frame by removing all child widgets
+#     for child in frame.children():
+#         # if isinstance(child, QLayout):
+#         #     clear_layout(child)
+#         if isinstance(child, QWidget):
+#             child.deleteLater()
+

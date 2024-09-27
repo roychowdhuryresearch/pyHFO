@@ -1,6 +1,3 @@
-from PyQt5 import QtWidgets
-import pyqtgraph as pg
-from PyQt5 import QtGui
 import numpy as np
 
 

@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from src.hfo_app import HFO_App
 from src.param.param_classifier import ParamClassifier
-from src.param.param_detector import ParamDetector, ParamSTE, ParamMNI
+from src.param.param_detector import ParamDetector, ParamSTE, ParamMNI, ParamHIL
 from src.param.param_filter import ParamFilter
 from src.utils.utils_gui import *
 
@@ -43,6 +43,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
         self.init_default_filter_input_params()
         self.init_default_mni_input_params()
         self.init_default_ste_input_params()
+        self.init_default_hil_input_params()
         self.qd_choose_artifact_model_button.clicked.connect(lambda: self.choose_model_file("artifact"))
         self.qd_choose_spike_model_button.clicked.connect(lambda: self.choose_model_file("spike"))
 
@@ -120,6 +121,9 @@ class HFOQuickDetector(QtWidgets.QDialog):
         elif index == "STE":
             self.stackedWidget.setCurrentIndex(1)
             self.detector = "STE"
+        elif index == "HIL":
+            self.stackedWidget.setCurrentIndex(2)
+            self.detector = "HIL"
 
         # filter stuff
     def init_default_filter_input_params(self):
@@ -207,6 +211,37 @@ class HFOQuickDetector(QtWidgets.QDialog):
         detector_params={"detector_type":"STE", "detector_param":param_dict}
         return ParamDetector.from_dict(detector_params)
     
+    def init_default_hil_input_params(self):
+        default_params = ParamHIL(2000)  # 初始化默认参数，假设采样率是 2000
+        self.qd_hil_sample_freq_input.setText(str(default_params.sample_freq))
+        self.qd_hil_pass_band_input.setText(str(default_params.pass_band))
+        self.qd_hil_stop_band_input.setText(str(default_params.stop_band))
+        self.qd_hil_epoch_time_input.setText(str(default_params.epoch_time))
+        self.qd_hil_sliding_window_input.setText(str(default_params.sliding_window))
+        self.qd_hil_min_window_input.setText(str(default_params.min_window))
+        self.qd_hil_n_jobs_input.setText(str(default_params.n_jobs))
+
+    def get_hil_params(self):
+        sample_freq_raw = self.qd_hil_sample_freq_input.text()
+        pass_band_raw = self.qd_hil_pass_band_input.text()
+        stop_band_raw = self.qd_hil_stop_band_input.text()
+        epoch_time_raw = self.qd_hil_epoch_time_input.text()
+        sliding_window_raw = self.qd_hil_sliding_window_input.text()
+        min_window_raw = self.qd_hil_min_window_input.text()
+        n_jobs_raw = self.qd_hil_n_jobs_input.text()
+        
+        param_dict = {
+            "sample_freq": float(sample_freq_raw),
+            "pass_band": float(pass_band_raw),
+            "stop_band": float(stop_band_raw),
+            "epoch_time": float(epoch_time_raw),
+            "sliding_window": float(sliding_window_raw),
+            "min_window": float(min_window_raw),
+            "n_jobs": int(n_jobs_raw)
+        }
+        detector_params = {"detector_type": "HIL", "detector_param": param_dict}
+        return ParamDetector.from_dict(detector_params)
+        
     def get_classifier_param(self):
         artifact_path = self.qd_classifier_artifact_filename_display.text()
         spike_path = self.qd_classifier_spike_filename_display.text()
@@ -303,6 +338,8 @@ class HFOQuickDetector(QtWidgets.QDialog):
             detector_param = self.get_mni_params()
         elif self.detector == "STE":
             detector_param = self.get_ste_params()
+        elif self.detector == "HIL":
+            detector_param = self.get_hil_params()
         #print("filter_param: ", filter_param.to_dict())
         #print("detector_param: ", detector_param.to_dict())
         # get the classifier parameters
