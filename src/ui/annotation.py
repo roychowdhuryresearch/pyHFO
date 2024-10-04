@@ -1,7 +1,8 @@
 from PyQt5 import uic
 from pathlib import Path
 from src.utils.utils_gui import *
-from src.ui.plot_waveform import *
+# from src.ui.plot_waveform import *
+from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import QSize
 from src.utils.utils_plotting import *
 from src.ui.annotation_plot import AnnotationPlot, FFTPlot

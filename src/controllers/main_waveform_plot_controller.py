@@ -3,6 +3,7 @@ from src.views.main_waveform_plot_view import MainWaveformPlotView
 import pyqtgraph as pg
 import numpy as np
 
+
 class MainWaveformPlotController:
     def __init__(self, main_waveform_plot_widget, backend):
         self.model = MainWaveformPlotModel(backend)

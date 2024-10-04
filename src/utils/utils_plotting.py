@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+
+
 def plot_feature(folder, feature, start, end, data, data_filtered, channel_name, hfo_start, hfo_end):
     channel_data = data
     channel_data_f = data_filtered

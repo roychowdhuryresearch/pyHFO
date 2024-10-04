@@ -3,6 +3,7 @@ import pyqtgraph as pg
 from PyQt5 import QtGui
 import numpy as np
 
+
 class MainWaveformPlotView:
     def __init__(self, plot_widget: pg.PlotWidget):
         self.plot_widget = plot_widget

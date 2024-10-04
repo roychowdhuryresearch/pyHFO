@@ -2,6 +2,7 @@ import sys
 from src.models.mini_plot_model import MiniPlotModel
 from src.views.mini_plot_view import MiniPlotView
 
+
 class MiniPlotController:
     def __init__(self, mini_plot_widget, backend):
         self.model = MiniPlotModel(backend)

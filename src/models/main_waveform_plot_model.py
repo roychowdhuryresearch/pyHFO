@@ -2,6 +2,7 @@ import numpy as np
 from src.hfo_app import HFO_App
 import sys
 
+
 class MainWaveformPlotModel:
     def __init__(self, backend: HFO_App):
         self.backend = backend

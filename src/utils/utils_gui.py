@@ -71,6 +71,7 @@ class Worker(QRunnable):
         finally:
             self.signals.finished.emit()
 
+
 class WriteStream(object):
     def __init__(self, q: Queue):
         self.queue = q

@@ -14,6 +14,7 @@ from src.controllers import MiniPlotController, MainWaveformPlotController
 curr_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.dirname(curr_dir))
 
+
 class CenterWaveformAndMiniPlotController():
     def __init__(self, main_waveform_plot_widget: pg.PlotWidget, mini_plot_widget: pg.PlotWidget, backend: HFO_App):
         self.mini_plot_controller = MiniPlotController(mini_plot_widget, backend)
