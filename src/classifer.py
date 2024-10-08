@@ -3,6 +3,12 @@ from src.utils.utils_inference import inference, load_model, load_ckpt
 from src.param.param_classifier import ParamClassifier
 import torch
 from src.model import PreProcessing
+from transformers import TrainingArguments, ViTForImageClassification
+from transformers import Trainer
+from src.dl_models import *
+import os
+
+
 class Classifier():
     def __init__(self, param:ParamClassifier):
         self.device = param.device
@@ -12,6 +18,7 @@ class Classifier():
         self.load_func = torch.load if "default" in self.model_type else torch.load  #torch.hub.load_state_dict_from_url 
         if param.artifact_path:
             self.update_model_a(param)
+            self.update_model_toy(param)
         if param.spike_path:
             self.update_model_s(param)
         
@@ -47,10 +54,30 @@ class Classifier():
         self.model_a = model.to(self.device)
         self.preprocessing_artifact = PreProcessing.from_param(self.param_artifact_preprocessing)
 
+    def update_model_toy(self, param:ParamClassifier):
+        self.model_type = param.model_type
+        self.artifact_path = param.artifact_path
+        res_dir = os.path.dirname(param.artifact_path)
+        model = NeuralCNNForImageClassification.from_pretrained(os.path.join(res_dir, 'model_toy'))
+
+        self.param_artifact_preprocessing, _ = load_ckpt(self.load_func, param.artifact_path)
+        if "default" in self.model_type:
+            model.channel_selection = True
+            model.input_channels = 1
+        if self.model_type == "default_cpu":
+            param.device = "cpu"
+        elif self.model_type == "default_gpu":
+            param.device = "cuda:0"
+        else:
+            raise ValueError("Model type not supported!")
+        self.device = param.device if torch.cuda.is_available() else "cpu"
+        self.model_toy = model.to(self.device)
+        self.preprocessing_artifact = PreProcessing.from_param(self.param_artifact_preprocessing)
+
     def artifact_detection(self, HFO_features, ignore_region, threshold=0.5):
-        if not self.model_a:
+        if not self.model_toy:
             raise ValueError("Please load artifact model first!")
-        return self._classify_artifacts(self.model_a, HFO_features, ignore_region, threshold=threshold)
+        return self._classify_artifacts(self.model_toy, HFO_features, ignore_region, threshold=threshold)
 
     def spike_detection(self, HFO_features):
         if not self.model_s:

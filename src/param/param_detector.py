@@ -13,6 +13,8 @@ class ParamDetector:
             param.detector_param = ParamSTE.from_dict(param_dict['detector_param'])
         elif detector_type.lower() == 'mni':
             param.detector_param = ParamMNI.from_dict(param_dict['detector_param'])
+        elif detector_type.lower() == 'hil':
+            param.detector_param = ParamHIL.from_dict(param_dict['detector_param'])
         return param
     
 class ParamSTE:
@@ -61,7 +63,6 @@ class ParamSTE:
             peak_thres = d["peak_thres"],
             n_jobs = d["n_jobs"]
         )
-
 class ParamMNI:
     def __init__(self,sample_freq, pass_band = 80, stop_band = 500, 
                 epoch_time=10, epo_CHF=60, per_CHF=95/100, 
@@ -116,5 +117,38 @@ class ParamMNI:
             d["base_shift"],
             d["base_thrd"],
             d["base_min"],
+            d["n_jobs"]
+        )
+
+class ParamHIL:
+    def __init__(self, sample_freq=2000, pass_band=100, stop_band=600, epoch_time=10, sliding_window=5, min_window=0.006, n_jobs=8):
+        self.sample_freq = sample_freq
+        self.pass_band = pass_band
+        self.stop_band = stop_band
+        self.epoch_time = epoch_time
+        self.sliding_window = sliding_window
+        self.min_window = min_window
+        self.n_jobs = n_jobs
+
+    def to_dict(self):
+        return {
+            "sample_freq": self.sample_freq,
+            "pass_band": self.pass_band,
+            "stop_band": self.stop_band,
+            "epoch_time": self.epoch_time,
+            "sliding_window": self.sliding_window,
+            "min_window": self.min_window,
+            "n_jobs": self.n_jobs
+        }
+
+    @staticmethod
+    def from_dict(d):
+        return ParamHIL(
+            d["sample_freq"],
+            d["pass_band"],
+            d["stop_band"],
+            d["epoch_time"],
+            d["sliding_window"],
+            d["min_window"],
             d["n_jobs"]
         )
