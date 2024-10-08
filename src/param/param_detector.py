@@ -121,7 +121,7 @@ class ParamMNI:
         )
 
 class ParamHIL:
-    def __init__(self, sample_freq=2000, pass_band=100, stop_band=600, epoch_time=10, sliding_window=5, min_window=0.006, n_jobs=8):
+    def __init__(self, sample_freq=2000, pass_band=80, stop_band=500, epoch_time=10, sliding_window=5, min_window=0.006, n_jobs=8):
         self.sample_freq = sample_freq
         self.pass_band = pass_band
         self.stop_band = stop_band

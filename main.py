@@ -604,15 +604,15 @@ class HFOMainWindow(QMainWindow):
             min_window = self.hil_min_window_input.text()
             n_jobs = self.hil_n_jobs_input.text()
 
-            param_dict = {
-                "sample_freq": float(sample_freq),
-                "pass_band": float(pass_band),
-                "stop_band": float(stop_band),
-                "epoch_time": float(epoch_time),
-                "sliding_window": float(sliding_window),
-                "min_window": float(min_window),
-                "n_jobs": int(n_jobs)
-            }
+            param_dict = {"sample_freq":2000,
+                          "pass_band":80, 
+                          "stop_band":500, 
+                          "epoch_time":10,
+                          "sliding_window": 5,
+                          "min_window": 0.006,
+                          "n_jobs": 8,
+                          "front_num": 1
+                          }
 
             detector_params = {"detector_type": "HIL", "detector_param": param_dict}
             self.hfo_app.set_detector(ParamDetector.from_dict(detector_params))

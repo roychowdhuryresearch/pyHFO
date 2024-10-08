@@ -1,4 +1,4 @@
-from HFODetector import ste, mni
+from HFODetector import ste, mni, hil
 
 def set_STE_detector(args):
     detector = ste.STEDetector(sample_freq=args.sample_freq, filter_freq=[args.pass_band, args.stop_band], 
@@ -14,8 +14,6 @@ def set_MNI_detector(args):
     return detector
 
 def set_HIL_detector(args): #等HFODetector修改后再使用HILDetector
-    detector = ste.STEDetector(sample_freq=args.sample_freq, filter_freq=[1, 50], 
-                rms_window=3*1e-3, min_window=6*1e-3, min_gap=10 * 1e-3, 
-                epoch_len=600, min_osc=6, rms_thres=5, peak_thres=3,
-                n_jobs=32, front_num=1)
+    detector = hil.HILDetector(sample_freq=args.sample_freq, filter_freq=[args.pass_band, args.stop_band], 
+                min_window=args.min_window, epoch_time=args.epoch_time, n_jobs=args.n_jobs, front_num=1)
     return detector
