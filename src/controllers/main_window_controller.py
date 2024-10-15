@@ -67,7 +67,23 @@ class MainWindowController:
         self.model.init_param('HFO')
 
     def create_spindle_window(self):
-        print('not implemented yet')
+        # create detection parameters stacked widget
+        self.view.create_stacked_widget_detection_param('Spindle')
+
+        # create biomarker typ frame widget
+        self.view.create_frame_biomarker('Spindle')
+
+        # manage flag
+        self.view.window.is_data_filtered = False
+
+        # create center waveform and mini plot
+        self.model.create_center_waveform_and_mini_plot()
+
+        # connect signal & slot
+        self.model.connect_signal_and_slot('Spindle')
+
+        # init params
+        self.model.init_param('Spindle')
 
     def create_hypsarrhythmia_window(self):
         print('not implemented yet')

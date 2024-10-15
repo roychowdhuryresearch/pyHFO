@@ -109,7 +109,7 @@ class MainWindowModel(QObject):
             self.set_ste_input_len(8)
             self.set_hil_input_len(8)
         elif biomarker_type == 'Spindle':
-            a = 2
+            print('init_param not implemented')
 
     def init_default_filter_input_params(self):
         default_params = ParamFilter()
@@ -234,6 +234,10 @@ class MainWindowModel(QObject):
             if not self.gpu:
                 # disable gpu buttons
                 self.window.default_gpu_button.setEnabled(False)
+        elif biomarker_type == 'Spindle':
+            self.window.overview_filter_button.clicked.connect(self.filter_data)
+            # set filter button to be disabled by default
+            self.window.overview_filter_button.setEnabled(False)
 
     def set_classifier_param_display(self):
         classifier_param = self.backend.get_classifier_param()
