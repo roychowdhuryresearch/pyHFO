@@ -22,11 +22,13 @@ from pathlib import Path
 class HFO_App(object):
     def __init__(self):
         self.version = "1.0.0"
+        self.biomarker_type = 'HFO'
         self.n_jobs = 4
         ## eeg related
         self.eeg_data = None
         self.raw = None
         self.channel_names = None
+        self.event_channel_names = None
         self.sample_freq = 0 # Hz
         self.edf_param = None
 
@@ -232,7 +234,7 @@ class HFO_App(object):
             self.detector = set_MNI_detector(param.detector_param)
         elif param.detector_type.lower() == "hil":
             self.detector = set_HIL_detector(param.detector_param)          
-    def detect_HFO(self, param_filter:ParamFilter =None, param_detector:ParamDetector=None):
+    def detect_biomarker(self, param_filter:ParamFilter =None, param_detector:ParamDetector=None):
         '''
         This the function should be linked to the detect button in the overview window, 
         it can also be called with a param to set the detector, the detector will be reseted if the param is not None
@@ -244,8 +246,8 @@ class HFO_App(object):
             self.set_detector(param_detector)
         if self.filter_data is None or len(self.filter_data) == 0:
             self.filter_eeg_data()
-        self.channel_names, self.HFOs = self.detector.detect_multi_channels(self.filter_data, self.channel_names, filtered=True)
-        self.event_features = HFO_Feature.construct(self.channel_names, self.HFOs, self.param_detector.detector_type, self.sample_freq)
+        self.event_channel_names, self.HFOs = self.detector.detect_multi_channels(self.filter_data, self.channel_names, filtered=True)
+        self.event_features = HFO_Feature.construct(self.event_channel_names, self.HFOs, self.param_detector.detector_type, self.sample_freq)
         self.detected = True
 
     '''
@@ -264,15 +266,15 @@ class HFO_App(object):
         starts = self.event_features.starts
         ends = self.event_features.ends
         channel_names = self.event_features.channel_names
-        hfo_waveforms = extract_waveforms(self.eeg_data, starts, ends, channel_names, self.channel_names, self.sample_freq, time_range)
-        param_list = [{"start":starts[i], "end":ends[i], "data":hfo_waveforms[i], "channel_name":channel_names[i], 
+        biomarker_waveforms = extract_waveforms(self.eeg_data, starts, ends, channel_names, self.channel_names, self.sample_freq, time_range)
+        param_list = [{"start":starts[i], "end":ends[i], "data":biomarker_waveforms[i], "channel_name":channel_names[i],
                        "sample_rate": self.sample_freq,
                        "win_size": win_size,
                        "ps_MinFreqHz": freq_range[0],
                         "ps_MaxFreqHz": freq_range[1],
                         "time_window_ms" : (time_range[1] - time_range[0])//2,
                        } for i in range(len(starts))]
-        ret = parallel_process(param_list, compute_hfo_feature, n_jobs=self.n_jobs, use_kwargs=True, front_num=2)
+        ret = parallel_process(param_list, compute_biomarker_feature, n_jobs=self.n_jobs, use_kwargs=True, front_num=2)
         starts, ends, channel_names, time_frequncy_img, amplitude_coding_plot = np.zeros(len(ret)), np.zeros(len(ret)), np.empty(len(ret), dtype= object), np.zeros((len(ret), win_size,win_size)), np.zeros((len(ret), win_size, win_size)) 
         for i in range(len(ret)):
             channel_names[i], starts[i], ends[i], time_frequncy_img[i], amplitude_coding_plot[i] = ret[i]
@@ -463,32 +465,32 @@ class HFO_App(object):
             data_filtered = np.squeeze(data_filtered)
             if start < self.sample_freq // 2:
                 plot_start, plot_end = 0, self.sample_freq
-                hfo_start, hfo_end = start, min(end, self.sample_freq)
+                biomarker_start, biomarker_end = start, min(end, self.sample_freq)
             elif end > len(data) - self.sample_freq // 2:
                 plot_start, plot_end = len(data) - self.sample_freq, len(data)
-                hfo_start, hfo_end = max(plot_start, start) - plot_start, min(plot_end, end) - plot_start
+                biomarker_start, biomarker_end = max(plot_start, start) - plot_start, min(plot_end, end) - plot_start
             else:
                 plot_start, plot_end = (start + end)//2-self.sample_freq // 2, (start+end)//2+self.sample_freq // 2
-                hfo_start, hfo_end = max(plot_start, start) - plot_start, min(plot_end, end) - plot_start
-            plot_start, plot_end, hfo_start, hfo_end = int(plot_start), int(plot_end), int(hfo_start), int(hfo_end)
+                biomarker_start, biomarker_end = max(plot_start, start) - plot_start, min(plot_end, end) - plot_start
+            plot_start, plot_end, biomarker_start, biomarker_end = int(plot_start), int(plot_end), int(biomarker_start), int(biomarker_end)
             channel_data = data[plot_start:plot_end]
             channel_data_f = data_filtered[plot_start:plot_end]
             #print(hfo_start, hfo_end, start, end, plot_start, plot_end, channel_data.shape, channel_data_f.shape)
-            return channel_data, channel_data_f, hfo_start, hfo_end
+            return channel_data, channel_data_f, biomarker_start, biomarker_end
         
         def extract_waveform(data, data_filtered, starts, ends, channel_names, unique_channel_names):
-            hfo_waveform_l, hfo_waveform_f_l, hfo_start_l , hfo_end_l = np.zeros((len(starts), 2000)), np.zeros((len(starts), 2000)), [], []
+            biomarker_waveform_l, biomarker_waveform_f_l, biomarker_start_l , biomarker_end_l = np.zeros((len(starts), 2000)), np.zeros((len(starts), 2000)), [], []
             for i in tqdm(range(len(starts))):
                 channel_name = channel_names[i]
                 start = starts[i]
                 end = ends[i]
                 channel_index = np.where(unique_channel_names == channel_name)[0]
-                hfo_waveform, hfo_waveform_f, hfo_start, hfo_end = extract_data(data[channel_index], data_filtered[channel_index], start, end)
-                hfo_waveform_l[i] = hfo_waveform
-                hfo_waveform_f_l[i] = hfo_waveform_f
-                hfo_start_l.append(hfo_start)
-                hfo_end_l.append(hfo_end)
-            return hfo_waveform_l, hfo_waveform_f_l, np.array(hfo_start_l), np.array(hfo_end_l)
+                biomarker_waveform, biomarker_waveform_f, biomarker_start, biomarker_end = extract_data(data[channel_index], data_filtered[channel_index], start, end)
+                biomarker_waveform_l[i] = biomarker_waveform
+                biomarker_waveform_f_l[i] = biomarker_waveform_f
+                biomarker_start_l.append(biomarker_start)
+                biomarker_end_l.append(biomarker_end)
+            return biomarker_waveform_l, biomarker_waveform_f_l, np.array(biomarker_start_l), np.array(biomarker_end_l)
 
         if not self.event_features:
             return None
@@ -511,12 +513,12 @@ class HFO_App(object):
         index_r = np.where(spike_predictions == 0)[0]
         start_r, end_r, feature_r, channel_names_r = starts[index_r], ends[index_r], feature[index_r], channel_names[index_r]
         #print("plotting HFO with spike")
-        waveform_s, waveform_f_s, hfo_start_s, hfo_end_s = extract_waveform(self.eeg_data, self.filter_data, start_s, end_s, channel_names_s, self.channel_names)
-        param_list = [{"folder": spike_folder, "start": start_s[i], "end": end_s[i], "feature": feature_s[i], "channel_name": channel_names_s[i], "data":waveform_s[i], "data_filtered":waveform_f_s[i], "hfo_start":hfo_start_s[i], "hfo_end":hfo_end_s[i]} for i in range(len(start_s))]
+        waveform_s, waveform_f_s, biomarker_start_s, biomarker_end_s = extract_waveform(self.eeg_data, self.filter_data, start_s, end_s, channel_names_s, self.channel_names)
+        param_list = [{"folder": spike_folder, "start": start_s[i], "end": end_s[i], "feature": feature_s[i], "channel_name": channel_names_s[i], "data":waveform_s[i], "data_filtered":waveform_f_s[i], "hfo_start":biomarker_start_s[i], "hfo_end":biomarker_end_s[i]} for i in range(len(start_s))]
         ret = parallel_process(param_list, plot_feature, self.n_jobs, use_kwargs=True, front_num=3)
-        waveform_a, waveform_f_a, hfo_start_a, hfo_end_a = extract_waveform(self.eeg_data, self.filter_data, start_a, end_a, channel_names_a, self.channel_names)
-        param_list = [{"folder": artifact_folder, "start": start_a[i], "end": end_a[i], "feature": feature_a[i], "channel_name": channel_names_a[i], "data":waveform_a[i], "data_filtered":waveform_f_a[i], "hfo_start":hfo_start_a[i], "hfo_end":hfo_end_a[i]} for i in range(len(start_a))]
+        waveform_a, waveform_f_a, biomarker_start_a, biomarker_end_a = extract_waveform(self.eeg_data, self.filter_data, start_a, end_a, channel_names_a, self.channel_names)
+        param_list = [{"folder": artifact_folder, "start": start_a[i], "end": end_a[i], "feature": feature_a[i], "channel_name": channel_names_a[i], "data":waveform_a[i], "data_filtered":waveform_f_a[i], "hfo_start":biomarker_start_a[i], "hfo_end":biomarker_end_a[i]} for i in range(len(start_a))]
         ret = parallel_process(param_list, plot_feature, self.n_jobs, use_kwargs=True, front_num=3)
-        waveform_r, waveform_f_r, hfo_start_r, hfo_end_r = extract_waveform(self.eeg_data, self.filter_data, start_r, end_r, channel_names_r, self.channel_names)
-        param_list = [{"folder": non_spike_folder, "start": start_r[i], "end": end_r[i], "feature": feature_r[i], "channel_name": channel_names_r[i], "data":waveform_r[i], "data_filtered":waveform_f_r[i], "hfo_start":hfo_start_r[i], "hfo_end":hfo_end_r[i]} for i in range(len(start_r))]
+        waveform_r, waveform_f_r, biomarker_start_r, biomarker_end_r = extract_waveform(self.eeg_data, self.filter_data, start_r, end_r, channel_names_r, self.channel_names)
+        param_list = [{"folder": non_spike_folder, "start": start_r[i], "end": end_r[i], "feature": feature_r[i], "channel_name": channel_names_r[i], "data":waveform_r[i], "data_filtered":waveform_f_r[i], "hfo_start":biomarker_start_r[i], "hfo_end":biomarker_end_r[i]} for i in range(len(start_r))]
         ret = parallel_process(param_list, plot_feature, self.n_jobs, use_kwargs=True, front_num=3)

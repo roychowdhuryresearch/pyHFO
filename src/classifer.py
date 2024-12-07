@@ -74,41 +74,41 @@ class Classifier():
         self.model_toy = model.to(self.device)
         self.preprocessing_artifact = PreProcessing.from_param(self.param_artifact_preprocessing)
 
-    def artifact_detection(self, HFO_features, ignore_region, threshold=0.5):
+    def artifact_detection(self, biomarker_features, ignore_region, threshold=0.5):
         if not self.model_toy:
             raise ValueError("Please load artifact model first!")
-        return self._classify_artifacts(self.model_toy, HFO_features, ignore_region, threshold=threshold)
+        return self._classify_artifacts(self.model_toy, biomarker_features, ignore_region, threshold=threshold)
 
-    def spike_detection(self, HFO_features):
+    def spike_detection(self, biomarker_features):
         if not self.model_s:
             raise ValueError("Please load spike model first!")
-        return self._classify_spikes(self.model_s, HFO_features)
+        return self._classify_spikes(self.model_s, biomarker_features)
 
-    def _classify_artifacts(self, model, HFO_feature, ignore_region, threshold=0.5):
+    def _classify_artifacts(self, model, biomarker_feature, ignore_region, threshold=0.5):
         model = model.to(self.device)
-        features = self.preprocessing_artifact.process_hfo_feature(HFO_feature)
+        features = self.preprocessing_artifact.process_biomarker_feature(biomarker_feature)
         artifact_predictions = np.zeros(features.shape[0]) -1
-        starts = HFO_feature.starts
-        ends = HFO_feature.ends
+        starts = biomarker_feature.starts
+        ends = biomarker_feature.ends
         keep_index = np.where(np.logical_and(starts > ignore_region[0], ends < ignore_region[1]) == True)[0]   
         features = features[keep_index]
         if len(features) != 0:
-            predictions = inference(model, features, self.device ,self.batch_size, threshold=threshold)
+            predictions = inference(model, features, self.device, self.batch_size, threshold=threshold)
             artifact_predictions[keep_index] = predictions
-        HFO_feature.update_artifact_pred(artifact_predictions)
-        return HFO_feature
+        biomarker_feature.update_artifact_pred(artifact_predictions)
+        return biomarker_feature
     
-    def _classify_spikes(self, model, HFO_feature):
-        if len(HFO_feature.artifact_predictions) == 0:
+    def _classify_spikes(self, model, biomarker_feature):
+        if len(biomarker_feature.artifact_predictions) == 0:
             raise ValueError("Please run artifact classifier first!")
         model = model.to(self.device)
-        features = self.preprocessing_spike.process_hfo_feature(HFO_feature)
+        features = self.preprocessing_spike.process_biomarker_feature(biomarker_feature)
         spike_predictions = np.zeros(features.shape[0]) -1
-        keep_index = np.where(HFO_feature.artifact_predictions > 0)[0]
+        keep_index = np.where(biomarker_feature.artifact_predictions > 0)[0]
         features = features[keep_index]
         if len(features) != 0:
             predictions = inference(model, features, self.device, self.batch_size)
             spike_predictions[keep_index] = predictions
-        HFO_feature.update_spike_pred(spike_predictions)
-        return HFO_feature
+        biomarker_feature.update_spike_pred(spike_predictions)
+        return biomarker_feature
 

@@ -222,13 +222,12 @@ class MainWindowView(QObject):
 
         # Create widgets
         text_font = QFont('Arial', 11)
-        label1 = QLabel('Epoch (s)')
+        label1 = QLabel('Epoch Length (s)')
         label2 = QLabel('Min Window (s)')
         label3 = QLabel('Pass Band (Hz)')
         label4 = QLabel('Stop Band (Hz)')
         label5 = QLabel('Sample Frequency')
-        label6 = QLabel('Sliding Window')
-        label7 = QLabel('Number of Jobs')
+        label6 = QLabel('SD Threshold')
 
         self.window.hil_epoch_time_display = QLabel()
         self.window.hil_epoch_time_display.setStyleSheet("background-color: rgb(235, 235, 235);")
@@ -245,12 +244,9 @@ class MainWindowView(QObject):
         self.window.hil_sample_freq_display = QLabel()
         self.window.hil_sample_freq_display.setStyleSheet("background-color: rgb(235, 235, 235);")
         self.window.hil_sample_freq_display.setFont(text_font)
-        self.window.hil_sliding_window_display = QLabel()
-        self.window.hil_sliding_window_display.setStyleSheet("background-color: rgb(235, 235, 235);")
-        self.window.hil_sliding_window_display.setFont(text_font)
-        self.window.hil_n_jobs_display = QLabel()
-        self.window.hil_n_jobs_display.setStyleSheet("background-color: rgb(235, 235, 235);")
-        self.window.hil_n_jobs_display.setFont(text_font)
+        self.window.hil_sd_threshold_display = QLabel()
+        self.window.hil_sd_threshold_display.setStyleSheet("background-color: rgb(235, 235, 235);")
+        self.window.hil_sd_threshold_display.setFont(text_font)
         self.window.hil_detect_button = QPushButton('Detect')
 
         # Add widgets to the grid layout
@@ -265,10 +261,8 @@ class MainWindowView(QObject):
         hil_parameter_layout.addWidget(label5, 4, 0)
         hil_parameter_layout.addWidget(label6, 4, 1)
         hil_parameter_layout.addWidget(self.window.hil_sample_freq_display, 5, 0)
-        hil_parameter_layout.addWidget(self.window.hil_sliding_window_display, 5, 1)
-        hil_parameter_layout.addWidget(label7, 6, 0)
-        hil_parameter_layout.addWidget(self.window.hil_n_jobs_display, 7, 0)
-        hil_parameter_layout.addWidget(self.window.hil_detect_button, 7, 1)
+        hil_parameter_layout.addWidget(self.window.hil_sd_threshold_display, 5, 1)
+        hil_parameter_layout.addWidget(self.window.hil_detect_button, 6, 1)
 
         # Set the layout for the page
         layout.addWidget(detection_groupbox_hil)
@@ -339,7 +333,7 @@ class MainWindowView(QObject):
         thresh_parameter_layout.addWidget(self.window.yasa_thresh_rms_display)
 
         yasa_parameter_layout.addWidget(group_box, 0, 2, 4, 1)  # Row 0, Column 2, span 1 row, 6 columns
-        yasa_parameter_layout.addWidget(self.window.mni_detect_button, 4, 2)
+        yasa_parameter_layout.addWidget(self.window.yasa_detect_button, 4, 2)
 
         # Set the layout for the page
         layout.addWidget(detection_groupbox_yasa)
@@ -515,10 +509,9 @@ class MainWindowView(QObject):
         label1 = QLabel('Sample Frequency')
         label2 = QLabel('Pass Band')
         label3 = QLabel('Stop Band')
-        label4 = QLabel('Epoch Time')
-        label5 = QLabel('Sliding Window')
+        label4 = QLabel('Epoch Length')
+        label5 = QLabel('SD Threshold')
         label6 = QLabel('Min Window')
-        label7 = QLabel('Number of Jobs')
         label8 = QLabel('sec')
         label9 = QLabel('sec')
         label10 = QLabel('sec')
@@ -534,12 +527,10 @@ class MainWindowView(QObject):
         self.window.hil_stop_band_input.setFont(text_font)
         self.window.hil_epoch_time_input = QLineEdit()
         self.window.hil_epoch_time_input.setFont(text_font)
-        self.window.hil_sliding_window_input = QLineEdit()
-        self.window.hil_sliding_window_input.setFont(text_font)
+        self.window.hil_sd_threshold_input = QLineEdit()
+        self.window.hil_sd_threshold_input.setFont(text_font)
         self.window.hil_min_window_input = QLineEdit()
         self.window.hil_min_window_input.setFont(text_font)
-        self.window.hil_n_jobs_input = QLineEdit()
-        self.window.hil_n_jobs_input.setFont(text_font)
         self.window.HIL_save_button = QPushButton('Save')
 
         # Add widgets to the grid layout
@@ -556,16 +547,13 @@ class MainWindowView(QObject):
         parameter_layout.addWidget(self.window.hil_epoch_time_input, 3, 1)
         parameter_layout.addWidget(label8, 3, 2)
         parameter_layout.addWidget(label5, 4, 0)
-        parameter_layout.addWidget(self.window.hil_sliding_window_input, 4, 1)
+        parameter_layout.addWidget(self.window.hil_sd_threshold_input, 4, 1)
         parameter_layout.addWidget(label9, 4, 2)
         parameter_layout.addWidget(label6, 5, 0)
         parameter_layout.addWidget(self.window.hil_min_window_input, 5, 1)
         parameter_layout.addWidget(label10, 5, 2)
 
-        parameter_layout.addWidget(label7, 6, 0)
-        parameter_layout.addWidget(self.window.hil_n_jobs_input, 6, 1)
-
-        parameter_layout.addWidget(self.window.HIL_save_button, 7, 2)
+        parameter_layout.addWidget(self.window.HIL_save_button, 6, 2)
 
         # Set the layout for the page
         layout.addWidget(detection_groupbox)
@@ -587,9 +575,9 @@ class MainWindowView(QObject):
         label2 = QLabel('Freq Broad')
         label3 = QLabel('Duration')
         label4 = QLabel('Min Distance')
-        label5 = QLabel('Thresh-rel_pow')
-        label6 = QLabel('Thresh-corr')
-        label7 = QLabel('Thresh-rms')
+        label5 = QLabel('rel_pow (thresh)')
+        label6 = QLabel('corr (thresh)')
+        label7 = QLabel('rms (thresh)')
         label8 = QLabel('Hz')
         label9 = QLabel('Hz')
         label10 = QLabel('sec')

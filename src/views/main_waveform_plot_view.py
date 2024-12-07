@@ -4,8 +4,9 @@ from PyQt5 import QtGui
 import numpy as np
 
 
-class MainWaveformPlotView:
+class MainWaveformPlotView(QtWidgets.QGraphicsView):
     def __init__(self, plot_widget: pg.PlotWidget):
+        super(MainWaveformPlotView, self).__init__()
         self.plot_widget = plot_widget
         self._init_plot_widget(plot_widget)
 

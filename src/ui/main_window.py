@@ -18,8 +18,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
 
-        self.backend = None
-        self.model = MainWindowModel(self, self.backend)
+        self.model = MainWindowModel(self)
         self.view = MainWindowView(self)
         self.main_window_controller = MainWindowController(self.view, self.model)
 

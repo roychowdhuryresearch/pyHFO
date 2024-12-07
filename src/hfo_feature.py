@@ -46,7 +46,7 @@ class HFO_Feature():
         start_end = np.concatenate(start_end) if len(start_end) > 0 else np.array([])
         return HFO_Feature(channel_names, start_end, np.array([]), HFO_type, sample_freq, freq_range, time_range, feature_size)
     
-    def get_num_HFO(self):
+    def get_num_biomarker(self):
         return self.num_HFO
     
     def has_prediction(self):
@@ -155,10 +155,10 @@ class HFO_Feature():
         feature_size = data["feature_size"]
         freq_range = data["freq_range"]
         time_range = data["time_range"]
-        hfo_feature = HFO_Feature(channel_names, np.array([starts, ends]).T, feature, HFO_type, sample_freq, freq_range, time_range, feature_size)
-        hfo_feature.update_pred(artifact_predictions, spike_predictions)
+        biomarker_feature = HFO_Feature(channel_names, np.array([starts, ends]).T, feature, HFO_type, sample_freq, freq_range, time_range, feature_size)
+        biomarker_feature.update_pred(artifact_predictions, spike_predictions)
 
-        return hfo_feature
+        return biomarker_feature
 
     def update_artifact_pred(self, artifact_predictions):
         self.artifact_predicted = True
@@ -195,7 +195,7 @@ class HFO_Feature():
                 spike_predictions_g.append(spike_predictions[channel_index])
         return channel_name_g, interval_g, artifact_predictions_g, spike_predictions_g
 
-    def get_HFOs_for_channel(self, channel_name:str, min_start:int=None, max_end:int=None):
+    def get_biomarkers_for_channel(self, channel_name:str, min_start:int=None, max_end:int=None):
         channel_names = self.channel_names
         starts = self.starts
         ends = self.ends

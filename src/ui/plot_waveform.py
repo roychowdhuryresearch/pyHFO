@@ -8,6 +8,7 @@ import mne
 from tqdm import tqdm
 import os
 from src.hfo_app import HFO_App
+from src.spindle_app import SpindleApp
 import random
 from src.controllers import MiniPlotController, MainWaveformPlotController
 
@@ -36,7 +37,7 @@ class CenterWaveformAndMiniPlotController():
         self.HFO_color=self.non_spike_color
         self.color_dict={"artifact":self.artifact_color,"spike":self.spike_color,
                          "non_spike":self.non_spike_color,"HFO":self.HFO_color}
-        self.plot_HFOs = False
+        self.plot_biomarkers = False
         self.normalize_vertical = False
         self.stds = None
     
@@ -58,7 +59,7 @@ class CenterWaveformAndMiniPlotController():
         self.mini_plot_controller.init_eeg_data()
         self.main_waveform_plot_controller.init_eeg_data()
 
-        self.mini_plot_controller.init_hfo_display()
+        self.mini_plot_controller.init_biomarker_display()
         self.main_waveform_plot_controller.init_waveform_display()
       
     def get_n_channels(self):
@@ -94,10 +95,10 @@ class CenterWaveformAndMiniPlotController():
         self.main_waveform_plot_controller.set_n_channels_to_plot(n_channels_to_plot)
         self.mini_plot_controller.set_n_channels_to_plot(n_channels_to_plot)
 
-    def set_plot_HFOs(self,plot_HFOs:bool):
-        self.plot_HFOs = plot_HFOs
-        self.main_waveform_plot_controller.set_plot_HFOs(plot_HFOs)
-        self.plot(self.t_start, update_hfo=True)
+    def set_plot_biomarkers(self,plot_biomarkers:bool):
+        self.plot_biomarkers = plot_biomarkers
+        self.main_waveform_plot_controller.set_plot_biomarkers(plot_biomarkers)
+        self.plot(self.t_start, update_biomarker=True)
 
     def get_channels_to_plot(self):
         return self.main_waveform_plot_controller.model.channels_to_plot
@@ -117,7 +118,7 @@ class CenterWaveformAndMiniPlotController():
         self.main_waveform_plot_controller.set_channel_indices_to_plot(channel_indices_to_plot)
         self.mini_plot_controller.set_channel_indices_to_plot(channel_indices_to_plot)
     
-    def plot(self, start_in_time:float = None, first_channel_to_plot:int = None, empty=False, update_hfo=False):
+    def plot(self, start_in_time:float = None, first_channel_to_plot:int = None, empty=False, update_biomarker=False):
 
         if empty:
             self.main_waveform_plot_controller.clear()
@@ -130,26 +131,27 @@ class CenterWaveformAndMiniPlotController():
 
         if first_channel_to_plot is not None:
             self.main_waveform_plot_controller.set_first_channel_to_plot(first_channel_to_plot)
+            self.mini_plot_controller.set_first_channel_to_plot(first_channel_to_plot)
         first_channel_to_plot = self.main_waveform_plot_controller.get_first_channel_to_plot()
 
         self.main_waveform_plot_controller.clear()
 
-        if update_hfo:
+        if update_biomarker:
             self.mini_plot_controller.clear()
-            self.mini_plot_controller.init_hfo_display()
+            self.mini_plot_controller.init_biomarker_display()
 
         eeg_data_to_display, y_100_length, y_scale_length, offset_value = self.main_waveform_plot_controller.plot_all_current_channels_for_window()
         top_value = eeg_data_to_display[first_channel_to_plot].max()
+        top_value_mini = 0.5
+        if self.plot_biomarkers:
+            self.main_waveform_plot_controller.plot_all_current_biomarkers_for_window(eeg_data_to_display, offset_value, top_value)
 
-        if self.plot_HFOs:
-            self.main_waveform_plot_controller.plot_all_current_hfos_for_window(eeg_data_to_display, offset_value, top_value)
-
-        if self.plot_HFOs and update_hfo:
-            self.mini_plot_controller.plot_all_current_hfos_for_all_channels(top_value)
+        if self.plot_biomarkers and update_biomarker:
+            self.mini_plot_controller.plot_all_current_biomarkers_for_all_channels(top_value_mini)
 
         self.main_waveform_plot_controller.draw_scale_bar(eeg_data_to_display, offset_value, y_100_length, y_scale_length)
         self.main_waveform_plot_controller.draw_channel_names(offset_value)
 
-        self.mini_plot_controller.set_miniplot_title('HFO', top_value)
-        self.mini_plot_controller.set_total_x_y_range(top_value)
-        self.mini_plot_controller.update_highlight_window(start_in_time, end_in_time, top_value)
+        self.mini_plot_controller.set_miniplot_title('biomarker', top_value_mini)
+        self.mini_plot_controller.set_total_x_y_range(top_value_mini)
+        self.mini_plot_controller.update_highlight_window(start_in_time, end_in_time, top_value_mini)

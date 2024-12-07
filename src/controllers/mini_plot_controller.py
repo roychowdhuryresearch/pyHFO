@@ -11,7 +11,7 @@ class MiniPlotController:
     def clear(self):
         self.view.clear()
 
-    def init_hfo_display(self):
+    def init_biomarker_display(self):
         self.view.enable_axis_information()
         self.view.add_linear_region()
 
@@ -30,25 +30,28 @@ class MiniPlotController:
     def set_n_channels_to_plot(self, n_channels_to_plot):
         self.model.set_n_channels_to_plot(n_channels_to_plot)
 
+    def set_first_channel_to_plot(self, first_channel_to_plot):
+        self.model.set_first_channel_to_plot(first_channel_to_plot)
+
     def update_channel_names(self, new_channel_names):
         self.model.update_channel_names(new_channel_names)
 
-    def plot_one_hfo(self, start_time, end_time, height, color, width=5):
-        self.view.plot_hfo(start_time, end_time, height, color, width)
+    def plot_one_biomarker(self, start_time, end_time, height, color, width=5):
+        self.view.plot_biomarker(start_time, end_time, height, color, width)
 
-    def plot_all_current_hfos_for_one_channel(self, channel, plot_height):
-        starts_in_time, ends_in_time, colors = self.model.get_all_hfos_for_channel_and_color(channel)
+    def plot_all_current_biomarkers_for_one_channel(self, channel, plot_height):
+        starts_in_time, ends_in_time, colors = self.model.get_all_biomarkers_for_channel_and_color(channel)
         
         for i in range(len(starts_in_time)):
-            self.plot_one_hfo(starts_in_time[i], ends_in_time[i], plot_height, colors[i], 5)
+            self.plot_one_biomarker(starts_in_time[i], ends_in_time[i], plot_height, colors[i], 5)
 
-    def plot_all_current_hfos_for_all_channels(self, plot_height):
+    def plot_all_current_biomarkers_for_all_channels(self, plot_height):
         first_channel_to_plot = self.get_first_channel_to_plot()
         n_channels_to_plot = self.model.n_channels_to_plot
         channels_to_plot = self.model.channels_to_plot
         for disp_i, ch_i in enumerate(range(first_channel_to_plot, first_channel_to_plot+n_channels_to_plot)):
             channel = channels_to_plot[ch_i]
-            self.plot_all_current_hfos_for_one_channel(channel, plot_height)
+            self.plot_all_current_biomarkers_for_one_channel(channel, plot_height)
 
     def set_miniplot_title(self, title, height):
         self.view.set_miniplot_title(title, height)

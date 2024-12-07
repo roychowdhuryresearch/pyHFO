@@ -15,17 +15,17 @@ ROOT_DIR = Path(__file__).parent
 
 
 class BipolarChannelSelectionWindow(QtWidgets.QDialog):
-    def __init__(self, hfo_app=None, main_window=None, close_signal = None,waveform_plot = None):
+    def __init__(self, backend=None, main_window=None, close_signal = None,waveform_plot = None):
         # print(ROOT_DIR)
         super(BipolarChannelSelectionWindow, self).__init__()
         self.ui = uic.loadUi(os.path.join(ROOT_DIR, 'bipolar_channel_selection.ui'), self)
 
-        self.hfo_app = hfo_app
+        self.backend = backend
         self.main_window = main_window
         self.setWindowTitle("Bipolar Channel Selection")
         self.setWindowIcon(QtGui.QIcon(os.path.join(ROOT_DIR, 'images/icon1.png')))
 
-        eeg_data,channel_names = self.hfo_app.get_eeg_data()
+        eeg_data,channel_names = self.backend.get_eeg_data()
 
         for channel in channel_names:
         #check if channel is not already in the list, then concat
@@ -51,11 +51,11 @@ class BipolarChannelSelectionWindow(QtWidgets.QDialog):
         # print(self.channel_2)
 
         if str(self.channel_1) != str(self.channel_2):
-            if f"{self.channel_1}#-#{self.channel_2}" not in self.hfo_app.channel_names:
+            if f"{self.channel_1}#-#{self.channel_2}" not in self.backend.channel_names:
                 #create bipolar channel and add to data, channel_name lists
-                self.hfo_app.add_bipolar_channel(self.channel_1,self.channel_2)
-                self.waveform_plot.update_channel_names(self.hfo_app.channel_names)
-                self.main_window.set_channels_to_plot(self.hfo_app.channel_names, display_all=False)
+                self.backend.add_bipolar_channel(self.channel_1,self.channel_2)
+                self.waveform_plot.update_channel_names(self.backend.channel_names)
+                self.main_window.set_channels_to_plot(self.backend.channel_names, display_all=False)
             self.close()
         else:
             msg = QMessageBox()

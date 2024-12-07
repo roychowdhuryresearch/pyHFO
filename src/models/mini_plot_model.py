@@ -1,5 +1,6 @@
 import numpy as np
 from src.hfo_app import HFO_App
+from src.spindle_app import SpindleApp
 import sys
 
 
@@ -46,11 +47,11 @@ class MiniPlotModel:
     def update_channel_names(self, new_channel_names):
         self.channel_names = new_channel_names
 
-    def get_all_hfos_for_channel(self, channel, t_start=0, t_end=sys.maxsize):
-        return self.backend.event_features.get_HFOs_for_channel(channel, t_start, t_end)
+    def get_all_biomarkers_for_channel(self, channel, t_start=0, t_end=sys.maxsize):
+        return self.backend.event_features.get_biomarkers_for_channel(channel, t_start, t_end)
 
-    def get_all_hfos_for_channel_and_color(self, channel, t_start=0, t_end=sys.maxsize):
-        starts, ends, artifacts, spikes = self.get_all_hfos_for_channel(channel, t_start, t_end)
+    def get_all_biomarkers_for_channel_and_color(self, channel, t_start=0, t_end=sys.maxsize):
+        starts, ends, artifacts, spikes = self.get_all_biomarkers_for_channel(channel, t_start, t_end)
         colors = []
         for j in range(len(starts)):
             try:

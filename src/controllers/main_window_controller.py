@@ -1,5 +1,4 @@
 from src.utils.utils_gui import *
-from src.hfo_app import HFO_App
 
 
 class MainWindowController:
@@ -10,7 +9,7 @@ class MainWindowController:
         self.supported_biomarker = {
             'HFO': self.create_hfo_window,
             'Spindle': self.create_spindle_window,
-            'Hypsarrhythmia': self.create_hypsarrhythmia_window,
+            'Spike': self.create_spike_window,
         }
 
     def init_biomarker_window(self, biomarker_type):
@@ -26,16 +25,12 @@ class MainWindowController:
     def get_biomarker_type(self):
         return self.view.get_biomarker_type()
 
+    def set_biomarker_type(self, bio_type):
+        self.model.set_biomarker_type_and_init_backend(bio_type)
+
     def init_biomarker_type(self):
         default_biomarker = self.get_biomarker_type()
-        backend = None
-        if default_biomarker == 'HFO':
-            backend = HFO_App()
-        elif default_biomarker == 'Spindle':
-            backend = HFO_App()
-        elif default_biomarker == 'Spike':
-            backend = HFO_App()
-        self.model.set_backend(backend)
+        self.set_biomarker_type(default_biomarker)
 
         self.view.window.combo_box_biomarker.currentIndexChanged.connect(self.switch_biomarker)
 
@@ -44,6 +39,9 @@ class MainWindowController:
         self.supported_biomarker[selected_biomarker]()
 
     def create_hfo_window(self):
+        # set biomarker type
+        self.set_biomarker_type('HFO')
+
         # dynamically create frame for different biomarkers
         self.view.window.frame_biomarker_layout = QHBoxLayout(self.view.window.frame_biomarker_type)
 
@@ -67,6 +65,9 @@ class MainWindowController:
         self.model.init_param('HFO')
 
     def create_spindle_window(self):
+        # set biomarker type
+        self.set_biomarker_type('Spindle')
+
         # create detection parameters stacked widget
         self.view.create_stacked_widget_detection_param('Spindle')
 
@@ -85,5 +86,5 @@ class MainWindowController:
         # init params
         self.model.init_param('Spindle')
 
-    def create_hypsarrhythmia_window(self):
+    def create_spike_window(self):
         print('not implemented yet')

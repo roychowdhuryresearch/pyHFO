@@ -1,8 +1,10 @@
 from PyQt5 import QtWidgets
 import pyqtgraph as pg
 
-class MiniPlotView:
+
+class MiniPlotView(QtWidgets.QGraphicsView):
     def __init__(self, plot_widget: pg.PlotWidget):
+        super(MiniPlotView, self).__init__()
         self.plot_widget = plot_widget
         self._init_plot_widget(plot_widget)
 
@@ -25,7 +27,7 @@ class MiniPlotView:
         self.linear_region.setRegion([start,end])
         self.linear_region.setZValue(height)
 
-    def plot_hfo(self, start_time, end_time, top_value, color, width):
+    def plot_biomarker(self, start_time, end_time, top_value, color, width):
         self.plot_widget.plot([start_time, end_time], [top_value, top_value], pen=pg.mkPen(color=color, width=width))
 
     def set_miniplot_title(self, title, height):

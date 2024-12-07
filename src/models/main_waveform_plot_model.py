@@ -1,5 +1,6 @@
 import numpy as np
 from src.hfo_app import HFO_App
+from src.spindle_app import SpindleApp
 import sys
 
 
@@ -31,7 +32,7 @@ class MainWaveformPlotModel:
         self.time = np.arange(0, eeg_data.shape[1]/self.sample_freq, 1/self.sample_freq)
 
         self.filtered = False
-        self.plot_HFOs = False
+        self.plot_biomarkers = False
         self.channel_names = list(self.channel_names)
         self.n_channels = len(self.channel_names)
         self.n_channels_to_plot = min(self.n_channels,self.n_channels_to_plot)
@@ -41,8 +42,8 @@ class MainWaveformPlotModel:
     def set_time_window(self, time_window:int):
         self.time_window = time_window
 
-    def set_plot_HFOs(self, plot_HFOs:bool):
-        self.plot_HFOs = plot_HFOs
+    def set_plot_biomarkers(self, plot_biomarkers:bool):
+        self.plot_biomarkers = plot_biomarkers
 
     def set_current_time_window(self, start_in_time):
         self.start_in_time = max(start_in_time, 0)
@@ -116,8 +117,8 @@ class MainWaveformPlotModel:
 
         return eeg_data_to_display, y_100_length, y_scale_length, offset_value
 
-    def get_all_hfos_for_all_current_channels_and_color(self, channel_in_name):
-        starts, ends, artifacts, spikes = self.backend.event_features.get_HFOs_for_channel(channel_in_name, int(self.start_in_time*self.sample_freq),int(self.end_in_time*self.sample_freq))
+    def get_all_biomarkers_for_all_current_channels_and_color(self, channel_in_name):
+        starts, ends, artifacts, spikes = self.backend.event_features.get_biomarkers_for_channel(channel_in_name, int(self.start_in_time*self.sample_freq),int(self.end_in_time*self.sample_freq))
         colors = []
         windows_in_time = []
 
@@ -132,6 +133,7 @@ class MainWaveformPlotModel:
             except:
                 color = self.color_dict["non_spike"]
             colors.append(color)
+            # s_ind, e_ind = np.searchsorted(self.time, starts[j]), np.searchsorted(self.time, ends[j])
             windows_in_time.append(self.time[int(starts[j]):int(ends[j])])
 
         starts_in_time = [self.time[int(i)] for i in starts]

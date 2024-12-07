@@ -7,13 +7,16 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtWidgets import QMessageBox
 from PyQt5.QtCore import pyqtSignal
+import ast
 import multiprocessing as mp
 import torch
+from src.hfo_app import HFO_App
+from src.spindle_app import SpindleApp
 from src.ui.quick_detection import HFOQuickDetector
 from src.ui.channels_selection import ChannelSelectionWindow
 from src.param.param_classifier import ParamClassifier
-from src.param.param_detector import ParamDetector, ParamSTE, ParamMNI, ParamHIL
-from src.param.param_filter import ParamFilter
+from src.param.param_detector import ParamDetector, ParamSTE, ParamMNI, ParamHIL, ParamYASA
+from src.param.param_filter import ParamFilter, ParamFilterSpindle
 from src.ui.bipolar_channel_selection import BipolarChannelSelectionWindow
 from src.ui.annotation import Annotation
 from src.utils.utils_gui import *
@@ -21,10 +24,20 @@ from src.ui.plot_waveform import *
 
 
 class MainWindowModel(QObject):
-    def __init__(self, main_window, backend):
+    def __init__(self, main_window):
         super(MainWindowModel, self).__init__()
         self.window = main_window
-        self.backend = backend
+        self.backend = None
+        self.biomarker_type = None
+
+    def set_biomarker_type_and_init_backend(self, bio_type):
+        self.biomarker_type = bio_type
+        if bio_type == 'HFO':
+            self.backend = HFO_App()
+        elif bio_type == 'Spindle':
+            self.backend = SpindleApp()
+        elif bio_type == 'Spike':
+            self.backend = HFO_App()
 
     def init_error_terminal_display(self):
         self.window.stdout = Queue()
@@ -109,14 +122,25 @@ class MainWindowModel(QObject):
             self.set_ste_input_len(8)
             self.set_hil_input_len(8)
         elif biomarker_type == 'Spindle':
-            print('init_param not implemented')
+            self.init_classifier_param()
+            self.init_default_filter_input_params()
+            self.init_default_yasa_input_params()
+
+            self.set_yasa_input_len(8)
 
     def init_default_filter_input_params(self):
-        default_params = ParamFilter()
-        self.window.fp_input.setText(str(default_params.fp))
-        self.window.fs_input.setText(str(default_params.fs))
-        self.window.rp_input.setText(str(default_params.rp))
-        self.window.rs_input.setText(str(default_params.rs))
+        if self.biomarker_type == 'HFO':
+            default_params = ParamFilter()
+            self.window.fp_input.setText(str(default_params.fp))
+            self.window.fs_input.setText(str(default_params.fs))
+            self.window.rp_input.setText(str(default_params.rp))
+            self.window.rs_input.setText(str(default_params.rs))
+        elif self.biomarker_type == 'Spindle':
+            default_params = ParamFilterSpindle()
+            self.window.fp_input.setText(str(default_params.fp))
+            self.window.fs_input.setText(str(default_params.fs))
+            self.window.rp_input.setText(str(default_params.rp))
+            self.window.rs_input.setText(str(default_params.rs))
 
     def init_default_ste_input_params(self):
         default_params = ParamSTE(2000)
@@ -160,11 +184,70 @@ class MainWindowModel(QObject):
         self.window.hil_pass_band_input.setText(str(default_params.pass_band))
         self.window.hil_stop_band_input.setText(str(default_params.stop_band))
         self.window.hil_epoch_time_input.setText(str(default_params.epoch_time))
-        self.window.hil_sliding_window_input.setText(str(default_params.sliding_window))
+        self.window.hil_sd_threshold_input.setText(str(default_params.sd_threshold))
         self.window.hil_min_window_input.setText(str(default_params.min_window))
-        self.window.hil_n_jobs_input.setText(str(default_params.n_jobs))
+
+    def init_default_yasa_input_params(self):
+        default_params = ParamYASA(2000)
+        self.window.yasa_freq_sp_input.setText(str(default_params.freq_sp))
+        self.window.yasa_freq_broad_input.setText(str(default_params.freq_broad))
+        self.window.yasa_duration_input.setText(str(default_params.duration))
+        self.window.yasa_min_distance_input.setText(str(default_params.min_distance))
+        self.window.yasa_thresh_rel_pow_input.setText(str(default_params.rel_pow))
+        self.window.yasa_thresh_corr_input.setText(str(default_params.corr))
+        self.window.yasa_thresh_rms_input.setText(str(default_params.rms))
 
     def connect_signal_and_slot(self, biomarker_type='HFO'):
+        # classifier default buttons
+        self.window.default_cpu_button.clicked.connect(self.set_classifier_param_cpu_default)
+        self.window.default_gpu_button.clicked.connect(self.set_classifier_param_gpu_default)
+
+        # choose model files connection
+        self.window.choose_artifact_model_button.clicked.connect(lambda: self.choose_model_file("artifact"))
+        self.window.choose_spike_model_button.clicked.connect(lambda: self.choose_model_file("spike"))
+
+        # custom model param connection
+        self.window.classifier_save_button.clicked.connect(self.set_custom_classifier_param)
+
+        # detect_all_button
+        self.window.detect_all_button.clicked.connect(lambda: self.classify(True))
+        self.window.detect_all_button.setEnabled(False)
+        # self.detect_artifacts_button.clicked.connect(lambda : self.classify(False))
+
+        self.window.save_csv_button.clicked.connect(self.save_to_excel)
+        self.window.save_csv_button.setEnabled(False)
+
+        # set n_jobs min and max
+        self.window.n_jobs_spinbox.setMinimum(1)
+        self.window.n_jobs_spinbox.setMaximum(mp.cpu_count())
+
+        # set default n_jobs
+        self.window.n_jobs_spinbox.setValue(self.backend.n_jobs)
+        self.window.n_jobs_ok_button.clicked.connect(self.set_n_jobs)
+
+        self.window.save_npz_button.clicked.connect(self.save_to_npz)
+        self.window.save_npz_button.setEnabled(False)
+
+        self.window.Filter60Button.toggled.connect(self.switch_60)
+        self.window.Filter60Button.setEnabled(False)
+
+        self.window.bipolar_button.clicked.connect(self.open_bipolar_channel_selection)
+        self.window.bipolar_button.setEnabled(False)
+
+        # annotation button
+        self.window.annotation_button.clicked.connect(self.open_annotation)
+        self.window.annotation_button.setEnabled(False)
+
+        self.window.Choose_Channels_Button.setEnabled(False)
+        self.window.waveform_plot_button.setEnabled(False)
+
+        # check if gpu is available
+        self.gpu = torch.cuda.is_available()
+        # print(f"GPU available: {self.gpu}")
+        if not self.gpu:
+            # disable gpu buttons
+            self.window.default_gpu_button.setEnabled(False)
+
         if biomarker_type == 'HFO':
             self.window.overview_filter_button.clicked.connect(self.filter_data)
             # set filter button to be disabled by default
@@ -178,66 +261,22 @@ class MainWindowModel(QObject):
             self.window.hil_detect_button.clicked.connect(self.detect_HFOs)
             self.window.hil_detect_button.setEnabled(False)
 
-            # classifier default buttons
-            self.window.default_cpu_button.clicked.connect(self.set_classifier_param_cpu_default)
-            self.window.default_gpu_button.clicked.connect(self.set_classifier_param_gpu_default)
-
-            # choose model files connection
-            self.window.choose_artifact_model_button.clicked.connect(lambda: self.choose_model_file("artifact"))
-            self.window.choose_spike_model_button.clicked.connect(lambda: self.choose_model_file("spike"))
-
-            # custom model param connection
-            self.window.classifier_save_button.clicked.connect(self.set_custom_classifier_param)
-
-            # detect_all_button
-            self.window.detect_all_button.clicked.connect(lambda: self.classify(True))
-            self.window.detect_all_button.setEnabled(False)
-            # self.detect_artifacts_button.clicked.connect(lambda : self.classify(False))
-
-            self.window.save_csv_button.clicked.connect(self.save_to_excel)
-            self.window.save_csv_button.setEnabled(False)
-
-            # set n_jobs min and max
-            self.window.n_jobs_spinbox.setMinimum(1)
-            self.window.n_jobs_spinbox.setMaximum(mp.cpu_count())
-
-            # set default n_jobs
-            self.window.n_jobs_spinbox.setValue(self.backend.n_jobs)
-            self.window.n_jobs_ok_button.clicked.connect(self.set_n_jobs)
-
             self.window.STE_save_button.clicked.connect(self.save_ste_params)
             self.window.MNI_save_button.clicked.connect(self.save_mni_params)
             self.window.HIL_save_button.clicked.connect(self.save_hil_params)
             self.window.STE_save_button.setEnabled(False)
             self.window.MNI_save_button.setEnabled(False)
             self.window.HIL_save_button.setEnabled(False)
-
-            self.window.save_npz_button.clicked.connect(self.save_to_npz)
-            self.window.save_npz_button.setEnabled(False)
-
-            self.window.Filter60Button.toggled.connect(self.switch_60)
-            self.window.Filter60Button.setEnabled(False)
-
-            self.window.bipolar_button.clicked.connect(self.open_bipolar_channel_selection)
-            self.window.bipolar_button.setEnabled(False)
-
-            # annotation button
-            self.window.annotation_button.clicked.connect(self.open_annotation)
-            self.window.annotation_button.setEnabled(False)
-
-            self.window.Choose_Channels_Button.setEnabled(False)
-            self.window.waveform_plot_button.setEnabled(False)
-
-            # check if gpu is available
-            self.gpu = torch.cuda.is_available()
-            # print(f"GPU available: {self.gpu}")
-            if not self.gpu:
-                # disable gpu buttons
-                self.window.default_gpu_button.setEnabled(False)
         elif biomarker_type == 'Spindle':
             self.window.overview_filter_button.clicked.connect(self.filter_data)
             # set filter button to be disabled by default
             self.window.overview_filter_button.setEnabled(False)
+
+            self.window.yasa_detect_button.clicked.connect(self.detect_Spindles)
+            self.window.yasa_detect_button.setEnabled(False)
+
+            self.window.YASA_save_button.clicked.connect(self.save_yasa_params)
+            # self.window.YASA_save_button.setEnabled(False)
 
     def set_classifier_param_display(self):
         classifier_param = self.backend.get_classifier_param()
@@ -307,7 +346,7 @@ class MainWindowModel(QObject):
     def _classify_finished(self):
         self.message_handler("Classification finished!..")
         self.update_statistics_label()
-        self.window.waveform_plot.set_plot_HFOs(True)
+        self.window.waveform_plot.set_plot_biomarkers(True)
         self.window.save_csv_button.setEnabled(True)
 
     def classify(self, check_spike=True):
@@ -321,15 +360,36 @@ class MainWindowModel(QObject):
         self.window.threadpool.start(worker)
 
     def update_statistics_label(self):
-        num_HFO = self.backend.event_features.get_num_HFO()
-        num_artifact = self.backend.event_features.get_num_artifact()
-        num_spike = self.backend.event_features.get_num_spike()
-        num_real = self.backend.event_features.get_num_real()
+        if self.biomarker_type == 'HFO':
+            num_HFO = self.backend.event_features.get_num_biomarker()
+            num_artifact = self.backend.event_features.get_num_artifact()
+            num_spike = self.backend.event_features.get_num_spike()
+            num_real = self.backend.event_features.get_num_real()
 
-        self.window.statistics_label.setText(" Number of HFOs: " + str(num_HFO) + \
-                                      "\n Number of artifacts: " + str(num_artifact) + \
-                                      "\n Number of spikes: " + str(num_spike) + \
-                                      "\n Number of real HFOs: " + str(num_real))
+            self.window.statistics_label.setText(" Number of HFOs: " + str(num_HFO) + \
+                                          "\n Number of artifacts: " + str(num_artifact) + \
+                                          "\n Number of spikes: " + str(num_spike) + \
+                                          "\n Number of real HFOs: " + str(num_real))
+        elif self.biomarker_type == 'Spindle':
+            num_spindle = self.backend.event_features.get_num_biomarker()
+            num_artifact = self.backend.event_features.get_num_artifact()
+            num_spike = self.backend.event_features.get_num_spike()
+            num_real = self.backend.event_features.get_num_real()
+
+            self.window.statistics_label.setText(" Number of Spindles: " + str(num_spindle) + \
+                                                 "\n Number of artifacts: " + str(num_artifact) + \
+                                                 "\n Number of spikes: " + str(num_spike) + \
+                                                 "\n Number of real Spindles: " + str(num_real))
+        elif self.biomarker_type == 'Spike':
+            num_spindle = self.backend.event_features.get_num_biomarker()
+            num_artifact = self.backend.event_features.get_num_artifact()
+            num_spike = self.backend.event_features.get_num_spike()
+            num_real = self.backend.event_features.get_num_real()
+
+            self.window.statistics_label.setText(" Number of Spindles: " + str(num_spindle) + \
+                                                 "\n Number of artifacts: " + str(num_artifact) + \
+                                                 "\n Number of spikes: " + str(num_spike) + \
+                                                 "\n Number of real Spindles: " + str(num_real))
 
     def save_to_excel(self):
         # open file dialog
@@ -403,7 +463,7 @@ class MainWindowModel(QObject):
         self.window.channel_scroll_bar.setValue(0)
         self.window.waveform_time_scroll_bar.setValue(0)
         is_empty = self.window.n_channel_input.maximum() == 0
-        self.window.waveform_plot.plot(0, 0, empty=is_empty, update_hfo=True)
+        self.window.waveform_plot.plot(0, 0, empty=is_empty, update_biomarker=True)
 
     def switch_60(self):
         # get the value of the Filter60Button radio button
@@ -458,7 +518,9 @@ class MainWindowModel(QObject):
         self.window.main_numchannels.setText(results[2])
         # print("updated")
         self.window.main_length.setText(str(round(float(results[3]) / (60 * float(results[1])), 3)) + " min")
-        self.window.waveform_plot.plot(0, update_hfo=True)
+        # self.window.waveform_plot.plot(0, update_biomarker=True)
+        self.window.waveform_plot.set_plot_biomarkers(False)
+
         # print("plotted")
         # connect buttons
         self.window.waveform_time_scroll_bar.valueChanged.connect(self.scroll_time_waveform_plot)
@@ -531,7 +593,7 @@ class MainWindowModel(QObject):
 
     def scroll_channel_waveform_plot(self, event):
         channel_start = self.window.channel_scroll_bar.value()
-        self.window.waveform_plot.plot(first_channel_to_plot=channel_start, update_hfo=True)
+        self.window.waveform_plot.plot(first_channel_to_plot=channel_start, update_biomarker=True)
 
     def get_channels_to_plot(self):
         return self.window.waveform_plot.get_channels_to_plot()
@@ -559,11 +621,11 @@ class MainWindowModel(QObject):
         c_value = self.window.channel_scroll_bar.value()
         self.window.channel_scroll_bar.setMaximum(len(self.window.waveform_plot.get_channels_to_plot()) - n_channels_to_plot)
         self.window.channel_scroll_bar.setValue(c_value)
-        self.window.waveform_plot.plot(start, first_channel_to_plot, empty=is_empty, update_hfo=True)
+        self.window.waveform_plot.plot(start, first_channel_to_plot, empty=is_empty, update_biomarker=True)
 
     def open_file(self):
         # reinitialize the app
-        self.backend = HFO_App()
+        self.set_biomarker_type_and_init_backend(self.biomarker_type)
         fname, _ = QFileDialog.getOpenFileName(self.window, "Open File", "", "Recordings Files (*.edf *.eeg *.vhdr *.vmrk)")
         if fname:
             worker = Worker(self.read_edf, fname)
@@ -598,18 +660,24 @@ class MainWindowModel(QObject):
         worker.signals.result.connect(self._detect_finished)
         self.window.threadpool.start(worker)
 
+    def detect_Spindles(self):
+        print("Detecting Spindles...")
+        worker = Worker(self._detect)
+        worker.signals.result.connect(self._detect_finished)
+        self.window.threadpool.start(worker)
+
     def _detect_finished(self):
         # right now do nothing beyond message handler saying that
         # it has detected HFOs
-        self.message_handler("HFOs detected")
+        self.message_handler("Biomarker detected")
         self.update_statistics_label()
-        self.window.waveform_plot.set_plot_HFOs(True)
+        self.window.waveform_plot.set_plot_biomarkers(True)
         self.window.detect_all_button.setEnabled(True)
         self.window.annotation_button.setEnabled(True)
 
     def _detect(self, progress_callback):
         # call detect HFO function on backend
-        self.backend.detect_HFO()
+        self.backend.detect_biomarker()
         return []
 
     def open_quick_detection(self):
@@ -622,17 +690,6 @@ class MainWindowModel(QObject):
 
     def set_quick_detect_open(self, open):
         self.window.quick_detect_open = open
-
-    def update_statistics_label(self):
-        num_HFO = self.backend.event_features.get_num_HFO()
-        num_artifact = self.backend.event_features.get_num_artifact()
-        num_spike = self.backend.event_features.get_num_spike()
-        num_real = self.backend.event_features.get_num_real()
-
-        self.window.statistics_label.setText(" Number of HFOs: " + str(num_HFO) + \
-                                      "\n Number of artifacts: " + str(num_artifact) + \
-                                      "\n Number of spikes: " + str(num_spike) + \
-                                      "\n Number of real HFOs: " + str(num_real))
 
     def reinitialize_buttons(self):
         self.window.mni_detect_button.setEnabled(False)
@@ -672,9 +729,17 @@ class MainWindowModel(QObject):
         self.window.hil_pass_band_input.setMaxLength(max_len)
         self.window.hil_stop_band_input.setMaxLength(max_len)
         self.window.hil_epoch_time_input.setMaxLength(max_len)
-        self.window.hil_sliding_window_input.setMaxLength(max_len)
+        self.window.hil_sd_threshold_input.setMaxLength(max_len)
         self.window.hil_min_window_input.setMaxLength(max_len)
-        self.window.hil_n_jobs_input.setMaxLength(max_len)
+
+    def set_yasa_input_len(self, max_len=5):
+        self.window.yasa_freq_sp_input.setMaxLength(max_len)
+        self.window.yasa_freq_broad_input.setMaxLength(max_len)
+        self.window.yasa_duration_input.setMaxLength(max_len)
+        self.window.yasa_min_distance_input.setMaxLength(max_len)
+        self.window.yasa_thresh_rel_pow_input.setMaxLength(max_len)
+        self.window.yasa_thresh_corr_input.setMaxLength(max_len)
+        self.window.yasa_thresh_rms_input.setMaxLength(max_len)
 
     def close_other_window(self):
         self.window.close_signal.emit()
@@ -779,31 +844,28 @@ class MainWindowModel(QObject):
             pass_band = self.window.hil_pass_band_input.text()
             stop_band = self.window.hil_stop_band_input.text()
             epoch_time = self.window.hil_epoch_time_input.text()
-            sliding_window = self.window.hil_sliding_window_input.text()
+            sd_threshold = self.window.hil_sd_threshold_input.text()
             min_window = self.window.hil_min_window_input.text()
-            n_jobs = self.window.hil_n_jobs_input.text()
 
             param_dict = {
                 "sample_freq": float(sample_freq),
                 "pass_band": float(pass_band),
                 "stop_band": float(stop_band),
                 "epoch_time": float(epoch_time),
-                "sliding_window": float(sliding_window),
+                "sd_threshold": float(sd_threshold),
                 "min_window": float(min_window),
-                "n_jobs": int(n_jobs)
+                "n_jobs": self.backend.n_jobs,
             }
 
             detector_params = {"detector_type": "HIL", "detector_param": param_dict}
             self.backend.set_detector(ParamDetector.from_dict(detector_params))
 
-            # 设置显示参数
             self.window.hil_sample_freq_display.setText(sample_freq)
             self.window.hil_pass_band_display.setText(pass_band)
             self.window.hil_stop_band_display.setText(stop_band)
             self.window.hil_epoch_time_display.setText(epoch_time)
-            self.window.hil_sliding_window_display.setText(sliding_window)
+            self.window.hil_sd_threshold_display.setText(sd_threshold)
             self.window.hil_min_window_display.setText(min_window)
-            self.window.hil_n_jobs_display.setText(n_jobs)
 
             self.update_detector_tab("HIL")
 
@@ -813,6 +875,45 @@ class MainWindowModel(QObject):
             msg.setText("Error!")
             msg.setInformativeText(f'HIL Detector could not be constructed given the parameters. Error: {str(e)}')
             msg.setWindowTitle("HIL Detector Construction Failed")
+            msg.exec_()
+
+    def save_yasa_params(self):
+        # get filter parameters
+
+        freq_sp_raw = self.window.yasa_freq_sp_input.text()
+        freq_broad_raw = self.window.yasa_freq_broad_input.text()
+        duration_raw = self.window.yasa_duration_input.text()
+        min_distance_raw = self.window.yasa_min_distance_input.text()
+        thresh_rel_pow_raw = self.window.yasa_thresh_rel_pow_input.text()
+        thresh_corr_raw = self.window.yasa_thresh_corr_input.text()
+        thresh_rms_raw = self.window.yasa_thresh_rms_input.text()
+        try:
+            param_dict = {"sample_freq": 2000,
+                          # these are placeholder params, will be updated later
+                          "freq_sp": ast.literal_eval(freq_sp_raw), "freq_broad": ast.literal_eval(freq_broad_raw),
+                          "duration": ast.literal_eval(duration_raw),
+                          "min_distance": float(min_distance_raw), "rel_pow": float(thresh_rel_pow_raw),
+                          "corr": float(thresh_corr_raw),
+                          "rms": float(thresh_rms_raw), "n_jobs": self.backend.n_jobs}
+            detector_params = {"detector_type": "YASA", "detector_param": param_dict}
+            self.backend.set_detector(ParamDetector.from_dict(detector_params))
+
+            # set display parameters
+            self.window.yasa_freq_sp_display.setText(freq_sp_raw)
+            self.window.yasa_freq_broad_display.setText(freq_broad_raw)
+            self.window.yasa_duration_display.setText(duration_raw)
+            self.window.yasa_min_distance_display.setText(min_distance_raw)
+            self.window.yasa_thresh_rel_pow_display.setText(thresh_rel_pow_raw)
+            self.window.yasa_thresh_corr_display.setText(thresh_corr_raw)
+            self.window.yasa_thresh_rms_display.setText(thresh_rms_raw)
+            # self.update_detector_tab("STE")
+            self.window.yasa_detect_button.setEnabled(True)
+        except:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setText("Error!")
+            msg.setInformativeText('Detector could not be constructed given the parameters')
+            msg.setWindowTitle("Detector Construction Failed")
             msg.exec_()
 
     def update_detector_tab(self, index):
@@ -826,7 +927,8 @@ class MainWindowModel(QObject):
     def reinitialize(self):
         # kill all threads in self.threadpool
         self.close_other_window()
-        self.backend = HFO_App()
+        # self.backend = HFO_App()
+        self.set_biomarker_type_and_init_backend(self.biomarker_type)
         self.window.waveform_plot.update_backend(self.backend, False)
         self.window.main_filename.setText("")
         self.window.main_sampfreq.setText("")
@@ -909,26 +1011,23 @@ class MainWindowModel(QObject):
         pass_band = str(hil_params["pass_band"])
         stop_band = str(hil_params["stop_band"])
         epoch_time = str(hil_params["epoch_time"])
-        sliding_window = str(hil_params["sliding_window"])
+        sd_threshold = str(hil_params["sd_threshold"])
         min_window = str(hil_params["min_window"])
-        n_jobs = str(hil_params["n_jobs"])
 
         self.window.hil_sample_freq_input.setText(sample_freq)
         self.window.hil_pass_band_input.setText(pass_band)
         self.window.hil_stop_band_input.setText(stop_band)
         self.window.hil_epoch_time_input.setText(epoch_time)
-        self.window.hil_sliding_window_input.setText(sliding_window)
+        self.window.hil_sd_threshold_input.setText(sd_threshold)
         self.window.hil_min_window_input.setText(min_window)
-        self.window.hil_n_jobs_input.setText(n_jobs)
 
         # set display parameters
         self.window.hil_sample_freq_display.setText(sample_freq)
         self.window.hil_pass_band_display.setText(pass_band)
         self.window.hil_stop_band_display.setText(stop_band)
         self.window.hil_epoch_time_display.setText(epoch_time)
-        self.window.hil_sliding_window_display.setText(sliding_window)
+        self.window.hil_sd_threshold_display.setText(sd_threshold)
         self.window.hil_min_window_display.setText(min_window)
-        self.window.hil_n_jobs_display.setText(n_jobs)
 
         self.update_detector_tab("HIL")
         self.window.detector_subtabs.setCurrentIndex(2)

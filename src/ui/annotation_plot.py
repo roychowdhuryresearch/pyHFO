@@ -60,10 +60,10 @@ def custom_formatter(x, pos):
 
 
 class AnnotationPlot(FigureCanvasQTAgg):
-    def __init__(self, parent=None, width=10, height=4, dpi=100, hfo_app=None):
+    def __init__(self, parent=None, width=10, height=4, dpi=100, backend=None):
         fig,self.axs = plt.subplots(3,1,figsize=(width, height), dpi=dpi)
         super(AnnotationPlot, self).__init__(fig)
-        self.hfo_app = hfo_app
+        self.backend = backend
         FigureCanvasQTAgg.setSizePolicy(self, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         FigureCanvasQTAgg.updateGeometry(self)
         # self.setParent(parent)
@@ -80,14 +80,14 @@ class AnnotationPlot(FigureCanvasQTAgg):
             return
 
         channel_name = channel
-        fs = self.hfo_app.sample_freq
+        fs = self.backend.sample_freq
 
         #both sets of data (filtered/unfiltered) for plots
-        length = self.hfo_app.get_eeg_data_shape()[1]
+        length = self.backend.get_eeg_data_shape()[1]
         # window_start_index, window_end_index, relative_start_index, relative_end_end = calcuate_boundary(plot_start_index, plot_end_index, length, fs)
-        window_start_index, window_end_index, relative_start_index, relative_end_end = calcuate_boundary(start_index, end_index, length,fs)
-        unfiltered_eeg_data, self.channel_names = self.hfo_app.get_eeg_data(window_start_index, window_end_index)
-        filtered_eeg_data,_ = self.hfo_app.get_eeg_data(window_start_index, window_end_index, filtered=True)
+        window_start_index, window_end_index, relative_start_index, relative_end_end = calcuate_boundary(start_index, end_index, length, win_len=fs * interval)
+        unfiltered_eeg_data, self.channel_names = self.backend.get_eeg_data(window_start_index, window_end_index)
+        filtered_eeg_data,_ = self.backend.get_eeg_data(window_start_index, window_end_index, filtered=True)
 
         unfiltered_eeg_data_to_display_one = unfiltered_eeg_data[self.channel_names == channel_name,:][0]
         filtered_eeg_data_to_display = filtered_eeg_data[self.channel_names == channel_name,:][0]
@@ -117,7 +117,7 @@ class AnnotationPlot(FigureCanvasQTAgg):
         middle_index = (relative_start_index + relative_end_end) // 2
         half_interval_samples = int((interval * fs) // 2)
         plot_start_index = max(0, int(middle_index - half_interval_samples))
-        plot_end_index = int(min(self.hfo_app.get_eeg_data_shape()[1], middle_index + half_interval_samples))
+        plot_end_index = int(min(self.backend.get_eeg_data_shape()[1], middle_index + half_interval_samples))
         plot_start_index = max(0, min(len(time_to_display) - 1, plot_start_index))
         plot_end_index = min(len(time_to_display) - 1, int(middle_index + half_interval_samples))
 
@@ -175,10 +175,10 @@ class AnnotationPlot(FigureCanvasQTAgg):
 
 
 class FFTPlot(FigureCanvasQTAgg):
-    def __init__(self, parent=None, width=5, height=4, dpi=100, hfo_app=None):
+    def __init__(self, parent=None, width=5, height=4, dpi=100, backend=None):
             fig,self.axs = plt.subplots(1,1,figsize=(width, height), dpi=dpi)
             super(FFTPlot, self).__init__(fig)
-            self.hfo_app = hfo_app
+            self.backend = backend
 
             FigureCanvasQTAgg.setSizePolicy(self, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
             FigureCanvasQTAgg.updateGeometry(self)
@@ -186,13 +186,13 @@ class FFTPlot(FigureCanvasQTAgg):
     def plot(self, start_index: int = None, end_index: int = None, channel: str = None, interval=1.0):
         self.axs.cla()
         start_index = int(start_index)
-        fs = self.hfo_app.sample_freq
+        fs = self.backend.sample_freq
         middle_index = (start_index + end_index) // 2
         half_interval_samples = int((interval * fs) // 2)
         plot_start_index = int(max(0, middle_index - half_interval_samples))
-        plot_end_index = int(min(self.hfo_app.get_eeg_data_shape()[1], middle_index + half_interval_samples))
+        plot_end_index = int(min(self.backend.get_eeg_data_shape()[1], middle_index + half_interval_samples))
 
-        unfiltered_eeg_data, channel_names = self.hfo_app.get_eeg_data(plot_start_index, plot_end_index)
+        unfiltered_eeg_data, channel_names = self.backend.get_eeg_data(plot_start_index, plot_end_index)
         unfiltered_eeg_data = unfiltered_eeg_data[channel_names == channel, :][0]
         # Compute the FFT
         f, Pxx_den = signal.periodogram(unfiltered_eeg_data, fs)

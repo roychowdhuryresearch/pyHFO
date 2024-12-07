@@ -19,10 +19,10 @@ ROOT_DIR = Path(__file__).parent
 
 
 class ChannelSelectionWindow(QtWidgets.QDialog):
-    def __init__(self, hfo_app=None, main_window=None, close_signal = None):
+    def __init__(self, backend=None, main_window=None, close_signal = None):
         super(ChannelSelectionWindow, self).__init__()
         
-        self.hfo_app = hfo_app
+        self.backend = backend
         self.main_window = main_window
         self.layout = QGridLayout()
         self.setWindowTitle("Channel Selection")
@@ -56,7 +56,7 @@ class ChannelSelectionWindow(QtWidgets.QDialog):
         self.close_signal.connect(self.close_me)
 
     def set_channels(self):
-        eeg_data,channels = self.hfo_app.get_eeg_data()
+        eeg_data,channels = self.backend.get_eeg_data()
         channels_indexes_to_plot = self.main_window.get_channel_indices_to_plot()
         self.channel_checkboxes = {}
         self.n_channels = len(channels)

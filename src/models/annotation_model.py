@@ -8,10 +8,10 @@ class AnnotationModel:
         self.backend = backend
 
     def create_waveform_plot(self):
-        self.waveform_plot = AnnotationPlot(hfo_app=self.backend)
+        self.waveform_plot = AnnotationPlot(backend=self.backend)
 
     def create_fft_plot(self):
-        self.fft_plot = FFTPlot(hfo_app=self.backend)
+        self.fft_plot = FFTPlot(backend=self.backend)
 
     def get_current_event(self):
         channel, start, end = self.backend.event_features.get_current()

@@ -63,8 +63,8 @@ class MainWaveformPlotController:
     def get_current_time_window(self):
         return self.model.get_current_time_window()
     
-    def set_plot_HFOs(self, plot_HFOs:bool):
-        self.model.set_plot_HFOs(plot_HFOs)
+    def set_plot_biomarkers(self, plot_biomarkers:bool):
+        self.model.set_plot_biomarkers(plot_biomarkers)
 
     def plot_all_current_channels_for_window(self):
         eeg_data_to_display, y_100_length, y_scale_length, offset_value = self.get_current_eeg_data_to_display()
@@ -78,7 +78,7 @@ class MainWaveformPlotController:
 
         return eeg_data_to_display, y_100_length, y_scale_length, offset_value
         
-    def plot_all_current_hfos_for_window(self, eeg_data_to_display, offset_value, top_value):
+    def plot_all_current_biomarkers_for_window(self, eeg_data_to_display, offset_value, top_value):
         first_channel_to_plot = self.get_first_channel_to_plot()
         n_channels_to_plot = self.model.n_channels_to_plot
         channels_to_plot = self.model.channels_to_plot
@@ -86,14 +86,16 @@ class MainWaveformPlotController:
 
         for disp_i, ch_i in enumerate(range(first_channel_to_plot, first_channel_to_plot+n_channels_to_plot)):
             channel = channels_to_plot[ch_i]
-            hfo_starts, hfo_ends, hfo_starts_in_time, hfo_ends_in_time, windows_in_time, colors = self.model.get_all_hfos_for_all_current_channels_and_color(channel)
+            (biomarker_starts, biomarker_ends,
+             biomarker_starts_in_time, biomarker_ends_in_time,
+             windows_in_time, colors) = self.model.get_all_biomarkers_for_all_current_channels_and_color(channel)
 
-            if self.model.plot_HFOs:
-                for i in range(len(hfo_starts)):
-                    event_start = int(hfo_starts[i]-start_in_time*self.model.sample_freq)
-                    event_end = int(hfo_ends[i]-start_in_time*self.model.sample_freq)
+            if self.model.plot_biomarkers:
+                for i in range(len(biomarker_starts)):
+                    event_start = int(biomarker_starts[i]-start_in_time*self.model.sample_freq)
+                    event_end = int(biomarker_ends[i]-start_in_time*self.model.sample_freq)
                     self.view.plot_waveform(windows_in_time[i], eeg_data_to_display[ch_i, event_start:event_end]-disp_i*offset_value, colors[i], 2)
-                    self.view.plot_waveform([hfo_starts_in_time[i], hfo_ends_in_time[i]], [top_value+0.2,top_value+0.2], colors[i], 10)
+                    self.view.plot_waveform([biomarker_starts_in_time[i], biomarker_ends_in_time[i]], [top_value+0.2,top_value+0.2], colors[i], 10)
 
 
     def draw_scale_bar(self, eeg_data_to_display, offset_value, y_100_length, y_scale_length):

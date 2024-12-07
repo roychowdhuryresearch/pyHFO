@@ -28,7 +28,22 @@ class Annotation(QtWidgets.QMainWindow):
         self.PreviousButton.clicked.connect(self.plot_prev)
         self.NextButton.clicked.connect(self.plot_next)
         self.Accept.clicked.connect(self.update_button_clicked)
-        
+
+        # init event type selection dropdown box
+        self.EventDropdown_Box.clear()
+        if self.backend.biomarker_type == 'HFO':
+            self.EventDropdown_Box.addItems(["--- Event Type ---", "Spike", "Real", "Artifact"])
+        elif self.backend.biomarker_type == "Spindle":
+            self.EventDropdown_Box.addItems(["--- Event Type ---", "Spike", "Real", "Artifact"])
+        self.EventDropdown_Box.setCurrentIndex(0)
+
+        # init interval selection dropdown box
+        self.IntervalDropdownBox.clear()
+        if self.backend.biomarker_type == 'HFO':
+            self.IntervalDropdownBox.addItems(["1s", "0.5s", "0.25s"])
+        elif self.backend.biomarker_type == "Spindle":
+            self.IntervalDropdownBox.addItems(["4s", "3.5s"])
+        self.IntervalDropdownBox.setCurrentIndex(0)
         self.IntervalDropdownBox.currentIndexChanged.connect(self.update_interval)  # Connect the interval dropdown box
 
         # create the main waveform plot
