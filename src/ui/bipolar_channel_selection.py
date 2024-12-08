@@ -15,11 +15,12 @@ ROOT_DIR = Path(__file__).parent
 
 
 class BipolarChannelSelectionWindow(QtWidgets.QDialog):
-    def __init__(self, backend=None, main_window=None, close_signal = None,waveform_plot = None):
+    def __init__(self, main_window_model=None, backend=None, main_window=None, close_signal = None,waveform_plot = None):
         # print(ROOT_DIR)
         super(BipolarChannelSelectionWindow, self).__init__()
         self.ui = uic.loadUi(os.path.join(ROOT_DIR, 'bipolar_channel_selection.ui'), self)
 
+        self.main_window_model = main_window_model
         self.backend = backend
         self.main_window = main_window
         self.setWindowTitle("Bipolar Channel Selection")
@@ -55,7 +56,7 @@ class BipolarChannelSelectionWindow(QtWidgets.QDialog):
                 #create bipolar channel and add to data, channel_name lists
                 self.backend.add_bipolar_channel(self.channel_1,self.channel_2)
                 self.waveform_plot.update_channel_names(self.backend.channel_names)
-                self.main_window.set_channels_to_plot(self.backend.channel_names, display_all=False)
+                self.main_window_model.set_channels_to_plot(self.backend.channel_names, display_all=False)
             self.close()
         else:
             msg = QMessageBox()

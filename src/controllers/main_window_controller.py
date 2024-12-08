@@ -13,6 +13,8 @@ class MainWindowController:
         }
 
     def init_biomarker_window(self, biomarker_type):
+        # To dynamically create frame for different biomarkers, need first init (optimize later)
+        self.view.window.frame_biomarker_layout = QHBoxLayout(self.view.window.frame_biomarker_type)
         self.supported_biomarker[biomarker_type]()
 
     def init_general_window(self):
@@ -35,15 +37,12 @@ class MainWindowController:
         self.view.window.combo_box_biomarker.currentIndexChanged.connect(self.switch_biomarker)
 
     def switch_biomarker(self):
-        selected_biomarker = self.view.window.combo_box_biomarker.currentText()
+        selected_biomarker = self.get_biomarker_type()
         self.supported_biomarker[selected_biomarker]()
 
     def create_hfo_window(self):
         # set biomarker type
         self.set_biomarker_type('HFO')
-
-        # dynamically create frame for different biomarkers
-        self.view.window.frame_biomarker_layout = QHBoxLayout(self.view.window.frame_biomarker_type)
 
         # create detection parameters stacked widget
         self.view.create_stacked_widget_detection_param('HFO')
@@ -76,6 +75,7 @@ class MainWindowController:
 
         # manage flag
         self.view.window.is_data_filtered = False
+        self.view.window.quick_detect_open = False
 
         # create center waveform and mini plot
         self.model.create_center_waveform_and_mini_plot()

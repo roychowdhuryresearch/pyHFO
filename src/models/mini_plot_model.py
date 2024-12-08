@@ -45,7 +45,7 @@ class MiniPlotModel:
         self.channels_to_plot = [self.channel_names[index] for index in channel_indices_to_plot]
 
     def update_channel_names(self, new_channel_names):
-        self.channel_names = new_channel_names
+        self.channel_names = list(new_channel_names)
 
     def get_all_biomarkers_for_channel(self, channel, t_start=0, t_end=sys.maxsize):
         return self.backend.event_features.get_biomarkers_for_channel(channel, t_start, t_end)

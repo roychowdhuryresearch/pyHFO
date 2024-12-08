@@ -30,6 +30,9 @@ class MainWindowModel(QObject):
         self.backend = None
         self.biomarker_type = None
 
+        # handel signal connection carefully when switch biomarkers, optimized in the future
+        self.signal_connected = False
+
     def set_biomarker_type_and_init_backend(self, bio_type):
         self.biomarker_type = bio_type
         if bio_type == 'HFO':
@@ -105,6 +108,12 @@ class MainWindowModel(QObject):
         self.window.waveform_plot = CenterWaveformAndMiniPlotController(self.window.waveform_plot_widget,
                                                                         self.window.waveform_mini_widget,
                                                                         self.backend)
+
+        # part of “clear everything if exit”, optimize in the future
+        if self.signal_connected:
+            self.window.waveform_time_scroll_bar.valueChanged.disconnect(self.scroll_time_waveform_plot)
+            self.window.channel_scroll_bar.valueChanged.disconnect(self.scroll_channel_waveform_plot)
+            self.signal_connected = True
 
     def init_classifier_param(self):
         self.window.classifier_param = ParamClassifier()
@@ -525,6 +534,9 @@ class MainWindowModel(QObject):
         # connect buttons
         self.window.waveform_time_scroll_bar.valueChanged.connect(self.scroll_time_waveform_plot)
         self.window.channel_scroll_bar.valueChanged.connect(self.scroll_channel_waveform_plot)
+
+        self.signal_connected = True
+
         self.window.waveform_plot_button.clicked.connect(self.waveform_plot_button_clicked)
         self.window.waveform_plot_button.setEnabled(True)
         self.window.Choose_Channels_Button.clicked.connect(self.open_channel_selection)
@@ -643,16 +655,22 @@ class MainWindowModel(QObject):
         else:
             self.backend.set_unfiltered_60()
 
-        self.window.STE_save_button.setEnabled(True)
-        self.window.ste_detect_button.setEnabled(True)
-        self.window.MNI_save_button.setEnabled(True)
-        self.window.mni_detect_button.setEnabled(True)
-        self.window.HIL_save_button.setEnabled(True)
-        self.window.hil_detect_button.setEnabled(True)
-        self.window.is_data_filtered = True
-        self.window.show_filtered = True
-        self.window.waveform_plot.set_filtered(True)
-        self.window.save_npz_button.setEnabled(True)
+        if self.biomarker_type == 'HFO':
+            self.window.STE_save_button.setEnabled(True)
+            self.window.ste_detect_button.setEnabled(True)
+            self.window.MNI_save_button.setEnabled(True)
+            self.window.mni_detect_button.setEnabled(True)
+            self.window.HIL_save_button.setEnabled(True)
+            self.window.hil_detect_button.setEnabled(True)
+            self.window.is_data_filtered = True
+            self.window.show_filtered = True
+            self.window.waveform_plot.set_filtered(True)
+            self.window.save_npz_button.setEnabled(True)
+        elif self.biomarker_type == 'Spindle':
+            self.window.is_data_filtered = True
+            self.window.show_filtered = True
+            self.window.waveform_plot.set_filtered(True)
+            self.window.save_npz_button.setEnabled(True)
 
     def detect_HFOs(self):
         print("Detecting HFOs...")
@@ -936,9 +954,6 @@ class MainWindowModel(QObject):
         self.window.main_length.setText("")
         self.window.statistics_label.setText("")
 
-    def close_other_window(self):
-        self.window.close_signal.emit()
-
     def update_ste_params(self, ste_params):
         rms_window = str(ste_params["rms_window"])
         min_window = str(ste_params["min_window"])
@@ -1043,7 +1058,8 @@ class MainWindowModel(QObject):
             self.update_hil_params(detector_params.detector_param.to_dict())
 
     def open_bipolar_channel_selection(self):
-        self.window.bipolar_channel_selection_window = BipolarChannelSelectionWindow(self.backend,
+        self.window.bipolar_channel_selection_window = BipolarChannelSelectionWindow(self,
+                                                                                     self.backend,
                                                                                      self.window,
                                                                                      self.window.close_signal,
                                                                                      self.window.waveform_plot)
