@@ -1,4 +1,5 @@
 # PyHFO
+![Alt text](src/ui/images/icon1.png)
 [ProjectPage](https://roychowdhuryresearch.github.io/PyHFO_Project_Page/) |
 [Download](https://github.com/roychowdhuryresearch/pyHFO/releases) | 
 [Manual](https://docs.google.com/document/d/1KzQpfuPFDk2lr9V3TgSkmc21jISB54ZOxo3pIYKQsp0/edit?usp=sharing) |
