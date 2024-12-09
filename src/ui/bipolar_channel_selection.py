@@ -35,12 +35,12 @@ class BipolarChannelSelectionWindow(QtWidgets.QDialog):
                 self.ch_2_dropdown.addItem((channel))
 
         #connect cancel button to close window
-        self.cancel_button.clicked.connect(self.close)
+        safe_connect_signal_slot(self.cancel_button.clicked, self.close)
         #conncet ok button to get channels to show
-        self.ok_button.clicked.connect(self.check_channels)
+        safe_connect_signal_slot(self.ok_button.clicked, self.check_channels)
         self.waveform_plot = waveform_plot
         self.close_signal = close_signal
-        self.close_signal.connect(self.close)
+        safe_connect_signal_slot(self.close_signal, self.close)
 
     def check_channels(self):
 

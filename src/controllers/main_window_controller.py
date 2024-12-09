@@ -34,7 +34,8 @@ class MainWindowController:
         default_biomarker = self.get_biomarker_type()
         self.set_biomarker_type(default_biomarker)
 
-        self.view.window.combo_box_biomarker.currentIndexChanged.connect(self.switch_biomarker)
+        safe_connect_signal_slot(self.view.window.combo_box_biomarker.currentIndexChanged, self.switch_biomarker)
+        # self.view.window.combo_box_biomarker.currentIndexChanged.connect(self.switch_biomarker)
 
     def switch_biomarker(self):
         selected_biomarker = self.get_biomarker_type()

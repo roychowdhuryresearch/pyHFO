@@ -24,10 +24,10 @@ class Annotation(QtWidgets.QMainWindow):
         self.setWindowIcon(QtGui.QIcon(os.path.join(ROOT_DIR, 'src/ui/images/icon.png')))
         self.threadpool = QThreadPool()
         self.close_signal = close_signal
-        self.close_signal.connect(self.close)
-        self.PreviousButton.clicked.connect(self.plot_prev)
-        self.NextButton.clicked.connect(self.plot_next)
-        self.Accept.clicked.connect(self.update_button_clicked)
+        safe_connect_signal_slot(self.close_signal, self.close)
+        safe_connect_signal_slot(self.PreviousButton.clicked, self.plot_prev)
+        safe_connect_signal_slot(self.NextButton.clicked, self.plot_next)
+        safe_connect_signal_slot(self.Accept.clicked, self.update_button_clicked)
 
         # init event type selection dropdown box
         self.EventDropdown_Box.clear()
@@ -44,7 +44,9 @@ class Annotation(QtWidgets.QMainWindow):
         elif self.backend.biomarker_type == "Spindle":
             self.IntervalDropdownBox.addItems(["4s", "3.5s"])
         self.IntervalDropdownBox.setCurrentIndex(0)
-        self.IntervalDropdownBox.currentIndexChanged.connect(self.update_interval)  # Connect the interval dropdown box
+
+        # Connect the interval dropdown box
+        safe_connect_signal_slot(self.IntervalDropdownBox.currentIndexChanged, self.update_interval)
 
         # create the main waveform plot
         self.init_waveform_plot()
@@ -140,8 +142,8 @@ class Annotation(QtWidgets.QMainWindow):
         for i in range(len(self.backend.event_features.annotated)):
             text = self.backend.event_features.get_annotation_text(i)
             self.AnotationDropdownBox.addItem(text)
-        self.AnotationDropdownBox.activated.connect(self.plot_jump)
-    
+        safe_connect_signal_slot(self.AnotationDropdownBox.activated, self.plot_jump)
+
     def update_interval(self):
         interval = self.get_current_interval()
         

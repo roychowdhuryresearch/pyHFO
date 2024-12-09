@@ -28,12 +28,12 @@ class HFOQuickDetector(QtWidgets.QDialog):
         # print("loaded ui")
         self.filename = None
         self.threadpool = QThreadPool()
-        self.detectionTypeComboBox.currentIndexChanged['int'].connect(
-            lambda: self.update_detector_tab(self.detectionTypeComboBox.currentText()))  # type: ignore
+        safe_connect_signal_slot(self.detectionTypeComboBox.currentIndexChanged['int'],
+                                 lambda: self.update_detector_tab(self.detectionTypeComboBox.currentText()))
         self.detectionTypeComboBox.setCurrentIndex(2)
         QtCore.QMetaObject.connectSlotsByName(self)
         # self.qd_loadEDF_button.clicked.connect(hfoMainWindow.Ui_MainWindow.openFile)
-        self.qd_loadEDF_button.clicked.connect(self.open_file)
+        safe_connect_signal_slot(self.qd_loadEDF_button.clicked, self.open_file)
         #print("hfo_app: ", hfo_app)
         if backend is None:
             #print("hfo_app is None creating new HFO_App")
@@ -45,10 +45,12 @@ class HFOQuickDetector(QtWidgets.QDialog):
         self.init_default_mni_input_params()
         self.init_default_ste_input_params()
         self.init_default_hil_input_params()
-        self.qd_choose_artifact_model_button.clicked.connect(lambda: self.choose_model_file("artifact"))
-        self.qd_choose_spike_model_button.clicked.connect(lambda: self.choose_model_file("spike"))
+        safe_connect_signal_slot(self.qd_choose_artifact_model_button.clicked,
+                                 lambda: self.choose_model_file("artifact"))
+        safe_connect_signal_slot(self.qd_choose_spike_model_button.clicked,
+                                 lambda: self.choose_model_file("spike"))
 
-        self.run_button.clicked.connect(self.run)
+        safe_connect_signal_slot(self.run_button.clicked, self.run)
         self.run_button.setEnabled(False)
 
         #set n_jobs min and max
@@ -64,31 +66,31 @@ class HFOQuickDetector(QtWidgets.QDialog):
         # sys.stdout = WriteStream(self.stdout)
         # sys.stderr = WriteStream(self.stderr)
         self.thread_stdout = STDOutReceiver(self.stdout)
-        self.thread_stdout.std_received_signal.connect(self.main_window.message_handler)
+        safe_connect_signal_slot(self.thread_stdout.std_received_signal, self.main_window.message_handler)
         self.thread_stdout.start()
         # print("not here 2")
         self.thread_stderr = STDErrReceiver(self.stderr)
-        self.thread_stderr.std_received_signal.connect(self.main_window.message_handler)
+        safe_connect_signal_slot(self.thread_stderr.std_received_signal, self.main_window.message_handler)
         self.thread_stderr.start()
 
         #classifier default buttons
-        self.default_cpu_button.clicked.connect(self.set_classifier_param_cpu_default)
-        self.default_gpu_button.clicked.connect(self.set_classifier_param_gpu_default)
+        safe_connect_signal_slot(self.default_cpu_button.clicked, self.set_classifier_param_cpu_default)
+        safe_connect_signal_slot(self.default_gpu_button.clicked, self.set_classifier_param_gpu_default)
         if not torch.cuda.is_available():
             self.default_gpu_button.setEnabled(False)
 
-        self.cancel_button.clicked.connect(self.close)
+        safe_connect_signal_slot(self.cancel_button.clicked, self.close)
         self.running = False
         # self.setWindowFlags( QtCore.Qt.CustomizeWindowHint )
 
         self.close_signal = close_signal
-        self.close_signal.connect(self.close)
+        safe_connect_signal_slot(self.close_signal, self.close)
 
     def open_file(self):
         fname, _ = QFileDialog.getOpenFileName(self, "Open File", "", "Recordings Files (*.edf *.eeg *.vhdr *.vmrk)")
         if fname:
             worker = Worker(self.read_edf, fname)
-            worker.signals.result.connect(self.update_edf_info)
+            safe_connect_signal_slot(worker.signals.result, self.update_edf_info)
             # worker.signals.finished.connect(lambda: self.message_handler('Open File thread COMPLETE!'))
             # worker.signals.progress.connect(self.progress_fn)
             # Execute
@@ -288,7 +290,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
     def detect_biomarkers(self):
         # print("Detecting HFOs...")
         worker=Worker(self._detect)
-        worker.signals.result.connect(self._detect_finished)
+        safe_connect_signal_slot(worker.signals.result, self._detect_finished)
         self.threadpool.start(worker)
 
     # def _detect_finished(self):
@@ -299,7 +301,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
     def filter_data(self):
         # print("Filtering data...")
         worker=Worker(self._filter)
-        worker.signals.finished.connect(self.filtering_complete)
+        safe_connect_signal_slot(worker.signals.finished, self.filtering_complete)
         self.threadpool.start(worker)
 
     def _filter(self, progress_callback):
@@ -380,7 +382,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
         self.running = True
         #disable cancel button
         self.cancel_button.setEnabled(False)
-        worker.signals.result.connect(self._run_finished)
+        safe_connect_signal_slot(worker.signals.result, self._run_finished)
         self.threadpool.start(worker)
 
     def _run_finished(self):

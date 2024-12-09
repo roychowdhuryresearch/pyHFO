@@ -151,4 +151,10 @@ def clear_stacked_widget(stacked_widget):
 #         #     clear_layout(child)
 #         if isinstance(child, QWidget):
 #             child.deleteLater()
-
+def safe_connect_signal_slot(signal, slot):
+    """Ensure the signal is connected only once."""
+    try:
+        signal.disconnect(slot)
+    except TypeError:
+        pass
+    signal.connect(slot)

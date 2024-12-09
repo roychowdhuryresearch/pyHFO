@@ -30,9 +30,6 @@ class MainWindowModel(QObject):
         self.backend = None
         self.biomarker_type = None
 
-        # handel signal connection carefully when switch biomarkers, optimized in the future
-        self.signal_connected = False
-
     def set_biomarker_type_and_init_backend(self, bio_type):
         self.biomarker_type = bio_type
         if bio_type == 'HFO':
@@ -110,10 +107,10 @@ class MainWindowModel(QObject):
                                                                         self.backend)
 
         # part of “clear everything if exit”, optimize in the future
-        if self.signal_connected:
-            self.window.waveform_time_scroll_bar.valueChanged.disconnect(self.scroll_time_waveform_plot)
-            self.window.channel_scroll_bar.valueChanged.disconnect(self.scroll_channel_waveform_plot)
-            self.signal_connected = True
+        safe_connect_signal_slot(self.window.waveform_time_scroll_bar.valueChanged, self.scroll_time_waveform_plot)
+        safe_connect_signal_slot(self.window.channel_scroll_bar.valueChanged, self.scroll_channel_waveform_plot)
+        self.window.waveform_time_scroll_bar.valueChanged.disconnect(self.scroll_time_waveform_plot)
+        self.window.channel_scroll_bar.valueChanged.disconnect(self.scroll_channel_waveform_plot)
 
     def init_classifier_param(self):
         self.window.classifier_param = ParamClassifier()
@@ -188,7 +185,7 @@ class MainWindowModel(QObject):
         self.window.mni_baseline_min_time_input.setText(str(default_params.base_min))
 
     def init_default_hil_input_params(self):
-        default_params = ParamHIL(2000)  # 初始化默认参数，假设采样率是 2000
+        default_params = ParamHIL(2000)
         self.window.hil_sample_freq_input.setText(str(default_params.sample_freq))
         self.window.hil_pass_band_input.setText(str(default_params.pass_band))
         self.window.hil_stop_band_input.setText(str(default_params.stop_band))
@@ -208,22 +205,22 @@ class MainWindowModel(QObject):
 
     def connect_signal_and_slot(self, biomarker_type='HFO'):
         # classifier default buttons
-        self.window.default_cpu_button.clicked.connect(self.set_classifier_param_cpu_default)
-        self.window.default_gpu_button.clicked.connect(self.set_classifier_param_gpu_default)
+        safe_connect_signal_slot(self.window.default_cpu_button.clicked, self.set_classifier_param_cpu_default)
+        safe_connect_signal_slot(self.window.default_gpu_button.clicked, self.set_classifier_param_gpu_default)
 
         # choose model files connection
-        self.window.choose_artifact_model_button.clicked.connect(lambda: self.choose_model_file("artifact"))
-        self.window.choose_spike_model_button.clicked.connect(lambda: self.choose_model_file("spike"))
+        safe_connect_signal_slot(self.window.choose_artifact_model_button.clicked, lambda: self.choose_model_file("artifact"))
+        safe_connect_signal_slot(self.window.choose_spike_model_button.clicked, lambda: self.choose_model_file("spike"))
 
         # custom model param connection
-        self.window.classifier_save_button.clicked.connect(self.set_custom_classifier_param)
+        safe_connect_signal_slot(self.window.classifier_save_button.clicked, self.set_custom_classifier_param)
 
         # detect_all_button
-        self.window.detect_all_button.clicked.connect(lambda: self.classify(True))
+        safe_connect_signal_slot(self.window.detect_all_button.clicked, lambda: self.classify(True))
         self.window.detect_all_button.setEnabled(False)
-        # self.detect_artifacts_button.clicked.connect(lambda : self.classify(False))
+        # # self.detect_artifacts_button.clicked.connect(lambda : self.classify(False))
 
-        self.window.save_csv_button.clicked.connect(self.save_to_excel)
+        safe_connect_signal_slot(self.window.save_csv_button.clicked, self.save_to_excel)
         self.window.save_csv_button.setEnabled(False)
 
         # set n_jobs min and max
@@ -232,19 +229,19 @@ class MainWindowModel(QObject):
 
         # set default n_jobs
         self.window.n_jobs_spinbox.setValue(self.backend.n_jobs)
-        self.window.n_jobs_ok_button.clicked.connect(self.set_n_jobs)
+        safe_connect_signal_slot(self.window.n_jobs_ok_button.clicked, self.set_n_jobs)
 
-        self.window.save_npz_button.clicked.connect(self.save_to_npz)
+        safe_connect_signal_slot(self.window.save_npz_button.clicked, self.save_to_npz)
         self.window.save_npz_button.setEnabled(False)
 
-        self.window.Filter60Button.toggled.connect(self.switch_60)
+        safe_connect_signal_slot(self.window.Filter60Button.toggled, self.switch_60)
         self.window.Filter60Button.setEnabled(False)
 
-        self.window.bipolar_button.clicked.connect(self.open_bipolar_channel_selection)
+        safe_connect_signal_slot(self.window.bipolar_button.clicked, self.open_bipolar_channel_selection)
         self.window.bipolar_button.setEnabled(False)
 
         # annotation button
-        self.window.annotation_button.clicked.connect(self.open_annotation)
+        safe_connect_signal_slot(self.window.annotation_button.clicked, self.open_annotation)
         self.window.annotation_button.setEnabled(False)
 
         self.window.Choose_Channels_Button.setEnabled(False)
@@ -258,33 +255,34 @@ class MainWindowModel(QObject):
             self.window.default_gpu_button.setEnabled(False)
 
         if biomarker_type == 'HFO':
-            self.window.overview_filter_button.clicked.connect(self.filter_data)
+            safe_connect_signal_slot(self.window.overview_filter_button.clicked, self.filter_data)
             # set filter button to be disabled by default
             self.window.overview_filter_button.setEnabled(False)
-            # self.show_original_button.clicked.connect(self.toggle_filtered)
+            # # self.show_original_button.clicked.connect(self.toggle_filtered)
 
-            self.window.mni_detect_button.clicked.connect(self.detect_HFOs)
+            safe_connect_signal_slot(self.window.mni_detect_button.clicked, self.detect_HFOs)
             self.window.mni_detect_button.setEnabled(False)
-            self.window.ste_detect_button.clicked.connect(self.detect_HFOs)
+            safe_connect_signal_slot(self.window.ste_detect_button.clicked, self.detect_HFOs)
             self.window.ste_detect_button.setEnabled(False)
-            self.window.hil_detect_button.clicked.connect(self.detect_HFOs)
+            safe_connect_signal_slot(self.window.hil_detect_button.clicked, self.detect_HFOs)
             self.window.hil_detect_button.setEnabled(False)
 
-            self.window.STE_save_button.clicked.connect(self.save_ste_params)
-            self.window.MNI_save_button.clicked.connect(self.save_mni_params)
-            self.window.HIL_save_button.clicked.connect(self.save_hil_params)
+            safe_connect_signal_slot(self.window.STE_save_button.clicked, self.save_ste_params)
+            safe_connect_signal_slot(self.window.MNI_save_button.clicked, self.save_mni_params)
+            safe_connect_signal_slot(self.window.HIL_save_button.clicked, self.save_hil_params)
             self.window.STE_save_button.setEnabled(False)
             self.window.MNI_save_button.setEnabled(False)
             self.window.HIL_save_button.setEnabled(False)
         elif biomarker_type == 'Spindle':
-            self.window.overview_filter_button.clicked.connect(self.filter_data)
+            safe_connect_signal_slot(self.window.overview_filter_button.clicked, self.filter_data)
+
             # set filter button to be disabled by default
             self.window.overview_filter_button.setEnabled(False)
 
-            self.window.yasa_detect_button.clicked.connect(self.detect_Spindles)
+            safe_connect_signal_slot(self.window.yasa_detect_button.clicked, self.detect_Spindles)
             self.window.yasa_detect_button.setEnabled(False)
 
-            self.window.YASA_save_button.clicked.connect(self.save_yasa_params)
+            safe_connect_signal_slot(self.window.YASA_save_button.clicked, self.save_yasa_params)
             # self.window.YASA_save_button.setEnabled(False)
 
     def set_classifier_param_display(self):

@@ -48,12 +48,12 @@ class ChannelSelectionWindow(QtWidgets.QDialog):
         self.layout.addWidget(self.cancel_button, 1, 1)
 
         #connect cancel button to close window
-        self.cancel_button.clicked.connect(self.close)
+        safe_connect_signal_slot(self.cancel_button.clicked, self.close)
         #conncet ok button to get channels to show
-        self.ok_button.clicked.connect(self.get_channels_to_show)
-        
+        safe_connect_signal_slot(self.ok_button.clicked, self.get_channels_to_show)
+
         self.close_signal = close_signal
-        self.close_signal.connect(self.close_me)
+        safe_connect_signal_slot(self.close_signal, self.close_me)
 
     def set_channels(self):
         eeg_data,channels = self.backend.get_eeg_data()
@@ -67,8 +67,8 @@ class ChannelSelectionWindow(QtWidgets.QDialog):
         self.check_box_all = QtWidgets.QCheckBox('Select All')
         self.check_box_none.setCheckState(Qt.Unchecked)
         self.check_box_all.setCheckState(Qt.Checked)
-        self.check_box_none.stateChanged.connect(lambda: self.select_channels(False))
-        self.check_box_all.stateChanged.connect(lambda: self.select_channels(True))
+        safe_connect_signal_slot(self.check_box_none.stateChanged, lambda: self.select_channels(False))
+        safe_connect_signal_slot(self.check_box_all.stateChanged, lambda: self.select_channels(True))
         self.scroll_layout.addWidget(self.check_box_none, 0, 0)
         self.scroll_layout.addWidget(self.check_box_all, 0, 1)
         for i,channel in enumerate(channels):
@@ -78,7 +78,7 @@ class ChannelSelectionWindow(QtWidgets.QDialog):
             checkbox.setObjectName(f"channel_{i}")
             self.channel_checkboxes[channel]=checkbox
             self.__dict__[f"channel_{i}"] = checkbox
-            checkbox.stateChanged.connect(self.channel_clicked)
+            safe_connect_signal_slot(checkbox.stateChanged, self.channel_clicked)
             # checkbox.setChecked(True)
             self.scroll_layout.addWidget(QtWidgets.QCheckBox(f"{channel}, amplitude: {round(np.ptp(eeg_data[i]),3)} uV"),
                                   i//2 + 1, i % 2)
@@ -86,7 +86,7 @@ class ChannelSelectionWindow(QtWidgets.QDialog):
         for i in range(self.n_channels):
             if i in channels_indexes_to_plot:
                 self.scroll_layout.itemAtPosition(i//2 +1 ,i%2).widget().setChecked(True)
-                self.scroll_layout.itemAtPosition(i // 2 + 1, i % 2).widget().stateChanged.connect(self.check_channel_state)
+                safe_connect_signal_slot(self.scroll_layout.itemAtPosition(i // 2 + 1, i % 2).widget().stateChanged, self.check_channel_state)
    
     def channel_clicked(self):
         #print("clicked")
