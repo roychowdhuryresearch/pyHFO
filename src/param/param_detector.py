@@ -13,6 +13,10 @@ class ParamDetector:
             param.detector_param = ParamSTE.from_dict(param_dict['detector_param'])
         elif detector_type.lower() == 'mni':
             param.detector_param = ParamMNI.from_dict(param_dict['detector_param'])
+        elif detector_type.lower() == 'hil':
+            param.detector_param = ParamHIL.from_dict(param_dict['detector_param'])
+        elif detector_type.lower() == 'yasa':
+            param.detector_param = ParamYASA.from_dict(param_dict['detector_param'])
         return param
     
 class ParamSTE:
@@ -61,7 +65,6 @@ class ParamSTE:
             peak_thres = d["peak_thres"],
             n_jobs = d["n_jobs"]
         )
-
 class ParamMNI:
     def __init__(self,sample_freq, pass_band = 80, stop_band = 500, 
                 epoch_time=10, epo_CHF=60, per_CHF=95/100, 
@@ -116,5 +119,82 @@ class ParamMNI:
             d["base_shift"],
             d["base_thrd"],
             d["base_min"],
+            d["n_jobs"]
+        )
+
+class ParamHIL:
+    def __init__(self, sample_freq=2000, pass_band=80, stop_band=500, epoch_time=10, sd_threshold=5, min_window=0.006, n_jobs=32):
+        self.sample_freq = sample_freq
+        self.pass_band = pass_band
+        self.stop_band = stop_band
+        self.epoch_time = epoch_time
+        self.sd_threshold = sd_threshold
+        self.min_window = min_window
+        self.n_jobs = n_jobs
+
+    def to_dict(self):
+        return {
+            "sample_freq": self.sample_freq,
+            "pass_band": self.pass_band,
+            "stop_band": self.stop_band,
+            "epoch_time": self.epoch_time,
+            "sd_threshold": self.sd_threshold,
+            "min_window": self.min_window,
+            "n_jobs": self.n_jobs
+        }
+
+    @staticmethod
+    def from_dict(d):
+        return ParamHIL(
+            d["sample_freq"],
+            d["pass_band"],
+            d["stop_band"],
+            d["epoch_time"],
+            d["sd_threshold"],
+            d["min_window"],
+            d["n_jobs"]
+        )
+
+
+class ParamYASA:
+    def __init__(self, sample_freq=2000, freq_sp=(12, 15), freq_broad=(1, 30), duration=(0.5, 2),
+                 min_distance=500, corr=0.65, rel_pow=0.2, rms=1.5, n_jobs=8):
+        self.sample_freq = sample_freq
+        self.freq_sp = freq_sp
+        self.freq_broad = freq_broad
+        self.duration = duration
+        self.min_distance = min_distance
+        # self.thresh = {'corr': corr, 'rel_pow': rel_pow, 'rms': rms}
+        self.corr = corr
+        self.rel_pow = rel_pow
+        self.rms = rms
+        self.n_jobs = n_jobs
+
+    def to_dict(self):
+        return {
+            "sample_freq": self.sample_freq,
+            "freq_sp": self.freq_sp,
+            "freq_broad": self.freq_broad,
+            "duration": self.duration,
+            "min_distance": self.min_distance,
+            # "thresh": self.thresh,
+            "corr": self.corr,
+            "rel_pow": self.rel_pow,
+            "rms": self.rms,
+            "n_jobs": self.n_jobs
+        }
+
+    @staticmethod
+    def from_dict(d):
+        return ParamYASA(
+            d["sample_freq"],
+            d["freq_sp"],
+            d["freq_broad"],
+            d["duration"],
+            d["min_distance"],
+            # d["thresh"],
+            d["corr"],
+            d["rel_pow"],
+            d["rms"],
             d["n_jobs"]
         )

@@ -1,0 +1,16 @@
+{
+  "architectures": [
+    "NeuralCNNForImageClassification"
+  ],
+  "channel_selection": true,
+  "freeze": false,
+  "hidden_size": 64,
+  "input_channels": 1,
+  "kernel_size": 7,
+  "model_type": "resnet",
+  "num_classes": 1,
+  "padding": 3,
+  "stride": 2,
+  "torch_dtype": "float32",
+  "transformers_version": "4.41.2"
+}
