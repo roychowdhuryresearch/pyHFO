@@ -19,11 +19,11 @@ ROOT_DIR = Path(__file__).parent
 
 
 class ChannelSelectionWindow(QtWidgets.QDialog):
-    def __init__(self, backend=None, main_window=None, close_signal = None):
+    def __init__(self, backend=None, main_window_model=None, close_signal = None):
         super(ChannelSelectionWindow, self).__init__()
         
         self.backend = backend
-        self.main_window = main_window
+        self.main_window_model = main_window_model
         self.layout = QGridLayout()
         self.setWindowTitle("Channel Selection")
         self.setWindowIcon(QtGui.QIcon(os.path.join(ROOT_DIR, 'images/icon1.png')))
@@ -57,7 +57,7 @@ class ChannelSelectionWindow(QtWidgets.QDialog):
 
     def set_channels(self):
         eeg_data,channels = self.backend.get_eeg_data()
-        channels_indexes_to_plot = self.main_window.get_channel_indices_to_plot()
+        channels_indexes_to_plot = self.main_window_model.get_channel_indices_to_plot()
         self.channel_checkboxes = {}
         self.n_channels = len(channels)
         self.channels = channels
@@ -115,12 +115,12 @@ class ChannelSelectionWindow(QtWidgets.QDialog):
             if self.scroll_layout.itemAtPosition(1+i//2,i%2).widget().isChecked():
                 channels_to_show.append(self.channels[i])
         
-        if self.main_window is not None:
-            self.main_window.set_channels_to_plot(channels_to_show)
+        if self.main_window_model is not None:
+            self.main_window_model.set_channels_to_plot(channels_to_show)
         # else:
         #     print("main window is none")
         #     print(channels_to_show)
-        self.main_window.channel_selection_update()
+        self.main_window_model.channel_selection_update()
         self.close()
 
 

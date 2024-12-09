@@ -21,6 +21,10 @@ class CenterWaveformAndMiniPlotController():
         self.mini_plot_controller = MiniPlotController(mini_plot_widget, backend)
         self.main_waveform_plot_controller = MainWaveformPlotController(main_waveform_plot_widget, backend)
 
+        # clear everything if exit
+        self.main_waveform_plot_controller.clear()
+        self.mini_plot_controller.clear()
+
         self.time_window = 20 #20 second time window
         self.time_increment = 20
         # self.old_size = (self.waveform_display.x(),self.waveform_display.y(),self.waveform_display.width(),self.waveform_display.height())

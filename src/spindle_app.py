@@ -182,7 +182,11 @@ class SpindleApp(object):
         self.filter_data = np.array(self.filter_data)
         self.filter_data_un60 = self.filter_data.copy()
 
+        # Spindle frequency range do not have 60hz problem
         self.filter_data_60 = self.filter_60(self.filter_data)
+        if self.filter_data_60.size == 0:
+            self.filter_data_60 = self.filter_data.copy()
+
         self.filtered = True
 
     def has_filtered_data(self):
@@ -258,7 +262,10 @@ class SpindleApp(object):
                                            min_distance=param_detector.min_distance, thresh={'corr': param_detector.corr,
                                                                                              'rel_pow': param_detector.rel_pow,
                                                                                              'rms': param_detector.rms})
-        self.filter_data = sp._data_filt
+        if self.filter_data is None and sp is not None:
+            self.filter_data = sp._data_filt.copy()
+            self.filter_data_60 = sp._data_filt.copy()
+            self.filter_data_un60 = sp._data_filt.copy()
         self.event_features = SpindleFeature.construct(sp, self.param_detector.detector_type, self.sample_freq)
         self.detected = True
 

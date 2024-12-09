@@ -213,32 +213,30 @@ class HFOQuickDetector(QtWidgets.QDialog):
         return ParamDetector.from_dict(detector_params)
     
     def init_default_hil_input_params(self):
-        default_params = ParamHIL(2000)  # 初始化默认参数，假设采样率是 2000
+        default_params = ParamHIL(2000)
         self.qd_hil_sample_freq_input.setText(str(default_params.sample_freq))
         self.qd_hil_pass_band_input.setText(str(default_params.pass_band))
         self.qd_hil_stop_band_input.setText(str(default_params.stop_band))
         self.qd_hil_epoch_time_input.setText(str(default_params.epoch_time))
-        self.qd_hil_sliding_window_input.setText(str(default_params.sliding_window))
+        self.qd_hil_sd_threshold_input.setText(str(default_params.sd_threshold))
         self.qd_hil_min_window_input.setText(str(default_params.min_window))
-        self.qd_hil_n_jobs_input.setText(str(default_params.n_jobs))
 
     def get_hil_params(self):
         sample_freq_raw = self.qd_hil_sample_freq_input.text()
         pass_band_raw = self.qd_hil_pass_band_input.text()
         stop_band_raw = self.qd_hil_stop_band_input.text()
         epoch_time_raw = self.qd_hil_epoch_time_input.text()
-        sliding_window_raw = self.qd_hil_sliding_window_input.text()
+        sd_threshold_raw = self.qd_hil_sd_threshold_input.text()
         min_window_raw = self.qd_hil_min_window_input.text()
-        n_jobs_raw = self.qd_hil_n_jobs_input.text()
         
         param_dict = {
             "sample_freq": float(sample_freq_raw),
             "pass_band": float(pass_band_raw),
             "stop_band": float(stop_band_raw),
             "epoch_time": float(epoch_time_raw),
-            "sliding_window": float(sliding_window_raw),
+            "sd_threshold": float(sd_threshold_raw),
             "min_window": float(min_window_raw),
-            "n_jobs": int(n_jobs_raw)
+            "n_jobs": self.backend.n_jobs
         }
         detector_params = {"detector_type": "HIL", "detector_param": param_dict}
         return ParamDetector.from_dict(detector_params)

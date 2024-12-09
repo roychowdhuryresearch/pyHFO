@@ -548,7 +548,7 @@ class MainWindowView(QObject):
         parameter_layout.addWidget(label8, 3, 2)
         parameter_layout.addWidget(label5, 4, 0)
         parameter_layout.addWidget(self.window.hil_sd_threshold_input, 4, 1)
-        parameter_layout.addWidget(label9, 4, 2)
+        # parameter_layout.addWidget(label9, 4, 2)
         parameter_layout.addWidget(label6, 5, 0)
         parameter_layout.addWidget(self.window.hil_min_window_input, 5, 1)
         parameter_layout.addWidget(label10, 5, 2)

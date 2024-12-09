@@ -71,7 +71,7 @@ class MainWaveformPlotModel:
         self.channels_to_plot = [self.channel_names[index] for index in channel_indices_to_plot]
 
     def update_channel_names(self, new_channel_names):
-        self.channel_names = new_channel_names
+        self.channel_names = list(new_channel_names)
 
     def set_waveform_filter(self, filtered):
         self.filtered = filtered
