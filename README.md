@@ -1,5 +1,5 @@
 # PyHFO
-<img src="src/ui/images/icon1.png" alt="Alt text" style="width:50%;">
+<img src="src/ui/images/icon1.png" alt="pyHFO logo" style="width:30%;">
 
 [ProjectPage](https://roychowdhuryresearch.github.io/PyHFO_Project_Page/) |
 [Download](https://github.com/roychowdhuryresearch/pyHFO/releases) | 
