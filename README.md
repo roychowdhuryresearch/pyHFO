@@ -43,14 +43,17 @@ You can also install it from the source code:
 ```
 git clone https://github.com/roychowdhuryresearch/pyHFO.git 
 cd pyHFO
+conda create -n pyhfo python=3.9
+conda activate pyhfo
 pip install -r requirements.txt
 python main.py
 ```
+If you encounter failure in installing pyqt, please do pip install pyqt and remove pyqt related lines in requirements.txt
 
 ## Usage
 
 The overview of the PyHFO is shown below:
-![Alt text](img/overview.png)
+![Alt text](img/overview1.png)
 
 
 The manual is available [here](https://docs.google.com/document/d/1KzQpfuPFDk2lr9V3TgSkmc21jISB54ZOxo3pIYKQsp0/edit?usp=sharing).
