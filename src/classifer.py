@@ -3,6 +3,12 @@ from src.utils.utils_inference import inference, load_model, load_ckpt
 from src.param.param_classifier import ParamClassifier
 import torch
 from src.model import PreProcessing
+from transformers import TrainingArguments, ViTForImageClassification
+from transformers import Trainer
+from src.dl_models import *
+import os
+
+
 class Classifier():
     def __init__(self, param:ParamClassifier):
         self.device = param.device
@@ -12,6 +18,7 @@ class Classifier():
         self.load_func = torch.load if "default" in self.model_type else torch.load  #torch.hub.load_state_dict_from_url 
         if param.artifact_path:
             self.update_model_a(param)
+            self.update_model_toy(param)
         if param.spike_path:
             self.update_model_s(param)
         
@@ -47,41 +54,61 @@ class Classifier():
         self.model_a = model.to(self.device)
         self.preprocessing_artifact = PreProcessing.from_param(self.param_artifact_preprocessing)
 
-    def artifact_detection(self, HFO_features, ignore_region, threshold=0.5):
-        if not self.model_a:
-            raise ValueError("Please load artifact model first!")
-        return self._classify_artifacts(self.model_a, HFO_features, ignore_region, threshold=threshold)
+    def update_model_toy(self, param:ParamClassifier):
+        self.model_type = param.model_type
+        self.artifact_path = param.artifact_path
+        res_dir = os.path.dirname(param.artifact_path)
+        model = NeuralCNNForImageClassification.from_pretrained(os.path.join(res_dir, 'model_toy'))
 
-    def spike_detection(self, HFO_features):
+        self.param_artifact_preprocessing, _ = load_ckpt(self.load_func, param.artifact_path)
+        if "default" in self.model_type:
+            model.channel_selection = True
+            model.input_channels = 1
+        if self.model_type == "default_cpu":
+            param.device = "cpu"
+        elif self.model_type == "default_gpu":
+            param.device = "cuda:0"
+        else:
+            raise ValueError("Model type not supported!")
+        self.device = param.device if torch.cuda.is_available() else "cpu"
+        self.model_toy = model.to(self.device)
+        self.preprocessing_artifact = PreProcessing.from_param(self.param_artifact_preprocessing)
+
+    def artifact_detection(self, biomarker_features, ignore_region, threshold=0.5):
+        if not self.model_toy:
+            raise ValueError("Please load artifact model first!")
+        return self._classify_artifacts(self.model_toy, biomarker_features, ignore_region, threshold=threshold)
+
+    def spike_detection(self, biomarker_features):
         if not self.model_s:
             raise ValueError("Please load spike model first!")
-        return self._classify_spikes(self.model_s, HFO_features)
+        return self._classify_spikes(self.model_s, biomarker_features)
 
-    def _classify_artifacts(self, model, HFO_feature, ignore_region, threshold=0.5):
+    def _classify_artifacts(self, model, biomarker_feature, ignore_region, threshold=0.5):
         model = model.to(self.device)
-        features = self.preprocessing_artifact.process_hfo_feature(HFO_feature)
+        features = self.preprocessing_artifact.process_biomarker_feature(biomarker_feature)
         artifact_predictions = np.zeros(features.shape[0]) -1
-        starts = HFO_feature.starts
-        ends = HFO_feature.ends
+        starts = biomarker_feature.starts
+        ends = biomarker_feature.ends
         keep_index = np.where(np.logical_and(starts > ignore_region[0], ends < ignore_region[1]) == True)[0]   
         features = features[keep_index]
         if len(features) != 0:
-            predictions = inference(model, features, self.device ,self.batch_size, threshold=threshold)
+            predictions = inference(model, features, self.device, self.batch_size, threshold=threshold)
             artifact_predictions[keep_index] = predictions
-        HFO_feature.update_artifact_pred(artifact_predictions)
-        return HFO_feature
+        biomarker_feature.update_artifact_pred(artifact_predictions)
+        return biomarker_feature
     
-    def _classify_spikes(self, model, HFO_feature):
-        if len(HFO_feature.artifact_predictions) == 0:
+    def _classify_spikes(self, model, biomarker_feature):
+        if len(biomarker_feature.artifact_predictions) == 0:
             raise ValueError("Please run artifact classifier first!")
         model = model.to(self.device)
-        features = self.preprocessing_spike.process_hfo_feature(HFO_feature)
+        features = self.preprocessing_spike.process_biomarker_feature(biomarker_feature)
         spike_predictions = np.zeros(features.shape[0]) -1
-        keep_index = np.where(HFO_feature.artifact_predictions > 0)[0]
+        keep_index = np.where(biomarker_feature.artifact_predictions > 0)[0]
         features = features[keep_index]
         if len(features) != 0:
             predictions = inference(model, features, self.device, self.batch_size)
             spike_predictions[keep_index] = predictions
-        HFO_feature.update_spike_pred(spike_predictions)
-        return HFO_feature
+        biomarker_feature.update_spike_pred(spike_predictions)
+        return biomarker_feature
 

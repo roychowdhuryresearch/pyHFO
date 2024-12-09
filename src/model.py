@@ -164,7 +164,7 @@ class PreProcessing():
         data = self._cropping(data)
         return data
 
-    def process_hfo_feature(self, feature):
+    def process_biomarker_feature(self, feature):
         data = feature.get_features()
         self.freq_range = feature.freq_range
         self.event_length = max(feature.time_range)

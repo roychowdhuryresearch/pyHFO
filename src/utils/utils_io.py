@@ -23,15 +23,8 @@ def read_eeg_data(raw):
     eeg_data = np.squeeze(data)
     channel_names = np.array(raw_channels)
     #sort channel_names
-        #sort channel_names
-    if len(channel_names) > 1:
-            
-        indices, channel_names = sort_channel(channel_names)
-        eeg_data = eeg_data[indices]
-    else:
-        # channel_names = np.array([channel_names])
-        # print(channel_names)
-        eeg_data = eeg_data.reshape(1, -1)
+    indices, channel_names = sort_channel(channel_names)
+    eeg_data = eeg_data[indices]
     return eeg_data, channel_names
 
 def dump_to_npz(data, fn):
