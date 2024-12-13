@@ -45,22 +45,22 @@ class MainWindowModel(QObject):
         sys.stdout = WriteStream(self.window.stdout)
         sys.stderr = WriteStream(self.window.stderr)
         self.window.thread_stdout = STDOutReceiver(self.window.stdout)
-        self.window.thread_stdout.std_received_signal.connect(self.message_handler)
+        safe_connect_signal_slot(self.window.thread_stdout.std_received_signal, self.message_handler)
         self.window.thread_stdout.start()
 
         self.window.thread_stderr = STDErrReceiver(self.window.stderr)
-        self.window.thread_stderr.std_received_signal.connect(self.message_handler)
+        safe_connect_signal_slot(self.window.thread_stderr.std_received_signal, self.message_handler)
         self.window.thread_stderr.start()
 
     def init_menu_bar(self):
-        self.window.action_Open_EDF.triggered.connect(self.open_file)
-        self.window.actionQuick_Detection.triggered.connect(self.open_quick_detection)
-        self.window.action_Load_Detection.triggered.connect(self.load_from_npz)
+        safe_connect_signal_slot(self.window.action_Open_EDF.triggered, self.open_file)
+        safe_connect_signal_slot(self.window.actionQuick_Detection.triggered, self.open_quick_detection)
+        safe_connect_signal_slot(self.window.action_Load_Detection.triggered, self.load_from_npz)
 
         ## top toolbar buttoms
-        self.window.actionOpen_EDF_toolbar.triggered.connect(self.open_file)
-        self.window.actionQuick_Detection_toolbar.triggered.connect(self.open_quick_detection)
-        self.window.actionLoad_Detection_toolbar.triggered.connect(self.load_from_npz)
+        safe_connect_signal_slot(self.window.actionOpen_EDF_toolbar.triggered, self.open_file)
+        safe_connect_signal_slot(self.window.actionQuick_Detection_toolbar.triggered, self.open_quick_detection)
+        safe_connect_signal_slot(self.window.actionLoad_Detection_toolbar.triggered, self.load_from_npz)
 
     def init_waveform_display(self):
         # waveform display widget
@@ -97,7 +97,7 @@ class MainWindowModel(QObject):
             msg.exec_()
             return
         worker = Worker(self._filter)
-        worker.signals.finished.connect(self.filtering_complete)
+        safe_connect_signal_slot(worker.signals.finished, self.filtering_complete)
         self.window.threadpool.start(worker)
 
     def create_center_waveform_and_mini_plot(self):
@@ -363,7 +363,7 @@ class MainWindowModel(QObject):
         else:
             use_spike = False
         worker = Worker(lambda progress_callback: self._classify((not use_spike)))
-        worker.signals.result.connect(self._classify_finished)
+        safe_connect_signal_slot(worker.signals.result, self._classify_finished)
         self.window.threadpool.start(worker)
 
     def update_statistics_label(self):
@@ -415,7 +415,7 @@ class MainWindowModel(QObject):
         if fname:
             # print("saving to {fname}...",end="")
             worker = Worker(self._save_to_npz, fname)
-            worker.signals.result.connect(lambda: 0)
+            safe_connect_signal_slot(worker.signals.result, lambda: 0)
             self.window.threadpool.start(worker)
 
     def _load_from_npz(self, fname, progress_callback):
@@ -429,7 +429,7 @@ class MainWindowModel(QObject):
         if fname:
             self.reinitialize()
             worker = Worker(self._load_from_npz, fname)
-            worker.signals.result.connect(self.load_from_npz_finished)
+            safe_connect_signal_slot(worker.signals.result, self.load_from_npz_finished)
             self.window.threadpool.start(worker)
         # print(self.hfo_app.get_edf_info())
 
@@ -530,14 +530,12 @@ class MainWindowModel(QObject):
 
         # print("plotted")
         # connect buttons
-        self.window.waveform_time_scroll_bar.valueChanged.connect(self.scroll_time_waveform_plot)
-        self.window.channel_scroll_bar.valueChanged.connect(self.scroll_channel_waveform_plot)
+        safe_connect_signal_slot(self.window.waveform_time_scroll_bar.valueChanged, self.scroll_time_waveform_plot)
+        safe_connect_signal_slot(self.window.channel_scroll_bar.valueChanged, self.scroll_channel_waveform_plot)
 
-        self.signal_connected = True
-
-        self.window.waveform_plot_button.clicked.connect(self.waveform_plot_button_clicked)
+        safe_connect_signal_slot(self.window.waveform_plot_button.clicked, self.waveform_plot_button_clicked)
         self.window.waveform_plot_button.setEnabled(True)
-        self.window.Choose_Channels_Button.clicked.connect(self.open_channel_selection)
+        safe_connect_signal_slot(self.window.Choose_Channels_Button.clicked, self.open_channel_selection)
         self.window.Choose_Channels_Button.setEnabled(True)
         # set the display time window spin box
         self.window.display_time_window_input.setValue(self.window.waveform_plot.get_time_window())
@@ -556,8 +554,8 @@ class MainWindowModel(QObject):
             self.window.waveform_plot.get_n_channels() - self.window.waveform_plot.get_n_channels_to_plot())
         # enable the filter button
         self.window.overview_filter_button.setEnabled(True)
-        self.window.toggle_filtered_checkbox.stateChanged.connect(self.toggle_filtered)
-        self.window.normalize_vertical_input.stateChanged.connect(self.waveform_plot_button_clicked)
+        safe_connect_signal_slot(self.window.toggle_filtered_checkbox.stateChanged, self.toggle_filtered)
+        safe_connect_signal_slot(self.window.normalize_vertical_input.stateChanged, self.waveform_plot_button_clicked)
         # enable the plot out the 60Hz bandstopped signal
         self.window.Filter60Button.setEnabled(True)
         self.window.bipolar_button.setEnabled(True)
@@ -639,7 +637,7 @@ class MainWindowModel(QObject):
         fname, _ = QFileDialog.getOpenFileName(self.window, "Open File", "", "Recordings Files (*.edf *.eeg *.vhdr *.vmrk)")
         if fname:
             worker = Worker(self.read_edf, fname)
-            worker.signals.result.connect(self.update_edf_info)
+            safe_connect_signal_slot(worker.signals.result, self.update_edf_info)
             self.window.threadpool.start(worker)
 
     def filtering_complete(self):
@@ -673,13 +671,13 @@ class MainWindowModel(QObject):
     def detect_HFOs(self):
         print("Detecting HFOs...")
         worker = Worker(self._detect)
-        worker.signals.result.connect(self._detect_finished)
+        safe_connect_signal_slot(worker.signals.result, self._detect_finished)
         self.window.threadpool.start(worker)
 
     def detect_Spindles(self):
         print("Detecting Spindles...")
         worker = Worker(self._detect)
-        worker.signals.result.connect(self._detect_finished)
+        safe_connect_signal_slot(worker.signals.result, self._detect_finished)
         self.window.threadpool.start(worker)
 
     def _detect_finished(self):
