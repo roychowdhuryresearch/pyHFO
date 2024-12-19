@@ -1,83 +1,71 @@
-from PyQt5 import QtCore, QtWidgets, QtGui
 from PyQt5 import uic
-from PyQt5.QtWidgets import QFileDialog, QMessageBox
-import matplotlib.pyplot as plt
-
-import pyqtgraph as pg
-
-import sys
-from PyQt5 import QtCore, QtGui, QtWidgets
-import pyqtgraph as pg  # We will try using pyqtgraph for plotting
-import time
-import mne
-# from superqt import QDoubleRangeSlider
-from tqdm import tqdm
-import os
-from src.hfo_app import HFO_App
-from src.hfo_feature import HFO_Feature
-
-from src.utils.utils_annotation import *
-
-import random
-import scipy.fft as fft  # FFT plot (5)
-import numpy as np
-
-import re
 from pathlib import Path
-from src.hfo_app import HFO_App
-from src.param.param_classifier import ParamClassifier
-from src.param.param_detector import ParamDetector, ParamSTE, ParamMNI
-from src.param.param_filter import ParamFilter
 from src.utils.utils_gui import *
-from src.ui.plot_waveform import *
+# from src.ui.plot_waveform import *
+from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import QSize
-
-# from src.ui.plot_annotation_waveform import *
-# from src.ui.a_channel_selection import AnnotationChannelSelection 
-
-# from src.plot_time_frequency import PlotTimeFrequencyNoLabel
 from src.utils.utils_plotting import *
 from src.ui.annotation_plot import AnnotationPlot, FFTPlot
-# from src.plot_time_frequency import MainWindow
-
-import multiprocessing as mp
-import torch
+from src.controllers import AnnotationController
 
 ROOT_DIR = Path(__file__).parent
 
 
-class HFOAnnotation(QtWidgets.QMainWindow):
-    def __init__(self, hfo_app=None, main_window=None, close_signal=None):
-        super(HFOAnnotation, self).__init__(main_window)
-        print("initializing HFOAnnotation")
-        self.hfo_app = hfo_app
+class Annotation(QtWidgets.QMainWindow):
+    def __init__(self, backend=None, main_window=None, close_signal=None, biomarker_type='HFO'):
+        super(Annotation, self).__init__(main_window)
+        self.annotation_controller = AnnotationController(self, backend)
+
+        self.biomarker_type = biomarker_type
+        print(f"initializing {self.biomarker_type} Annotation")
+        self.backend = backend
         self.ui = uic.loadUi(os.path.join(ROOT_DIR, 'annotation.ui'), self)
-        self.setWindowTitle("HFO Annotator")
+        self.setWindowTitle(f"{self.biomarker_type} Annotator")
         self.setWindowIcon(QtGui.QIcon(os.path.join(ROOT_DIR, 'src/ui/images/icon.png')))
         self.threadpool = QThreadPool()
         self.close_signal = close_signal
-        self.close_signal.connect(self.close)
-        self.PreviousButton.clicked.connect(self.plot_prev)
-        self.NextButton.clicked.connect(self.plot_next)
-        self.Accept.clicked.connect(self.update_button_clicked)
-        
-        self.IntervalDropdownBox.currentIndexChanged.connect(self.update_interval)  # Connect the interval dropdown box
-        # create the main waveform plot which we want to embed in VisulaizationVerticalLayout
-        self.waveform_plot = AnnotationPlot(hfo_app=self.hfo_app)
-        self.VisulaizationVerticalLayout.addWidget(self.waveform_plot)
+        safe_connect_signal_slot(self.close_signal, self.close)
+        safe_connect_signal_slot(self.PreviousButton.clicked, self.plot_prev)
+        safe_connect_signal_slot(self.NextButton.clicked, self.plot_next)
+        safe_connect_signal_slot(self.Accept.clicked, self.update_button_clicked)
 
-        self.fft_plot = FFTPlot(hfo_app=self.hfo_app)
-        self.FFT_layout.addWidget(self.fft_plot)
+        # init event type selection dropdown box
+        self.EventDropdown_Box.clear()
+        if self.backend.biomarker_type == 'HFO':
+            self.EventDropdown_Box.addItems(["--- Event Type ---", "Spike", "Real", "Artifact"])
+        elif self.backend.biomarker_type == "Spindle":
+            self.EventDropdown_Box.addItems(["--- Event Type ---", "Spike", "Real", "Artifact"])
+        self.EventDropdown_Box.setCurrentIndex(0)
 
-        channel, start, end = self.hfo_app.hfo_features.get_current()
-        self.waveform_plot.plot(start, end, channel, interval=1.0)  # Default interval
-        self.fft_plot.plot(start, end, channel, interval=1.0)  # Default interval
+        # init interval selection dropdown box
+        self.IntervalDropdownBox.clear()
+        if self.backend.biomarker_type == 'HFO':
+            self.IntervalDropdownBox.addItems(["1s", "0.5s", "0.25s"])
+        elif self.backend.biomarker_type == "Spindle":
+            self.IntervalDropdownBox.addItems(["4s", "3.5s"])
+        self.IntervalDropdownBox.setCurrentIndex(0)
+
+        # Connect the interval dropdown box
+        safe_connect_signal_slot(self.IntervalDropdownBox.currentIndexChanged, self.update_interval)
+
+        # create the main waveform plot
+        self.init_waveform_plot()
+
+        # create fft plot
+        self.init_fft_plot()
+
         self.init_annotation_dropdown()
         self.update_infos()
         self.setInitialSize()
         
         self.setWindowModality(QtCore.Qt.ApplicationModal)  # Set as modal dialog
-    
+
+    def init_waveform_plot(self):
+        self.annotation_controller.create_waveform_plot()
+
+    def init_fft_plot(self):
+        self.annotation_controller.create_fft_plot()
+
     def setInitialSize(self):
         # Getting screen resolution of your monitor
         screen = QApplication.primaryScreen()
@@ -101,43 +89,38 @@ class HFOAnnotation(QtWidgets.QMainWindow):
         
     def plot_prev(self):
         # start, end: index of the prev hfo
-        channel, start, end = self.hfo_app.hfo_features.get_prev()
+        channel, start, end = self.annotation_controller.get_previous_event()
         interval = self.get_current_interval()
-        # interval = float(self.IntervalDropdownBox.currentText().rstrip('s'))  # Get the current interval
-        self.waveform_plot.plot(start, end, channel, interval=interval)
-        self.fft_plot.plot(start, end, channel, interval=interval)
+        self.annotation_controller.update_plots(start, end, channel, interval)
         self.update_infos()
 
     def plot_next(self):
         # start, end: index of the next hfo
-        channel, start, end = self.hfo_app.hfo_features.get_next()
+        channel, start, end = self.annotation_controller.get_next_event()
         interval = self.get_current_interval()
-        # interval = float(self.IntervalDropdownBox.currentText().rstrip('s'))  # Get the current interval
-        self.waveform_plot.plot(start, end, channel, interval=interval)
-        self.fft_plot.plot(start, end, channel, interval=interval)
+        self.annotation_controller.update_plots(start, end, channel, interval)
         self.update_infos()
 
     def plot_jump(self):
         selected_index = self.AnotationDropdownBox.currentIndex()
         # start, end: index of the next hfo
-        channel, start, end = self.hfo_app.hfo_features.get_jump(selected_index)
+        channel, start, end = self.annotation_controller.get_jumped_event(selected_index)
         try:
             interval = float(self.IntervalDropdownBox.currentText().rstrip('s'))
         except (ValueError, AttributeError):
             interval = 1.0  # Default interval
         # interval = float(self.IntervalDropdownBox.currentText().rstrip('s'))  # Get the current interval
-        self.waveform_plot.plot(start, end, channel, interval=interval)
-        self.fft_plot.plot(start, end, channel, interval=interval)
+        self.annotation_controller.update_plots(start, end, channel, interval)
         self.update_infos()
 
     def update_infos(self):
-        info = self.hfo_app.hfo_features.get_current_info()
-        fs = self.hfo_app.sample_freq
+        info = self.backend.event_features.get_current_info()
+        fs = self.backend.sample_freq
         self.channel_name_textbox.setText(info["channel_name"])
         self.start_textbox.setText(str(round(info["start_index"] / fs, 3)) + " s")
         self.end_textbox.setText(str(round(info["end_index"] / fs, 3)) + " s")
         self.length_textbox.setText(str(round((info["end_index"] - info["start_index"]) / fs, 3)) + " s")
-        self.AnotationDropdownBox.setCurrentIndex(self.hfo_app.hfo_features.index)
+        self.AnotationDropdownBox.setCurrentIndex(self.backend.event_features.index)
         print(info["prediction"])
         if info["prediction"] is not None:
             self.model_textbox.setText(info["prediction"])
@@ -150,31 +133,27 @@ class HFOAnnotation(QtWidgets.QMainWindow):
         # print("updating now...")
         selected_text = self.EventDropdown_Box.currentText()
         if selected_text in ["Artifact", "Spike", "Real"]:
-            self.hfo_app.hfo_features.doctor_annotation(selected_text)
-            # Update the text of the selected item in the dropdown menu
-            selected_index = self.hfo_app.hfo_features.index
-            item_text = self.hfo_app.hfo_features.get_annotation_text(selected_index)
+            selected_index, item_text = self.annotation_controller.set_doctor_annotation(selected_text)
             self.AnotationDropdownBox.setItemText(selected_index, item_text)
             self.plot_next()
 
     def init_annotation_dropdown(self):
         # initialize the text in the dropdown menu
-        for i in range(len(self.hfo_app.hfo_features.annotated)):
-            text = self.hfo_app.hfo_features.get_annotation_text(i)
+        for i in range(len(self.backend.event_features.annotated)):
+            text = self.backend.event_features.get_annotation_text(i)
             self.AnotationDropdownBox.addItem(text)
-        self.AnotationDropdownBox.activated.connect(self.plot_jump)
-    
+        safe_connect_signal_slot(self.AnotationDropdownBox.activated, self.plot_jump)
+
     def update_interval(self):
         interval = self.get_current_interval()
         
         # Update the plots to reflect the new interval
-        channel, start, end = self.hfo_app.hfo_features.get_current()
-        self.waveform_plot.plot(start, end, channel, interval=interval)
-        self.fft_plot.plot(start, end, channel, interval=interval)
+        channel, start, end = self.annotation_controller.get_current_event()
+        self.annotation_controller.update_plots(start, end, channel, interval)
 
 
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
-    mainWindow = HFOAnnotation()
+    mainWindow = Annotation()
     mainWindow.show()
     sys.exit(app.exec_())

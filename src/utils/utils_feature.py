@@ -26,20 +26,20 @@ def extract_waveforms(data, starts, ends, channel_names, unique_channel_names, s
     def extract_data(data, start, end, sampling_rate=2000):
         data = np.squeeze(data)
         start, end = calcuate_boundary(start, end, len(data), win_len=sampling_rate)
-        hfo_waveform = data[start:end]
-        return hfo_waveform
+        biomarker_waveform = data[start:end]
+        return biomarker_waveform
     win_len = int(sampling_rate*time_range[1]/1000)
-    hfo_waveforms = np.zeros((len(starts), win_len*2))
+    biomarker_waveforms = np.zeros((len(starts), win_len*2))
     for i in range(len(starts)):
         channel_name = channel_names[i]
         start = starts[i]
         end = ends[i]
         channel_index = np.where(unique_channel_names == channel_name)[0]
-        hfo_waveform = extract_data(data[channel_index], start, end, win_len)
-        hfo_waveforms[i] = hfo_waveform
-    return hfo_waveforms
+        biomarker_waveform = extract_data(data[channel_index], start, end, win_len)
+        biomarker_waveforms[i] = biomarker_waveform
+    return biomarker_waveforms
     
-def compute_hfo_feature(start, end, channel_name, data, sample_rate, win_size, ps_MinFreqHz, ps_MaxFreqHz, time_window_ms):
+def compute_biomarker_feature(start, end, channel_name, data, sample_rate, win_size, ps_MinFreqHz, ps_MaxFreqHz, time_window_ms):
     # generate one sec time-freqeucny image
     spectrum_img = compute_spectrum(data, ps_SampleRate=sample_rate, ps_FreqSeg=win_size, ps_MinFreqHz=ps_MinFreqHz, ps_MaxFreqHz=ps_MaxFreqHz)
     left_index = int((time_window_ms/1000)*sample_rate)

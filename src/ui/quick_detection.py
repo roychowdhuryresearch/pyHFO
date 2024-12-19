@@ -6,8 +6,9 @@ import re
 import os
 from pathlib import Path
 from src.hfo_app import HFO_App
+from src.spindle_app import SpindleApp
 from src.param.param_classifier import ParamClassifier
-from src.param.param_detector import ParamDetector, ParamSTE, ParamMNI
+from src.param.param_detector import ParamDetector, ParamSTE, ParamMNI, ParamHIL
 from src.param.param_filter import ParamFilter
 from src.utils.utils_gui import *
 
@@ -18,7 +19,7 @@ ROOT_DIR = Path(__file__).parent
 
 
 class HFOQuickDetector(QtWidgets.QDialog):
-    def __init__(self, hfo_app=None, main_window=None, close_signal = None):
+    def __init__(self, backend=None, main_window=None, close_signal = None):
         super(HFOQuickDetector, self).__init__()
         # print("initializing HFOQuickDetector")
         self.ui = uic.loadUi(os.path.join(ROOT_DIR, 'quick_detection.ui'), self)
@@ -27,26 +28,29 @@ class HFOQuickDetector(QtWidgets.QDialog):
         # print("loaded ui")
         self.filename = None
         self.threadpool = QThreadPool()
-        self.detectionTypeComboBox.currentIndexChanged['int'].connect(
-            lambda: self.update_detector_tab(self.detectionTypeComboBox.currentText()))  # type: ignore
+        safe_connect_signal_slot(self.detectionTypeComboBox.currentIndexChanged['int'],
+                                 lambda: self.update_detector_tab(self.detectionTypeComboBox.currentText()))
         self.detectionTypeComboBox.setCurrentIndex(2)
         QtCore.QMetaObject.connectSlotsByName(self)
         # self.qd_loadEDF_button.clicked.connect(hfoMainWindow.Ui_MainWindow.openFile)
-        self.qd_loadEDF_button.clicked.connect(self.open_file)
+        safe_connect_signal_slot(self.qd_loadEDF_button.clicked, self.open_file)
         #print("hfo_app: ", hfo_app)
-        if hfo_app is None:
+        if backend is None:
             #print("hfo_app is None creating new HFO_App")
-            self.hfo_app = HFO_App()
+            self.backend = HFO_App()
         else:
             #print("hfo_app is not None")
-            self.hfo_app = hfo_app
+            self.backend = backend
         self.init_default_filter_input_params()
         self.init_default_mni_input_params()
         self.init_default_ste_input_params()
-        self.qd_choose_artifact_model_button.clicked.connect(lambda: self.choose_model_file("artifact"))
-        self.qd_choose_spike_model_button.clicked.connect(lambda: self.choose_model_file("spike"))
+        self.init_default_hil_input_params()
+        safe_connect_signal_slot(self.qd_choose_artifact_model_button.clicked,
+                                 lambda: self.choose_model_file("artifact"))
+        safe_connect_signal_slot(self.qd_choose_spike_model_button.clicked,
+                                 lambda: self.choose_model_file("spike"))
 
-        self.run_button.clicked.connect(self.run)
+        safe_connect_signal_slot(self.run_button.clicked, self.run)
         self.run_button.setEnabled(False)
 
         #set n_jobs min and max
@@ -54,7 +58,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
         self.n_jobs_spinbox.setMaximum(mp.cpu_count())
 
         #set default n_jobs
-        self.n_jobs_spinbox.setValue(self.hfo_app.n_jobs)
+        self.n_jobs_spinbox.setValue(self.backend.n_jobs)
 
         self.main_window = main_window
         self.stdout = Queue()
@@ -62,31 +66,31 @@ class HFOQuickDetector(QtWidgets.QDialog):
         # sys.stdout = WriteStream(self.stdout)
         # sys.stderr = WriteStream(self.stderr)
         self.thread_stdout = STDOutReceiver(self.stdout)
-        self.thread_stdout.std_received_signal.connect(self.main_window.message_handler)
+        safe_connect_signal_slot(self.thread_stdout.std_received_signal, self.main_window.message_handler)
         self.thread_stdout.start()
         # print("not here 2")
         self.thread_stderr = STDErrReceiver(self.stderr)
-        self.thread_stderr.std_received_signal.connect(self.main_window.message_handler)
+        safe_connect_signal_slot(self.thread_stderr.std_received_signal, self.main_window.message_handler)
         self.thread_stderr.start()
 
         #classifier default buttons
-        self.default_cpu_button.clicked.connect(self.set_classifier_param_cpu_default)
-        self.default_gpu_button.clicked.connect(self.set_classifier_param_gpu_default)
+        safe_connect_signal_slot(self.default_cpu_button.clicked, self.set_classifier_param_cpu_default)
+        safe_connect_signal_slot(self.default_gpu_button.clicked, self.set_classifier_param_gpu_default)
         if not torch.cuda.is_available():
             self.default_gpu_button.setEnabled(False)
 
-        self.cancel_button.clicked.connect(self.close)
+        safe_connect_signal_slot(self.cancel_button.clicked, self.close)
         self.running = False
         # self.setWindowFlags( QtCore.Qt.CustomizeWindowHint )
 
         self.close_signal = close_signal
-        self.close_signal.connect(self.close)
+        safe_connect_signal_slot(self.close_signal, self.close)
 
     def open_file(self):
         fname, _ = QFileDialog.getOpenFileName(self, "Open File", "", "Recordings Files (*.edf *.eeg *.vhdr *.vmrk)")
         if fname:
             worker = Worker(self.read_edf, fname)
-            worker.signals.result.connect(self.update_edf_info)
+            safe_connect_signal_slot(worker.signals.result, self.update_edf_info)
             # worker.signals.finished.connect(lambda: self.message_handler('Open File thread COMPLETE!'))
             # worker.signals.progress.connect(self.progress_fn)
             # Execute
@@ -94,14 +98,14 @@ class HFOQuickDetector(QtWidgets.QDialog):
 
     def read_edf(self, fname, progress_callback):
         self.fname = fname
-        self.hfo_app.load_edf(fname)
-        eeg_data,channel_names=self.hfo_app.get_eeg_data()
-        edf_info=self.hfo_app.get_edf_info()
+        self.backend.load_edf(fname)
+        eeg_data,channel_names=self.backend.get_eeg_data()
+        edf_info=self.backend.get_edf_info()
         filename = os.path.basename(fname)
         self.filename = filename
-        sample_freq = str(self.hfo_app.sample_freq)
-        num_channels = str(len(self.hfo_app.channel_names))
-        length = str(self.hfo_app.eeg_data.shape[1])
+        sample_freq = str(self.backend.sample_freq)
+        num_channels = str(len(self.backend.channel_names))
+        length = str(self.backend.eeg_data.shape[1])
         return [filename, sample_freq, num_channels, length]
     
     @pyqtSlot(list)
@@ -120,6 +124,9 @@ class HFOQuickDetector(QtWidgets.QDialog):
         elif index == "STE":
             self.stackedWidget.setCurrentIndex(1)
             self.detector = "STE"
+        elif index == "HIL":
+            self.stackedWidget.setCurrentIndex(2)
+            self.detector = "HIL"
 
         # filter stuff
     def init_default_filter_input_params(self):
@@ -178,7 +185,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
                     "min_win":float(min_win), "min_gap":float(min_gap), "base_seg":float(base_seg),
                     "thrd_perc":float(thrd_perc)/100,
                     "base_shift":float(base_shift), "base_thrd":float(base_thrd), "base_min":float(base_min),
-                    "n_jobs":self.hfo_app.n_jobs}
+                    "n_jobs":self.backend.n_jobs}
         detector_params = {"detector_type":"MNI", "detector_param":param_dict}
         return ParamDetector.from_dict(detector_params)
 
@@ -203,10 +210,39 @@ class HFOQuickDetector(QtWidgets.QDialog):
         param_dict={"sample_freq":2000,"pass_band":1, "stop_band":80, #these are placeholder params, will be updated later
                     "rms_window":float(rms_window_raw), "min_window":float(min_window_raw), "min_gap":float(min_gap_raw),
                     "epoch_len":float(epoch_len_raw), "min_osc":float(min_osc_raw), "rms_thres":float(rms_thres_raw),
-                    "peak_thres":float(peak_thres_raw),"n_jobs":self.hfo_app.n_jobs}
+                    "peak_thres":float(peak_thres_raw),"n_jobs":self.backend.n_jobs}
         detector_params={"detector_type":"STE", "detector_param":param_dict}
         return ParamDetector.from_dict(detector_params)
     
+    def init_default_hil_input_params(self):
+        default_params = ParamHIL(2000)
+        self.qd_hil_sample_freq_input.setText(str(default_params.sample_freq))
+        self.qd_hil_pass_band_input.setText(str(default_params.pass_band))
+        self.qd_hil_stop_band_input.setText(str(default_params.stop_band))
+        self.qd_hil_epoch_time_input.setText(str(default_params.epoch_time))
+        self.qd_hil_sd_threshold_input.setText(str(default_params.sd_threshold))
+        self.qd_hil_min_window_input.setText(str(default_params.min_window))
+
+    def get_hil_params(self):
+        sample_freq_raw = self.qd_hil_sample_freq_input.text()
+        pass_band_raw = self.qd_hil_pass_band_input.text()
+        stop_band_raw = self.qd_hil_stop_band_input.text()
+        epoch_time_raw = self.qd_hil_epoch_time_input.text()
+        sd_threshold_raw = self.qd_hil_sd_threshold_input.text()
+        min_window_raw = self.qd_hil_min_window_input.text()
+        
+        param_dict = {
+            "sample_freq": float(sample_freq_raw),
+            "pass_band": float(pass_band_raw),
+            "stop_band": float(stop_band_raw),
+            "epoch_time": float(epoch_time_raw),
+            "sd_threshold": float(sd_threshold_raw),
+            "min_window": float(min_window_raw),
+            "n_jobs": self.backend.n_jobs
+        }
+        detector_params = {"detector_type": "HIL", "detector_param": param_dict}
+        return ParamDetector.from_dict(detector_params)
+        
     def get_classifier_param(self):
         artifact_path = self.qd_classifier_artifact_filename_display.text()
         spike_path = self.qd_classifier_spike_filename_display.text()
@@ -222,7 +258,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
         return {"classifier_param":classifier_param,"use_spike":use_spike, "seconds_before":seconds_before, "seconds_after":seconds_after}
     
     def set_classifier_param_display(self):
-        classifier_param = self.hfo_app.get_classifier_param()
+        classifier_param = self.backend.get_classifier_param()
 
         #set also the input fields
         self.qd_classifier_artifact_filename_display.setText(classifier_param.artifact_path)
@@ -232,11 +268,11 @@ class HFOQuickDetector(QtWidgets.QDialog):
         self.qd_classifier_batch_size_input.setText(str(classifier_param.batch_size))
 
     def set_classifier_param_gpu_default(self):
-        self.hfo_app.set_default_gpu_classifier()
+        self.backend.set_default_gpu_classifier()
         self.set_classifier_param_display()
     
     def set_classifier_param_cpu_default(self):
-        self.hfo_app.set_default_cpu_classifier()
+        self.backend.set_default_cpu_classifier()
         self.set_classifier_param_display()
 
     def choose_model_file(self, model_type):
@@ -248,13 +284,13 @@ class HFOQuickDetector(QtWidgets.QDialog):
     
     def _detect(self, progress_callback):
         #call detect HFO function on backend
-        self.hfo_app.detect_HFO()
+        self.backend.detect_biomarker()
         return []
     
-    def detect_HFOs(self):
+    def detect_biomarkers(self):
         # print("Detecting HFOs...")
         worker=Worker(self._detect)
-        worker.signals.result.connect(self._detect_finished)
+        safe_connect_signal_slot(worker.signals.result, self._detect_finished)
         self.threadpool.start(worker)
 
     # def _detect_finished(self):
@@ -265,19 +301,19 @@ class HFOQuickDetector(QtWidgets.QDialog):
     def filter_data(self):
         # print("Filtering data...")
         worker=Worker(self._filter)
-        worker.signals.finished.connect(self.filtering_complete)
+        safe_connect_signal_slot(worker.signals.finished, self.filtering_complete)
         self.threadpool.start(worker)
 
     def _filter(self, progress_callback):
-        self.hfo_app.filter_eeg_data(self.filter_params)
+        self.backend.filter_eeg_data(self.filter_params)
 
     # def filtering_complete(self):
     #     self.message_handler('Filtering COMPLETE!')
 
     def _classify(self,classify_spikes,seconds_to_ignore_before=0,seconds_to_ignore_after=0):
-        self.hfo_app.classify_artifacts([seconds_to_ignore_before,seconds_to_ignore_after])
+        self.backend.classify_artifacts([seconds_to_ignore_before,seconds_to_ignore_after])
         if classify_spikes:
-            self.hfo_app.classify_spikes()
+            self.backend.classify_spikes()
         return []
 
     # def _classify_finished(self):
@@ -285,7 +321,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
 
     def classify(self,params):
         #set the parameters
-        self.hfo_app.set_classifier(params["classifier_param"])
+        self.backend.set_classifier(params["classifier_param"])
         seconds_to_ignore_before = params["seconds_before"]
         seconds_to_ignore_after = params["seconds_after"]
         self._classify(params["use_spike"],seconds_to_ignore_before,seconds_to_ignore_after)
@@ -295,7 +331,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
 
     def _run(self, progress_callback):
         self.run_button.setEnabled(False)
-        self.hfo_app.n_jobs = int(self.n_jobs_spinbox.value())
+        self.backend.n_jobs = int(self.n_jobs_spinbox.value())
         # get the filter parameters
         filter_param = self.get_filter_param()
         # get the detector parameters
@@ -303,6 +339,8 @@ class HFOQuickDetector(QtWidgets.QDialog):
             detector_param = self.get_mni_params()
         elif self.detector == "STE":
             detector_param = self.get_ste_params()
+        elif self.detector == "HIL":
+            detector_param = self.get_hil_params()
         #print("filter_param: ", filter_param.to_dict())
         #print("detector_param: ", detector_param.to_dict())
         # get the classifier parameters
@@ -318,11 +356,11 @@ class HFOQuickDetector(QtWidgets.QDialog):
             return []
 
         # run the filter
-        self.hfo_app.filter_eeg_data(filter_param)
+        self.backend.filter_eeg_data(filter_param)
         # print("Filtering COMPLETE!")     
         #run the detector
-        self.hfo_app.set_detector(detector_param)
-        self.hfo_app.detect_HFO()
+        self.backend.set_detector(detector_param)
+        self.backend.detect_biomarker()
         # print("HFOs DETECTED!")
         #if we use classifier, run the classifier
         use_classifier = self.qd_use_classifier_checkbox.isChecked()
@@ -332,10 +370,10 @@ class HFOQuickDetector(QtWidgets.QDialog):
         # print("Classification FINISH!")
         if save_as_excel:
             fname = self.fname.split(".")[0]+".xlsx"    
-            self.hfo_app.export_excel(fname)
+            self.backend.export_excel(fname)
         if save_as_npz:
             fname = self.fname.split(".")[0]+".npz"
-            self.hfo_app.export_app(fname)
+            self.backend.export_app(fname)
         # print(f"Exporting {fname} FINISH!")
         return []
     
@@ -344,7 +382,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
         self.running = True
         #disable cancel button
         self.cancel_button.setEnabled(False)
-        worker.signals.result.connect(self._run_finished)
+        safe_connect_signal_slot(worker.signals.result, self._run_finished)
         self.threadpool.start(worker)
 
     def _run_finished(self):
