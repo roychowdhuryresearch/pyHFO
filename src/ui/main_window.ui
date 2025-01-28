@@ -661,7 +661,7 @@
          </font>
         </property>
         <property name="currentIndex">
-         <number>0</number>
+         <number>2</number>
         </property>
         <widget class="QWidget" name="overview_tab">
          <attribute name="title">
@@ -673,7 +673,7 @@
             <item row="0" column="0">
              <widget class="QStackedWidget" name="stackedWidget_2">
               <property name="currentIndex">
-               <number>0</number>
+               <number>1</number>
               </property>
               <widget class="QWidget" name="page_3">
                <layout class="QGridLayout" name="gridLayout_22">
@@ -901,7 +901,7 @@
                    <string>Classifier Parameters</string>
                   </property>
                   <layout class="QGridLayout" name="gridLayout_21">
-                   <item row="3" column="0">
+                   <item row="4" column="0">
                     <layout class="QHBoxLayout" name="horizontalLayout_32">
                      <item>
                       <widget class="QLabel" name="label_128">
@@ -1036,36 +1036,6 @@
                      </item>
                     </layout>
                    </item>
-                   <item row="4" column="0">
-                    <layout class="QHBoxLayout" name="horizontalLayout_10" stretch="0,0">
-                     <item>
-                      <spacer name="horizontalSpacer_6">
-                       <property name="orientation">
-                        <enum>Qt::Horizontal</enum>
-                       </property>
-                       <property name="sizeHint" stdset="0">
-                        <size>
-                         <width>40</width>
-                         <height>20</height>
-                        </size>
-                       </property>
-                      </spacer>
-                     </item>
-                     <item>
-                      <widget class="QPushButton" name="detect_all_button">
-                       <property name="font">
-                        <font>
-                         <family>Arial</family>
-                         <pointsize>11</pointsize>
-                        </font>
-                       </property>
-                       <property name="text">
-                        <string>HFO Classification</string>
-                       </property>
-                      </widget>
-                     </item>
-                    </layout>
-                   </item>
                    <item row="0" column="0">
                     <layout class="QHBoxLayout" name="horizontalLayout_30">
                      <item>
@@ -1104,6 +1074,36 @@
                        </property>
                        <property name="placeholderText">
                         <string>File Name...</string>
+                       </property>
+                      </widget>
+                     </item>
+                    </layout>
+                   </item>
+                   <item row="5" column="0">
+                    <layout class="QHBoxLayout" name="horizontalLayout_10" stretch="0,0">
+                     <item>
+                      <spacer name="horizontalSpacer_6">
+                       <property name="orientation">
+                        <enum>Qt::Horizontal</enum>
+                       </property>
+                       <property name="sizeHint" stdset="0">
+                        <size>
+                         <width>40</width>
+                         <height>20</height>
+                        </size>
+                       </property>
+                      </spacer>
+                     </item>
+                     <item>
+                      <widget class="QPushButton" name="detect_all_button">
+                       <property name="font">
+                        <font>
+                         <family>Arial</family>
+                         <pointsize>11</pointsize>
+                        </font>
+                       </property>
+                       <property name="text">
+                        <string>HFO Classification</string>
                        </property>
                       </widget>
                      </item>
@@ -1174,6 +1174,52 @@
                        </property>
                        <property name="text">
                         <string>Sec After Recording</string>
+                       </property>
+                      </widget>
+                     </item>
+                    </layout>
+                   </item>
+                   <item row="3" column="0">
+                    <layout class="QHBoxLayout" name="horizontalLayout_19">
+                     <item>
+                      <widget class="QCheckBox" name="checkBox_2">
+                       <property name="font">
+                        <font>
+                         <family>Arial</family>
+                         <pointsize>11</pointsize>
+                        </font>
+                       </property>
+                       <property name="text">
+                        <string>Use eHFO</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QLabel" name="label_15">
+                       <property name="font">
+                        <font>
+                         <family>Arial</family>
+                         <pointsize>11</pointsize>
+                        </font>
+                       </property>
+                       <property name="text">
+                        <string>eHFO Path</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QLineEdit" name="lineEdit_4">
+                       <property name="font">
+                        <font>
+                         <family>Arial</family>
+                         <pointsize>11</pointsize>
+                        </font>
+                       </property>
+                       <property name="text">
+                        <string/>
+                       </property>
+                       <property name="placeholderText">
+                        <string>File Name...</string>
                        </property>
                       </widget>
                      </item>
@@ -1309,124 +1355,9 @@
           <string>Classifier</string>
          </attribute>
          <layout class="QGridLayout" name="gridLayout_20">
-          <item row="0" column="0">
+          <item row="1" column="0">
            <layout class="QGridLayout" name="gridLayout_19">
-            <item row="1" column="0">
-             <layout class="QHBoxLayout" name="horizontalLayout_2">
-              <item>
-               <widget class="QLabel" name="label_46">
-                <property name="font">
-                 <font>
-                  <family>Arial</family>
-                  <pointsize>12</pointsize>
-                 </font>
-                </property>
-                <property name="text">
-                 <string>spk-HFO Model</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QLineEdit" name="classifier_spike_filename">
-                <property name="font">
-                 <font>
-                  <family>Arial</family>
-                  <pointsize>11</pointsize>
-                 </font>
-                </property>
-                <property name="text">
-                 <string/>
-                </property>
-                <property name="readOnly">
-                 <bool>true</bool>
-                </property>
-                <property name="placeholderText">
-                 <string>File Name...</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QPushButton" name="choose_spike_model_button">
-                <property name="font">
-                 <font>
-                  <family>Arial</family>
-                  <pointsize>12</pointsize>
-                 </font>
-                </property>
-                <property name="text">
-                 <string>Choose File</string>
-                </property>
-               </widget>
-              </item>
-             </layout>
-            </item>
-            <item row="2" column="0">
-             <widget class="QCheckBox" name="use_spike_checkbox">
-              <property name="font">
-               <font>
-                <family>Arial</family>
-                <pointsize>11</pointsize>
-                <underline>true</underline>
-               </font>
-              </property>
-              <property name="text">
-               <string>Use spk-HFO</string>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="0">
-             <layout class="QHBoxLayout" name="horizontalLayout">
-              <item>
-               <widget class="QLabel" name="label_69">
-                <property name="font">
-                 <font>
-                  <family>Arial</family>
-                  <pointsize>12</pointsize>
-                 </font>
-                </property>
-                <property name="text">
-                 <string>Artifact Model</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QLineEdit" name="classifier_artifact_filename">
-                <property name="font">
-                 <font>
-                  <family>Arial</family>
-                  <pointsize>11</pointsize>
-                  <italic>false</italic>
-                  <underline>false</underline>
-                  <kerning>true</kerning>
-                 </font>
-                </property>
-                <property name="text">
-                 <string/>
-                </property>
-                <property name="readOnly">
-                 <bool>true</bool>
-                </property>
-                <property name="placeholderText">
-                 <string>File Name...</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QPushButton" name="choose_artifact_model_button">
-                <property name="font">
-                 <font>
-                  <family>Arial</family>
-                  <pointsize>12</pointsize>
-                 </font>
-                </property>
-                <property name="text">
-                 <string>Choose File</string>
-                </property>
-               </widget>
-              </item>
-             </layout>
-            </item>
-            <item row="4" column="0">
+            <item row="8" column="0">
              <layout class="QHBoxLayout" name="horizontalLayout_4">
               <item>
                <widget class="QLabel" name="label_27">
@@ -1459,23 +1390,27 @@
               </item>
              </layout>
             </item>
-            <item row="7" column="0">
-             <layout class="QHBoxLayout" name="horizontalLayout_7">
+            <item row="4" column="0">
+             <layout class="QHBoxLayout" name="horizontalLayout_16">
+              <property name="spacing">
+               <number>7</number>
+              </property>
               <item>
-               <spacer name="horizontalSpacer">
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
+               <widget class="QCheckBox" name="use_spike_checkbox">
+                <property name="font">
+                 <font>
+                  <family>Arial</family>
+                  <pointsize>11</pointsize>
+                  <underline>true</underline>
+                 </font>
                 </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>40</width>
-                  <height>20</height>
-                 </size>
+                <property name="text">
+                 <string>Use spk-HFO</string>
                 </property>
-               </spacer>
+               </widget>
               </item>
               <item>
-               <widget class="QPushButton" name="classifier_save_button">
+               <widget class="QCheckBox" name="checkBox">
                 <property name="font">
                  <font>
                   <family>Arial</family>
@@ -1483,13 +1418,327 @@
                  </font>
                 </property>
                 <property name="text">
-                 <string>Save</string>
+                 <string>Use eHFO</string>
                 </property>
                </widget>
               </item>
              </layout>
             </item>
-            <item row="3" column="0">
+            <item row="10" column="0">
+             <spacer name="verticalSpacer_2">
+              <property name="orientation">
+               <enum>Qt::Vertical</enum>
+              </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Expanding</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>20</width>
+                <height>40</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item row="0" column="0">
+             <widget class="QGroupBox" name="groupBox">
+              <property name="font">
+               <font>
+                <family>Arial</family>
+                <pointsize>13</pointsize>
+               </font>
+              </property>
+              <property name="title">
+               <string>Select Model from Your Computer</string>
+              </property>
+              <layout class="QGridLayout" name="gridLayout">
+               <item row="1" column="0">
+                <layout class="QHBoxLayout" name="horizontalLayout_2">
+                 <item>
+                  <widget class="QLabel" name="label_46">
+                   <property name="font">
+                    <font>
+                     <family>Arial</family>
+                     <pointsize>12</pointsize>
+                    </font>
+                   </property>
+                   <property name="text">
+                    <string>spk-HFO Model</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLineEdit" name="classifier_spike_filename">
+                   <property name="font">
+                    <font>
+                     <family>Arial</family>
+                     <pointsize>11</pointsize>
+                    </font>
+                   </property>
+                   <property name="text">
+                    <string/>
+                   </property>
+                   <property name="readOnly">
+                    <bool>true</bool>
+                   </property>
+                   <property name="placeholderText">
+                    <string>File Name...</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="choose_spike_model_button">
+                   <property name="font">
+                    <font>
+                     <family>Arial</family>
+                     <pointsize>12</pointsize>
+                    </font>
+                   </property>
+                   <property name="text">
+                    <string>Choose File</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+               <item row="0" column="0">
+                <layout class="QHBoxLayout" name="horizontalLayout">
+                 <item>
+                  <widget class="QLabel" name="label_69">
+                   <property name="font">
+                    <font>
+                     <family>Arial</family>
+                     <pointsize>12</pointsize>
+                    </font>
+                   </property>
+                   <property name="text">
+                    <string>Artifact Model</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLineEdit" name="classifier_artifact_filename">
+                   <property name="font">
+                    <font>
+                     <family>Arial</family>
+                     <pointsize>11</pointsize>
+                     <italic>false</italic>
+                     <underline>false</underline>
+                     <kerning>true</kerning>
+                    </font>
+                   </property>
+                   <property name="text">
+                    <string/>
+                   </property>
+                   <property name="readOnly">
+                    <bool>true</bool>
+                   </property>
+                   <property name="placeholderText">
+                    <string>File Name...</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="choose_artifact_model_button">
+                   <property name="font">
+                    <font>
+                     <family>Arial</family>
+                     <pointsize>12</pointsize>
+                    </font>
+                   </property>
+                   <property name="text">
+                    <string>Choose File</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+               <item row="2" column="0">
+                <layout class="QHBoxLayout" name="horizontalLayout_15">
+                 <item>
+                  <widget class="QLabel" name="label">
+                   <property name="font">
+                    <font>
+                     <family>Arial</family>
+                     <pointsize>12</pointsize>
+                    </font>
+                   </property>
+                   <property name="text">
+                    <string>eHFO Model</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLineEdit" name="classifier_ehfo_filename">
+                   <property name="font">
+                    <font>
+                     <family>Arial</family>
+                     <pointsize>11</pointsize>
+                    </font>
+                   </property>
+                   <property name="placeholderText">
+                    <string>File Name...</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="choose_ehfo_model_button">
+                   <property name="font">
+                    <font>
+                     <family>Arial</family>
+                     <pointsize>12</pointsize>
+                    </font>
+                   </property>
+                   <property name="text">
+                    <string>Choose File</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QGroupBox" name="groupBox_2">
+              <property name="font">
+               <font>
+                <family>Arial</family>
+                <pointsize>13</pointsize>
+               </font>
+              </property>
+              <property name="title">
+               <string>Select Model from Hugging Face Hub</string>
+              </property>
+              <layout class="QGridLayout" name="gridLayout_3">
+               <item row="3" column="0">
+                <layout class="QHBoxLayout" name="horizontalLayout_18">
+                 <item>
+                  <widget class="QLabel" name="label_13">
+                   <property name="font">
+                    <font>
+                     <family>Arial</family>
+                     <pointsize>12</pointsize>
+                    </font>
+                   </property>
+                   <property name="text">
+                    <string>eHFO Model</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLineEdit" name="lineEdit_3">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+               <item row="2" column="0">
+                <layout class="QHBoxLayout" name="horizontalLayout_17">
+                 <item>
+                  <widget class="QLabel" name="label_12">
+                   <property name="font">
+                    <font>
+                     <family>Arial</family>
+                     <pointsize>12</pointsize>
+                    </font>
+                   </property>
+                   <property name="text">
+                    <string>spk-HFO Model</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLineEdit" name="lineEdit_2">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+               <item row="1" column="0">
+                <layout class="QHBoxLayout" name="horizontalLayout_12">
+                 <item>
+                  <widget class="QLabel" name="label_11">
+                   <property name="font">
+                    <font>
+                     <family>Arial</family>
+                     <pointsize>12</pointsize>
+                    </font>
+                   </property>
+                   <property name="text">
+                    <string>Artifact Model</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLineEdit" name="lineEdit">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+               <item row="0" column="0">
+                <widget class="QLabel" name="image_label">
+                 <property name="font">
+                  <font>
+                   <family>Arial</family>
+                   <pointsize>11</pointsize>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>TextLabel</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item row="9" column="0">
+             <layout class="QHBoxLayout" name="horizontalLayout_8">
+              <item>
+               <widget class="QPushButton" name="default_cpu_button">
+                <property name="font">
+                 <font>
+                  <family>Arial</family>
+                  <pointsize>11</pointsize>
+                 </font>
+                </property>
+                <property name="text">
+                 <string>Use Default CPU Model</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="default_gpu_button">
+                <property name="font">
+                 <font>
+                  <family>Arial</family>
+                  <pointsize>11</pointsize>
+                 </font>
+                </property>
+                <property name="text">
+                 <string>Use Default GPU Model</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item row="7" column="0">
              <layout class="QHBoxLayout" name="horizontalLayout_3">
               <item>
                <widget class="QLabel" name="label_70">
@@ -1522,23 +1771,23 @@
               </item>
              </layout>
             </item>
-            <item row="5" column="0">
-             <layout class="QHBoxLayout" name="horizontalLayout_8">
+            <item row="11" column="0">
+             <layout class="QHBoxLayout" name="horizontalLayout_7">
               <item>
-               <widget class="QPushButton" name="default_cpu_button">
-                <property name="font">
-                 <font>
-                  <family>Arial</family>
-                  <pointsize>11</pointsize>
-                 </font>
+               <spacer name="horizontalSpacer">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
                 </property>
-                <property name="text">
-                 <string>Use Default CPU Model</string>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
                 </property>
-               </widget>
+               </spacer>
               </item>
               <item>
-               <widget class="QPushButton" name="default_gpu_button">
+               <widget class="QPushButton" name="classifier_save_button">
                 <property name="font">
                  <font>
                   <family>Arial</family>
@@ -1546,41 +1795,43 @@
                  </font>
                 </property>
                 <property name="text">
-                 <string>Use Default GPU Model</string>
+                 <string>Save</string>
                 </property>
                </widget>
               </item>
              </layout>
             </item>
-            <item row="6" column="0">
-             <layout class="QHBoxLayout" name="horizontalLayout_12">
-              <item>
-               <widget class="QPushButton" name="download_model_button">
-                <property name="font">
-                 <font>
-                  <family>Arial</family>
-                  <pointsize>11</pointsize>
-                 </font>
-                </property>
-                <property name="text">
-                 <string>Download</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QPushButton" name="upload_model_button">
-                <property name="font">
-                 <font>
-                  <family>Arial</family>
-                  <pointsize>11</pointsize>
-                 </font>
-                </property>
-                <property name="text">
-                 <string>Upload</string>
-                </property>
-               </widget>
-              </item>
-             </layout>
+            <item row="1" column="0">
+             <spacer name="verticalSpacer">
+              <property name="orientation">
+               <enum>Qt::Vertical</enum>
+              </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Minimum</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>20</width>
+                <height>40</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item row="3" column="0">
+             <spacer name="verticalSpacer_3">
+              <property name="orientation">
+               <enum>Qt::Vertical</enum>
+              </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Minimum</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>20</width>
+                <height>40</height>
+               </size>
+              </property>
+             </spacer>
             </item>
            </layout>
           </item>
