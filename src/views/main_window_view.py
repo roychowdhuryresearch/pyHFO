@@ -641,28 +641,39 @@ class MainWindowView(QObject):
         self.window.frame_biomarker_layout.addStretch(1)
 
         # Add three QLabel widgets to the QFrame
-        label_type1 = QLabel("Artifact")
+        label_type1 = QLabel("HFO")
         label_type1.setFixedWidth(150)
-        label_type2 = QLabel("spk-HFO")
+        label_type2 = QLabel("Artifact")
         label_type2.setFixedWidth(150)
-        label_type3 = QLabel("HFO")
+        label_type3 = QLabel("spk-HFO")
         label_type3.setFixedWidth(150)
+        label_type4 = QLabel("eHFO")
+        label_type4.setFixedWidth(150)
 
+        # HFO
         line_type1 = QLineEdit()
         line_type1.setReadOnly(True)
         line_type1.setFrame(True)
         line_type1.setFixedWidth(50)
-        line_type1.setStyleSheet("background-color: orange;")
+        line_type1.setStyleSheet("background-color: {};".format(COLOR_MAP['HFO']))
+        # artifact
         line_type2 = QLineEdit()
         line_type2.setReadOnly(True)
         line_type2.setFrame(True)
         line_type2.setFixedWidth(50)
-        line_type2.setStyleSheet("background-color: purple;")
+        line_type2.setStyleSheet("background-color: {};".format(COLOR_MAP['artifact']))
+        # spkHFO
         line_type3 = QLineEdit()
         line_type3.setReadOnly(True)
         line_type3.setFrame(True)
         line_type3.setFixedWidth(50)
-        line_type3.setStyleSheet("background-color: green;")
+        line_type3.setStyleSheet("background-color: {};".format(COLOR_MAP['spkHFO']))
+        # eHFO
+        line_type4 = QLineEdit()
+        line_type4.setReadOnly(True)
+        line_type4.setFrame(True)
+        line_type4.setFixedWidth(50)
+        line_type4.setStyleSheet("background-color: {};".format(COLOR_MAP['eHFO']))
 
         # Add labels to the layout
         self.window.frame_biomarker_layout.addWidget(line_type1)
@@ -671,6 +682,8 @@ class MainWindowView(QObject):
         self.window.frame_biomarker_layout.addWidget(label_type2)
         self.window.frame_biomarker_layout.addWidget(line_type3)
         self.window.frame_biomarker_layout.addWidget(label_type3)
+        self.window.frame_biomarker_layout.addWidget(line_type4)
+        self.window.frame_biomarker_layout.addWidget(label_type4)
         self.window.frame_biomarker_layout.addStretch(1)
 
     def create_frame_biomarker_spindle(self):

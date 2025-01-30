@@ -7,6 +7,17 @@ from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 
+COLOR_MAP = {'waveform': 'DodgerBlue',
+             'HFO': 'LimeGreen',
+             'non_spike': 'LimeGreen',
+             'Real': 'LimeGreen',
+             'artifact': 'Orange',
+             'Artifact': 'Orange',
+             'spkHFO': 'MediumOrchid',
+             'spike': 'MediumOrchid',
+             'Spike': 'MediumOrchid',
+             'eHFO': 'Crimson'}
+
 
 class WorkerSignals(QObject):
     """

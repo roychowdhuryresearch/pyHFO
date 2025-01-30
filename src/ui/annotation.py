@@ -32,7 +32,7 @@ class Annotation(QtWidgets.QMainWindow):
         # init event type selection dropdown box
         self.EventDropdown_Box.clear()
         if self.backend.biomarker_type == 'HFO':
-            self.EventDropdown_Box.addItems(["--- Event Type ---", "Spike", "Real", "Artifact"])
+            self.EventDropdown_Box.addItems(["--- Event Type ---", "Spike", "eHFO", "Real", "Artifact"])
         elif self.backend.biomarker_type == "Spindle":
             self.EventDropdown_Box.addItems(["--- Event Type ---", "Spike", "Real", "Artifact"])
         self.EventDropdown_Box.setCurrentIndex(0)
@@ -132,7 +132,7 @@ class Annotation(QtWidgets.QMainWindow):
     def update_button_clicked(self):
         # print("updating now...")
         selected_text = self.EventDropdown_Box.currentText()
-        if selected_text in ["Artifact", "Spike", "Real"]:
+        if selected_text in ["Artifact", "Spike", "eHFO", "Real"]:
             selected_index, item_text = self.annotation_controller.set_doctor_annotation(selected_text)
             self.AnotationDropdownBox.setItemText(selected_index, item_text)
             self.plot_next()

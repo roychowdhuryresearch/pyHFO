@@ -17,6 +17,7 @@ from src.hfo_app import HFO_App
 from src.hfo_feature import HFO_Feature
 
 from src.utils.utils_annotation import *
+from src.utils.utils_gui import *
 
 import random
 import scipy.fft as fft #FFT plot (5)
@@ -81,6 +82,12 @@ class AnnotationPlot(FigureCanvasQTAgg):
 
         channel_name = channel
         fs = self.backend.sample_freq
+        prediction = self.backend.event_features.get_current_info()["prediction"]
+        if prediction is not None:
+            event_color = COLOR_MAP[prediction]
+        else:
+            event_color = COLOR_MAP['HFO']
+        signal_color = COLOR_MAP['waveform']
 
         #both sets of data (filtered/unfiltered) for plots
         length = self.backend.get_eeg_data_shape()[1]
@@ -100,10 +107,10 @@ class AnnotationPlot(FigureCanvasQTAgg):
         # print("this is unfiltered_eeg_data_to_display_one: ", unfiltered_eeg_data_to_display_one.shape)
         # print("this is filtered_eeg_data_to_display: ", filtered_eeg_data_to_display.shape)
         self.axs[0].set_title("EEG Tracing")
-        self.axs[0].plot(time_to_display, unfiltered_eeg_data_to_display_one, color='blue')
+        self.axs[0].plot(time_to_display, unfiltered_eeg_data_to_display_one, color=signal_color)
         # self.axs[0].plot(time_to_display[int(start_index - window_start_index):int(end_index - window_start_index)],
         #                  unfiltered_eeg_data_to_display_one[int(start_index - window_start_index):int(end_index - window_start_index)], color='orange')
-        self.axs[0].plot(time_to_display[relative_start_index:relative_end_end], unfiltered_eeg_data_to_display_one[relative_start_index:relative_end_end], color='orange')
+        self.axs[0].plot(time_to_display[relative_start_index:relative_end_end], unfiltered_eeg_data_to_display_one[relative_start_index:relative_end_end], color=event_color)
         self.axs[0].set_xticks([])
         # keep the y axis label fixed (not moving when the plot is updated)
 
@@ -133,10 +140,10 @@ class AnnotationPlot(FigureCanvasQTAgg):
         # print("this is time to display: ", time_to_display.shape)
         # print("this is filtered_eeg_data_to_display: ", filtered_eeg_data_to_display.shape)
         self.axs[1].set_title("Filtered Tracing")
-        self.axs[1].plot(time_to_display, filtered_eeg_data_to_display,  color='blue')
+        self.axs[1].plot(time_to_display, filtered_eeg_data_to_display,  color=signal_color)
         # self.axs[1].plot(time_to_display[int(start_index - window_start_index):int(end_index - window_start_index)],
         #     filtered_eeg_data_to_display[int(start_index - window_start_index):int(end_index - window_start_index)], color='orange')
-        self.axs[1].plot(time_to_display[relative_start_index:relative_end_end], filtered_eeg_data_to_display[relative_start_index:relative_end_end], color='orange')
+        self.axs[1].plot(time_to_display[relative_start_index:relative_end_end], filtered_eeg_data_to_display[relative_start_index:relative_end_end], color=event_color)
 
         self.axs[1].set_ylabel('Amplitude (uV)', rotation=90, labelpad=6)
         self.axs[1].set_xticks([])
@@ -198,7 +205,7 @@ class FFTPlot(FigureCanvasQTAgg):
         f, Pxx_den = signal.periodogram(unfiltered_eeg_data, fs)
 
         # Plotting the FFT
-        self.axs.semilogy(f, Pxx_den)
+        self.axs.semilogy(f, Pxx_den, color=COLOR_MAP['waveform'])
         self.axs.set_xlabel('Frequency (Hz)')
         self.axs.set_ylabel(r"PSD (V$^2$/Hz)")
 

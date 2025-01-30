@@ -1,5 +1,6 @@
 import numpy as np
 from src.hfo_app import HFO_App
+from src.utils.utils_gui import *
 from src.spindle_app import SpindleApp
 import sys
 
@@ -7,12 +8,13 @@ import sys
 class MainWaveformPlotModel:
     def __init__(self, backend: HFO_App):
         self.backend = backend
-        self.color_dict={"artifact":(245,130,48), #orange
-                         "spike":(240,30,250), #pink
-                         "non_spike":(60,180,75), #green
-                         "HFO":(60,180,75), #green
-                         "waveform": (0,0,255), 
-                         }
+        # self.color_dict={"artifact":(245,130,48), #orange
+        #                  "spike":(240,30,250), #pink
+        #                  "non_spike":(60,180,75), #green
+        #                  "HFO":(60,180,75), #green
+        #                  "waveform": (0,0,255),
+        #                  }
+        self.color_dict = COLOR_MAP
         
         self.start_in_time = 0
         self.end_in_time = 20

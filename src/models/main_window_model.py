@@ -372,11 +372,13 @@ class MainWindowModel(QObject):
             num_artifact = self.backend.event_features.get_num_artifact()
             num_spike = self.backend.event_features.get_num_spike()
             num_real = self.backend.event_features.get_num_real()
+            num_ehfo = 0
 
             self.window.statistics_label.setText(" Number of HFOs: " + str(num_HFO) + \
                                           "\n Number of artifacts: " + str(num_artifact) + \
                                           "\n Number of spikes: " + str(num_spike) + \
-                                          "\n Number of real HFOs: " + str(num_real))
+                                                 "\n Number of eHFO: " + str(num_ehfo) + \
+                                                 "\n Number of real HFOs: " + str(num_real))
         elif self.biomarker_type == 'Spindle':
             num_spindle = self.backend.event_features.get_num_biomarker()
             num_artifact = self.backend.event_features.get_num_artifact()
