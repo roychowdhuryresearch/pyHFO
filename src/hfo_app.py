@@ -340,7 +340,10 @@ class HFO_App(object):
         '''
         artifact_path = os.path.join(Path(os.path.dirname(__file__)).parent, "ckpt", "model_a.tar")
         spike_path = os.path.join(Path(os.path.dirname(__file__)).parent, "ckpt", "model_s.tar")
-        self.param_classifier = ParamClassifier(artifact_path= artifact_path, spike_path= spike_path, use_spike= True, device= "cpu", batch_size= 32, model_type= "default_cpu")
+        ehfo_path = os.path.join(Path(os.path.dirname(__file__)).parent, "ckpt", "model_e.tar")
+        self.param_classifier = ParamClassifier(artifact_path=artifact_path, spike_path=spike_path, use_spike=True,
+                                                ehfo_path=ehfo_path, use_ehfo=True,
+                                                device="cpu", batch_size=32, model_type="default_cpu")
         self.classifier = Classifier(self.param_classifier)
 
     def set_default_gpu_classifier(self):
@@ -349,7 +352,10 @@ class HFO_App(object):
         '''
         artifact_path = os.path.join(Path(os.path.dirname(__file__)).parent, "ckpt", "model_a.tar")
         spike_path = os.path.join(Path(os.path.dirname(__file__)).parent, "ckpt", "model_s.tar")
-        self.param_classifier = ParamClassifier(artifact_path= artifact_path, spike_path= spike_path, use_spike= True, device= "cuda:0", batch_size= 32, model_type= "default_gpu")
+        ehfo_path = os.path.join(Path(os.path.dirname(__file__)).parent, "ckpt", "model_e.tar")
+        self.param_classifier = ParamClassifier(artifact_path=artifact_path, spike_path=spike_path, use_spike=True,
+                                                ehfo_path=ehfo_path, use_ehfo=True,
+                                                device="cuda:0", batch_size=32, model_type="default_gpu")
         self.classifier = Classifier(self.param_classifier) 
 
 
@@ -365,6 +371,11 @@ class HFO_App(object):
         if not self.event_features.has_feature():
             self.generate_HFO_features()
         self.classifier.spike_detection(self.event_features)
+
+    def classify_ehfos(self):
+        if not self.event_features.has_feature():
+            self.generate_HFO_features()
+        self.classifier.ehfo_detection(self.event_features)
 
     '''
         results APIs 

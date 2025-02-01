@@ -211,6 +211,7 @@ class MainWindowModel(QObject):
         # choose model files connection
         safe_connect_signal_slot(self.window.choose_artifact_model_button.clicked, lambda: self.choose_model_file("artifact"))
         safe_connect_signal_slot(self.window.choose_spike_model_button.clicked, lambda: self.choose_model_file("spike"))
+        safe_connect_signal_slot(self.window.choose_ehfo_model_button.clicked, lambda: self.choose_model_file("ehfo"))
 
         # custom model param connection
         safe_connect_signal_slot(self.window.classifier_save_button.clicked, self.set_custom_classifier_param)
@@ -291,6 +292,8 @@ class MainWindowModel(QObject):
         self.window.overview_artifact_path_display.setText(classifier_param.artifact_path)
         self.window.overview_spike_path_display.setText(classifier_param.spike_path)
         self.window.overview_use_spike_checkbox.setChecked(classifier_param.use_spike)
+        self.window.overview_ehfo_path_display.setText(classifier_param.ehfo_path)
+        self.window.overview_use_ehfo_checkbox.setChecked(classifier_param.use_ehfo)
         self.window.overview_device_display.setText(str(classifier_param.device))
         self.window.overview_batch_size_display.setText(str(classifier_param.batch_size))
 
@@ -298,6 +301,8 @@ class MainWindowModel(QObject):
         self.window.classifier_artifact_filename.setText(classifier_param.artifact_path)
         self.window.classifier_spike_filename.setText(classifier_param.spike_path)
         self.window.use_spike_checkbox.setChecked(classifier_param.use_spike)
+        self.window.classifier_ehfo_filename.setText(classifier_param.ehfo_path)
+        self.window.use_ehfo_checkbox.setChecked(classifier_param.use_ehfo)
         self.window.classifier_device_input.setText(str(classifier_param.device))
         self.window.classifier_batch_size_input.setText(str(classifier_param.batch_size))
 
@@ -313,6 +318,8 @@ class MainWindowModel(QObject):
         artifact_path = self.window.classifier_artifact_filename.text()
         spike_path = self.window.classifier_spike_filename.text()
         use_spike = self.window.use_spike_checkbox.isChecked()
+        ehfo_path = self.window.classifier_ehfo_filename.text()
+        use_ehfo = self.window.use_ehfo_checkbox.isChecked()
         device = self.window.classifier_device_input.text()
         if device == "cpu":
             model_type = "default_cpu"
@@ -330,6 +337,7 @@ class MainWindowModel(QObject):
         batch_size = self.window.classifier_batch_size_input.text()
 
         classifier_param = ParamClassifier(artifact_path=artifact_path, spike_path=spike_path, use_spike=use_spike,
+                                           ehfo_path=ehfo_path, use_ehfo=use_ehfo,
                                            device=device, batch_size=int(batch_size), model_type=model_type)
         self.backend.set_classifier(classifier_param)
         self.set_classifier_param_display()
@@ -340,6 +348,8 @@ class MainWindowModel(QObject):
             self.window.classifier_artifact_filename.setText(fname)
         elif model_type == "spike":
             self.window.classifier_spike_filename.setText(fname)
+        elif model_type == "ehfo":
+            self.window.classifier_ehfo_filename.setText(fname)
 
     def _classify(self, artifact_only=False):
         threshold = 0.5
@@ -348,6 +358,7 @@ class MainWindowModel(QObject):
         self.backend.classify_artifacts([seconds_to_ignore_before, seconds_to_ignore_after], threshold)
         if not artifact_only:
             self.backend.classify_spikes()
+            self.backend.classify_ehfos()
         return []
 
     def _classify_finished(self):
@@ -360,8 +371,10 @@ class MainWindowModel(QObject):
         self.message_handler("Classifying HFOs...")
         if check_spike:
             use_spike = self.window.overview_use_spike_checkbox.isChecked()
+            use_ehfo = self.window.overview_use_ehfo_checkbox.isChecked()
         else:
             use_spike = False
+            use_ehfo = False
         worker = Worker(lambda progress_callback: self._classify((not use_spike)))
         safe_connect_signal_slot(worker.signals.result, self._classify_finished)
         self.window.threadpool.start(worker)
@@ -371,8 +384,8 @@ class MainWindowModel(QObject):
             num_HFO = self.backend.event_features.get_num_biomarker()
             num_artifact = self.backend.event_features.get_num_artifact()
             num_spike = self.backend.event_features.get_num_spike()
+            num_ehfo = self.backend.event_features.get_num_ehfo()
             num_real = self.backend.event_features.get_num_real()
-            num_ehfo = 0
 
             self.window.statistics_label.setText(" Number of HFOs: " + str(num_HFO) + \
                                           "\n Number of artifacts: " + str(num_artifact) + \

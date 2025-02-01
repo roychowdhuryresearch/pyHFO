@@ -27,6 +27,7 @@ class HFO_Feature():
         self.feature_size = feature_size
         self.num_artifact = 0
         self.num_spike = 0
+        self.num_ehfo = 0
         self.num_HFO = len(self.starts)
         self.num_real = 0
         self.index = 0
@@ -115,6 +116,9 @@ class HFO_Feature():
     
     def get_num_spike(self):
         return self.num_spike
+
+    def get_num_ehfo(self):
+        return self.num_ehfo
     
     def get_num_real(self):
         return self.num_real

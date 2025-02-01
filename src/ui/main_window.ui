@@ -1182,7 +1182,7 @@
                    <item row="3" column="0">
                     <layout class="QHBoxLayout" name="horizontalLayout_19">
                      <item>
-                      <widget class="QCheckBox" name="checkBox_2">
+                      <widget class="QCheckBox" name="overview_use_ehfo_checkbox">
                        <property name="font">
                         <font>
                          <family>Arial</family>
@@ -1208,15 +1208,21 @@
                       </widget>
                      </item>
                      <item>
-                      <widget class="QLineEdit" name="lineEdit_4">
+                      <widget class="QLineEdit" name="overview_ehfo_path_display">
                        <property name="font">
                         <font>
                          <family>Arial</family>
                          <pointsize>11</pointsize>
                         </font>
                        </property>
+                       <property name="styleSheet">
+                        <string notr="true">background-color: rgb(235, 235, 235);</string>
+                       </property>
                        <property name="text">
                         <string/>
+                       </property>
+                       <property name="readOnly">
+                        <bool>true</bool>
                        </property>
                        <property name="placeholderText">
                         <string>File Name...</string>
@@ -1694,7 +1700,7 @@
                </widget>
               </item>
               <item>
-               <widget class="QCheckBox" name="checkBox">
+               <widget class="QCheckBox" name="use_ehfo_checkbox">
                 <property name="font">
                  <font>
                   <family>Arial</family>

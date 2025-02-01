@@ -1,19 +1,25 @@
 class ParamClassifier():
-    def __init__(self, artifact_path= None, spike_path= None, use_spike= True, device= "cpu", batch_size= 32, model_type= "default_cpu"):
+    def __init__(self, artifact_path=None, spike_path=None, use_spike=True, ehfo_path=None, use_ehfo=True, device="cpu", batch_size=32, model_type="default_cpu"):
         self.artifact_path = artifact_path
         self.spike_path = spike_path
         self.use_spike = use_spike
+        self.ehfo_path = ehfo_path
+        self.use_ehfo = use_ehfo
         self.device = device
         self.batch_size = batch_size
         self.model_type = model_type
     def to_dict(self):
-        return {'artifact_path': self.artifact_path, 'spike_path': self.spike_path, 'use_spike': self.use_spike, 'device': self.device, 'batch_size': self.batch_size, 'model_type': self.model_type}
+        return {'artifact_path': self.artifact_path, 'spike_path': self.spike_path, 'use_spike': self.use_spike,
+                'ehfo_path': self.ehfo_path, 'use_ehfo': self.use_ehfo, 'device': self.device,
+                'batch_size': self.batch_size, 'model_type': self.model_type}
     @staticmethod
     def from_dict(param_dict):
         return ParamClassifier(
             artifact_path = param_dict['artifact_path'],
             spike_path = param_dict['spike_path'],
             use_spike = param_dict['use_spike'],
+            ehfo_path=param_dict['ehfo_path'],
+            use_ehfo=param_dict['use_ehfo'],
             device = param_dict['device'],
             batch_size = param_dict['batch_size'],
             model_type = param_dict['model_type']
