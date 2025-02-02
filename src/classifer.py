@@ -6,6 +6,7 @@ from src.model import PreProcessing
 from transformers import TrainingArguments, ViTForImageClassification
 from transformers import Trainer
 from src.dl_models import *
+from src.hfo_feature import HFO_Feature
 import os
 
 
@@ -151,8 +152,21 @@ class Classifier():
 
 if __name__ == '__main__':
     model_type = 'default_cpu'
-    ehfo_path = 'E:\\projects\\pyHFO\\ckpt\\model_e.tar'
-    param_ehfo_preprocessing, model_e = load_ckpt(torch.load, ehfo_path)
     device = "cpu"
-    model_e = model_e.to(device)
-    preprocessing_ehfo = PreProcessing.from_param(param_ehfo_preprocessing)
+    ehfo_path = '/mnt/SSD1/chenda/HFO-Classifier-Neo/pruning/formal_pruning/pruned_model.tar'
+    ckpt = torch.load(ehfo_path, map_location=device)
+    model_e = ckpt["model"].to(device).float()
+    preprocessing_dict = ckpt["preprocessing"]
+    if "image_size" not in preprocessing_dict['feature_param']:
+        preprocessing_dict['feature_param']['image_size'] = 224
+    preprocessing = PreProcessing_ehfo.from_dict(preprocessing_dict, device)
+    
+    
+    # =====Test the Model=====
+    
+    
+    
+    
+    
+    
+    

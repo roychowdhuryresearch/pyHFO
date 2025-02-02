@@ -1,2 +1,3 @@
 from .configuration_neuralcnn import ResnetConfig
 from .modeling_neuralcnn import NeuralCNNModel, NeuralCNNForImageClassification
+from .modeling_ehfo import PreProcessing_ehfo, NeuralCNN_ehfo
