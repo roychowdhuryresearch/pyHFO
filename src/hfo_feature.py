@@ -9,15 +9,18 @@ class HFO_Feature():
             self.artifact_predictions = np.array([])
             self.artifact_annotations = np.array([])
             self.spike_annotations = np.array([])
+            self.ehfo_annotations = np.array([])
             self.annotated = np.array([])
         else:
             self.starts = interval[:, 0]
             self.ends = interval[:, 1]
             self.features = features
             self.artifact_predictions = np.zeros(self.starts.shape)
-            self.spike_predictions = []
             self.artifact_annotations = np.zeros(self.starts.shape)
+            self.spike_predictions = []
             self.spike_annotations = np.zeros(self.starts.shape)
+            self.ehfo_predictions = []
+            self.ehfo_annotations = np.zeros(self.starts.shape)
             self.annotated = np.zeros(self.starts.shape)
         self.HFO_type = HFO_type
         self.sample_freq = sample_freq
@@ -33,10 +36,11 @@ class HFO_Feature():
         self.index = 0
         self.artifact_predicted = False
         self.spike_predicted = False
+        self.ehfo_predicted = False
 
-    
     def __str__(self):
-        return "HFO_Feature: {} HFOs, {} artifacts, {} spikes, {} real HFOs".format(self.num_HFO, self.num_artifact, self.num_spike, self.num_real)
+        return "HFO_Feature: {} HFOs, {} artifacts, {} spikes, {} eHFOs, {} real HFOs".format(
+            self.num_HFO, self.num_artifact, self.num_spike, self.num_ehfo, self.num_real)
     @staticmethod
     def construct(channel_names, start_end, HFO_type = "STE", sample_freq = 2000, freq_range = [10, 500], time_range = [0, 1000], feature_size = 224):
         '''
@@ -174,6 +178,11 @@ class HFO_Feature():
         self.spike_predicted = True
         self.spike_predictions = spike_predictions
         self.num_spike = np.sum(spike_predictions == 1)
+
+    def update_ehfo_pred(self, ehfo_predictions):
+        self.ehfo_predicted = True
+        self.ehfo_predictions = ehfo_predictions
+        self.num_ehfo = np.sum(ehfo_predictions == 1)
     
     def update_pred(self, artifact_predictions, spike_predictions):
         self.update_artifact_pred(artifact_predictions)

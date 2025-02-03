@@ -61,7 +61,11 @@ class Classifier():
     def update_model_e(self, param:ParamClassifier):
         self.model_type = param.model_type
         self.ehfo_path = param.ehfo_path
-        self.param_ehfo_preprocessing, self.model_e = load_ckpt(self.load_func, param.ehfo_path)
+
+        # self.param_ehfo_preprocessing, self.model_e = load_ckpt(self.load_func, param.ehfo_path)
+        model_load = torch.load(self.ehfo_path, map_location=torch.device('cpu'))
+        self.model_e = model_load["model"]
+
         if self.model_type == "default_cpu":
             param.device = "cpu"
         elif self.model_type == "default_gpu":
@@ -70,7 +74,8 @@ class Classifier():
             raise ValueError("Model type not supported!")
         self.device = param.device if torch.cuda.is_available() else "cpu"
         self.model_e = self.model_e.to(self.device)
-        self.preprocessing_ehfo = PreProcessing.from_param(self.param_ehfo_preprocessing)
+        # self.preprocessing_ehfo = PreProcessing_ehfo.from_param(self.param_ehfo_preprocessing)
+        self.preprocessing_ehfo = PreProcessing_ehfo.from_dict(model_load["preprocessing"], self.device)
 
     def update_model_toy(self, param:ParamClassifier):
         self.model_type = param.model_type
@@ -93,9 +98,9 @@ class Classifier():
         self.preprocessing_artifact = PreProcessing.from_param(self.param_artifact_preprocessing)
 
     def artifact_detection(self, biomarker_features, ignore_region, threshold=0.5):
-        if not self.model_toy:
+        if not self.model_a:
             raise ValueError("Please load artifact model first!")
-        return self._classify_artifacts(self.model_toy, biomarker_features, ignore_region, threshold=threshold)
+        return self._classify_artifacts(self.model_a, biomarker_features, ignore_region, threshold=threshold)
 
     def spike_detection(self, biomarker_features):
         if not self.model_s:
@@ -105,7 +110,7 @@ class Classifier():
     def ehfo_detection(self, biomarker_features):
         if not self.model_e:
             raise ValueError("Please load eHFO model first!")
-        return self._classify_ehfos(self.model_s, biomarker_features)
+        return self._classify_ehfos(self.model_e, biomarker_features)
 
     def _classify_artifacts(self, model, biomarker_feature, ignore_region, threshold=0.5):
         model = model.to(self.device)
@@ -141,7 +146,7 @@ class Classifier():
         model = model.to(self.device)
         features = self.preprocessing_ehfo.process_biomarker_feature(biomarker_feature)
         ehfo_predictions = np.zeros(features.shape[0]) -1
-        keep_index = np.where(biomarker_feature.artifact_predictions > 0)[0]
+        keep_index = np.where(biomarker_feature.artifact_predictions > -10)[0]
         features = features[keep_index]
         if len(features) != 0:
             predictions = inference(model, features, self.device, self.batch_size)
