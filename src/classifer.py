@@ -153,28 +153,12 @@ class Classifier():
 if __name__ == '__main__':
     model_type = 'default_cpu'
     device = "cpu"
-    ehfo_path = '/mnt/SSD1/chenda/HFO-Classifier-Neo/student_training_formal/result/student_result_yuanyi_win500_freq10_500_shift0/ckpt/whole/model_best_state_dict.pth'
-    model = NeuralCNN_ehfo(num_classes=2)
-    model.load_state_dict(torch.load(ehfo_path, map_location=device))
-    model.eval()
-    model = model.to(device).float()
-    preprocessing_dict = {'image_size': 224, 
-                          'fs': 1000, 
-                          'freq_range': [10, 500], 
-                          'event_length': 1000, 
-                          'random_shift_time': 0, 
-                          'crop_time': 500, 
-                          'crop_freq': [10, 500], 
-                          'feature_param': 
-                                {'n_jobs': 8, 
-                                 'n_feature': 1, 
-                                 'resample': 1000, 
-                                 'time_window_ms': 1000, 
-                                 'freq_min_hz': 10, 
-                                 'freq_max_hz': 500,
-                                 'image_size': 224
-                                 }
-                            }
+    ehfo_path = '/mnt/SSD1/chenda/HFO-Classifier-Neo/pruning/formal_pruning/pruned_model.tar'
+    ckpt = torch.load(ehfo_path, map_location=device)
+    model_e = ckpt["model"].to(device).float()
+    preprocessing_dict = ckpt["preprocessing"]
+    if "image_size" not in preprocessing_dict['feature_param']:
+        preprocessing_dict['feature_param']['image_size'] = 224
     preprocessing = PreProcessing_ehfo.from_dict(preprocessing_dict, device)
     
     
