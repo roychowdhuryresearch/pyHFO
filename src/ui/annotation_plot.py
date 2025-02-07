@@ -21,7 +21,7 @@ from src.utils.utils_gui import *
 
 import random
 import scipy.fft as fft #FFT plot (5)
-import scipy.signal as signal
+from scipy.signal import periodogram, welch
 import numpy as np
 
 import re
@@ -65,12 +65,17 @@ class AnnotationPlot(FigureCanvasQTAgg):
         fig,self.axs = plt.subplots(3,1,figsize=(width, height), dpi=dpi)
         super(AnnotationPlot, self).__init__(fig)
         self.backend = backend
+        self.interval = 1.0
+
         FigureCanvasQTAgg.setSizePolicy(self, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         FigureCanvasQTAgg.updateGeometry(self)
         # self.setParent(parent)
         # self.plot()
 
-    def plot(self,start_index: int = None, end_index: int = None, channel:str = None, interval=1.0):
+    def set_current_interval(self, interval):
+        self.interval = interval
+
+    def plot(self,start_index: int = None, end_index: int = None, channel:str = None):
         #first clear the plot
         for ax in self.axs:
             ax.cla()
@@ -92,7 +97,7 @@ class AnnotationPlot(FigureCanvasQTAgg):
         #both sets of data (filtered/unfiltered) for plots
         length = self.backend.get_eeg_data_shape()[1]
         # window_start_index, window_end_index, relative_start_index, relative_end_end = calcuate_boundary(plot_start_index, plot_end_index, length, fs)
-        window_start_index, window_end_index, relative_start_index, relative_end_end = calcuate_boundary(start_index, end_index, length, win_len=fs * interval)
+        window_start_index, window_end_index, relative_start_index, relative_end_end = calcuate_boundary(start_index, end_index, length, win_len=fs * self.interval)
         unfiltered_eeg_data, self.channel_names = self.backend.get_eeg_data(window_start_index, window_end_index)
         filtered_eeg_data,_ = self.backend.get_eeg_data(window_start_index, window_end_index, filtered=True)
 
@@ -122,7 +127,7 @@ class AnnotationPlot(FigureCanvasQTAgg):
         self.axs[0].set_ylim([unfiltered_eeg_data_to_display_one.min(), unfiltered_eeg_data_to_display_one.max()])
 
         middle_index = (relative_start_index + relative_end_end) // 2
-        half_interval_samples = int((interval * fs) // 2)
+        half_interval_samples = int((self.interval * fs) // 2)
         plot_start_index = max(0, int(middle_index - half_interval_samples))
         plot_end_index = int(min(self.backend.get_eeg_data_shape()[1], middle_index + half_interval_samples))
         plot_start_index = max(0, min(len(time_to_display) - 1, plot_start_index))
@@ -156,7 +161,7 @@ class AnnotationPlot(FigureCanvasQTAgg):
 
         #self.axs[1].grid()
 
-        time_frequency = calculate_time_frequency(unfiltered_eeg_data_to_display_one,fs)
+        time_frequency = calculate_time_frequency(unfiltered_eeg_data_to_display_one, fs, freq_min=10, freq_max=500)
         self.axs[2].set_title("Time Frequency")
         self.axs[2].imshow(time_frequency,extent=[time_to_display[0], time_to_display[-1], 10, 500], aspect='auto', cmap='jet')
         # set xticks as time
@@ -186,32 +191,52 @@ class FFTPlot(FigureCanvasQTAgg):
             fig,self.axs = plt.subplots(1,1,figsize=(width, height), dpi=dpi)
             super(FFTPlot, self).__init__(fig)
             self.backend = backend
+            self.min_freq = 10
+            self.max_freq = 500
+            self.interval = 1.0
 
             FigureCanvasQTAgg.setSizePolicy(self, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
             FigureCanvasQTAgg.updateGeometry(self)
 
-    def plot(self, start_index: int = None, end_index: int = None, channel: str = None, interval=1.0):
+    def set_current_freq_limit(self, min_freq, max_freq):
+        self.min_freq = min_freq
+        self.max_freq = max_freq
+
+    def set_current_interval(self, interval):
+        self.interval = interval
+
+    def plot(self, start_index: int = None, end_index: int = None, channel: str = None):
         self.axs.cla()
         start_index = int(start_index)
         fs = self.backend.sample_freq
         middle_index = (start_index + end_index) // 2
-        half_interval_samples = int((interval * fs) // 2)
+        half_interval_samples = int((self.interval * fs) // 2)
         plot_start_index = int(max(0, middle_index - half_interval_samples))
         plot_end_index = int(min(self.backend.get_eeg_data_shape()[1], middle_index + half_interval_samples))
 
-        unfiltered_eeg_data, channel_names = self.backend.get_eeg_data(plot_start_index, plot_end_index)
+        unfiltered_eeg_data, channel_names = self.backend.get_eeg_data(plot_start_index, plot_end_index, filtered=False)
         unfiltered_eeg_data = unfiltered_eeg_data[channel_names == channel, :][0]
+
         # Compute the FFT
-        f, Pxx_den = signal.periodogram(unfiltered_eeg_data, fs)
+        unfiltered_eeg_data -= np.mean(unfiltered_eeg_data) # Remove DC offset
+        window = np.hanning(len(unfiltered_eeg_data))
+        frequencies, psd = periodogram(unfiltered_eeg_data, fs, window=window)
+        # frequencies, psd = welch(unfiltered_eeg_data, fs=fs, window='hann', nperseg=1000, noverlap=500)
+        valid_indices = (frequencies >= self.min_freq) & (frequencies <= self.max_freq)
+        filtered_freqs = frequencies[valid_indices]
+        filtered_psd = psd[valid_indices]
+        psd_percent = (filtered_psd / np.sum(filtered_psd)) * 100  # Normalize to sum to 100%
 
         # Plotting the FFT
-        self.axs.semilogy(f, Pxx_den, color=COLOR_MAP['waveform'])
+        # self.axs.semilogy(f, Pxx_den, color=COLOR_MAP['waveform'])
+        self.axs.plot(filtered_freqs, psd_percent, color=COLOR_MAP['waveform'])
         self.axs.set_xlabel('Frequency (Hz)')
-        self.axs.set_ylabel(r"PSD (V$^2$/Hz)")
+        # self.axs.set_ylabel(r"PSD (V$^2$/Hz)")
+        self.axs.set_ylabel("PSD (Bandwidth %)")
 
-        self.axs.set_ylim([1e-7, 1e3])
-        # self.axs.set_ylim([0, Pxx_den.max()])
-        self.axs.set_xlim([min(f), max(f)])  # Ensure the x-axis covers the full frequency range
-        self.axs.grid()
+        # self.axs.set_ylim([1e-7, 1e3])
+        # self.axs.set_xlim([min(f), max(f)])
+        self.axs.set_xlim([self.min_freq, self.max_freq])
+        self.axs.grid(True)
         plt.tight_layout()
         self.draw()

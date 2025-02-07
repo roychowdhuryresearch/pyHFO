@@ -8,8 +8,9 @@ class MainWindowController:
 
         self.supported_biomarker = {
             'HFO': self.create_hfo_window,
-            'Spindle': self.create_spindle_window,
-            'Spike': self.create_spike_window,
+            # TODO future version
+            # 'Spindle': self.create_spindle_window,
+            # 'Spike': self.create_spike_window,
         }
 
     def init_biomarker_window(self, biomarker_type):
@@ -34,7 +35,8 @@ class MainWindowController:
         default_biomarker = self.get_biomarker_type()
         self.set_biomarker_type(default_biomarker)
 
-        safe_connect_signal_slot(self.view.window.combo_box_biomarker.currentIndexChanged, self.switch_biomarker)
+        # TODO future version
+        # safe_connect_signal_slot(self.view.window.combo_box_biomarker.currentIndexChanged, self.switch_biomarker)
 
     def switch_biomarker(self):
         selected_biomarker = self.get_biomarker_type()

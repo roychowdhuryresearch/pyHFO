@@ -645,7 +645,7 @@ class MainWindowView(QObject):
         label_type1.setFixedWidth(150)
         label_type2 = QLabel("Artifact")
         label_type2.setFixedWidth(150)
-        label_type3 = QLabel("spk-HFO")
+        label_type3 = QLabel("spkHFO")
         label_type3.setFixedWidth(150)
         label_type4 = QLabel("eHFO")
         label_type4.setFixedWidth(150)

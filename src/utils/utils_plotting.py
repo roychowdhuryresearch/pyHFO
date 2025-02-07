@@ -33,15 +33,9 @@ from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 
 
-def calculate_time_frequency(data,fs):
-    filter_range = [58., 62.]
-    sos = butter(20, filter_range, btype='bandstop', output='sos', fs=fs)
-    filtered_data = sosfiltfilt(sos, data)
-    # sample_freq = hfo_app.get_sample_freq()
-    # print("filtered_data shape:", filtered_data.shape)
-    # print("1data shape:", data.shape)
-    # print("2data shape:", data.shape)
-    #calculate the time frequency
-    #why data matrix vector
-    time_frequency = compute_spectrum(data, ps_SampleRate = fs)
+def calculate_time_frequency(data, fs, freq_min=10, freq_max=500):
+    # filter_range = [58., 62.]
+    # sos = butter(5, filter_range, btype='bandstop', output='sos', fs=fs)
+    # filtered_data = sosfiltfilt(sos, data)
+    time_frequency = compute_spectrum(data, ps_SampleRate=fs, ps_MinFreqHz=freq_min, ps_MaxFreqHz=freq_max)
     return time_frequency

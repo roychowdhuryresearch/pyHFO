@@ -16,7 +16,10 @@ COLOR_MAP = {'waveform': 'DodgerBlue',
              'spkHFO': 'MediumOrchid',
              'spike': 'MediumOrchid',
              'Spike': 'MediumOrchid',
-             'eHFO': 'Crimson'}
+             'eHFO': 'Crimson',
+             'ehfo': 'Crimson',
+             'Spike and eHFO': 'Crimson',
+             'eHFO and Spike': 'Crimson'}
 
 
 class WorkerSignals(QObject):

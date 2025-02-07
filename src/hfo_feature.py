@@ -8,8 +8,10 @@ class HFO_Feature():
             self.ends = np.array([])
             self.artifact_predictions = np.array([])
             self.artifact_annotations = np.array([])
-            self.spike_annotations = np.array([])
-            self.ehfo_annotations = np.array([])
+            # self.spike_annotations = np.array([])
+            # self.ehfo_annotations = np.array([])
+            self.pathological_annotations = np.array([])
+            self.physiological_annotations = np.array([])
             self.annotated = np.array([])
         else:
             self.starts = interval[:, 0]
@@ -18,9 +20,11 @@ class HFO_Feature():
             self.artifact_predictions = np.zeros(self.starts.shape)
             self.artifact_annotations = np.zeros(self.starts.shape)
             self.spike_predictions = []
-            self.spike_annotations = np.zeros(self.starts.shape)
+            # self.spike_annotations = np.zeros(self.starts.shape)
+            self.pathological_annotations = np.zeros(self.starts.shape)
             self.ehfo_predictions = []
-            self.ehfo_annotations = np.zeros(self.starts.shape)
+            # self.ehfo_annotations = np.zeros(self.starts.shape)
+            self.physiological_annotations = np.zeros(self.starts.shape)
             self.annotated = np.zeros(self.starts.shape)
         self.HFO_type = HFO_type
         self.sample_freq = sample_freq
@@ -63,14 +67,20 @@ class HFO_Feature():
     #     self.artifact_predicted = True
     
     def doctor_annotation(self, annotation:str):
+        # if annotation == "Artifact":
+        #     self.artifact_annotations[self.index] = 0
+        # elif annotation == "Spike":
+        #     self.spike_annotations[self.index] = 1
+        #     self.artifact_annotations[self.index] = 1
+        # elif annotation == "Real":
+        #     self.spike_annotations[self.index] = 0
+        #     self.artifact_annotations[self.index] = 1
         if annotation == "Artifact":
-            self.artifact_annotations[self.index] = 0
-        elif annotation == "Spike":
-            self.spike_annotations[self.index] = 1
             self.artifact_annotations[self.index] = 1
-        elif annotation == "Real":
-            self.spike_annotations[self.index] = 0
-            self.artifact_annotations[self.index] = 1
+        elif annotation == "Pathological":
+            self.pathological_annotations[self.index] = 1
+        elif annotation == "Physiological":
+            self.physiological_annotations[self.index] = 1
         self.annotated[self.index] = 1
 
     def get_next(self):
@@ -97,24 +107,36 @@ class HFO_Feature():
     def get_current(self):
         return self.channel_names[self.index], self.starts[self.index], self.ends[self.index]
     
-    def _get_prediction(self, artifact_prediction, spike_prediction):
-        if artifact_prediction < 1:
+    def _get_prediction(self, predictions):
+        if predictions.get("Artifact", 1) != 1:
             return "Artifact"
-        elif spike_prediction == 1:
-            return "Spike"
-        else:
-            return "HFO"
+
+        priority_order = ["Spike", "eHFO", "HFO"]
+        detected_labels = [label for label in priority_order if predictions.get(label, 0) == 1]
+        return " and ".join(detected_labels) if detected_labels else "HFO"
+
+    def _get_annotation(self, artifact_annotation, pathological_annotation, physiological_annotation):
+        if artifact_annotation == 1:
+            return "Artifact"
+        elif pathological_annotation == 1:
+            return "Pathological"
+        elif physiological_annotation == 1:
+            return "Physiological"
 
     def get_current_info(self):
-        print("self.artifact_predicted:",self.artifact_predicted)
+        # print("self.artifact_predicted:",self.artifact_predicted)
         channel_name = self.channel_names[self.index]
         start = self.starts[self.index]
         end = self.ends[self.index]
-        prediction = self._get_prediction(self.artifact_predictions[self.index], self.spike_predictions[self.index]) if self.artifact_predicted else None
-        annotation = self._get_prediction(self.artifact_annotations[self.index], self.spike_annotations[self.index]) if self.annotated[self.index] else None
+
+        prediction = self._get_prediction({'Artifact': self.artifact_predictions[self.index],
+                                           'Spike': self.spike_predictions[self.index],
+                                           'eHFO': self.ehfo_predictions[self.index]}) if self.artifact_predicted else None
+        annotation = self._get_annotation(self.artifact_annotations[self.index],
+                                          self.pathological_annotations[self.index],
+                                          self.physiological_annotations[self.index]) if self.annotated[self.index] else None
         return {"channel_name": channel_name, "start_index": start, "end_index": end, "prediction": prediction, "annotation": annotation}
 
-                    
     def get_num_artifact(self):
         return self.num_artifact
     
@@ -139,13 +161,18 @@ class HFO_Feature():
         ends = self.ends
         artifact_predictions = np.array(self.artifact_predictions)
         spike_predictions = np.array(self.spike_predictions)
+        ehfo_predictions = np.array(self.ehfo_predictions)
         feature = self.features
         HFO_type = self.HFO_type
         sample_freq = self.sample_freq
         feature_size = self.feature_size
         freq_range = self.freq_range
         time_range = self.time_range
-        return {"channel_names": channel_names, "starts": starts, "ends": ends, "artifact_predictions": artifact_predictions, "spike_predictions": spike_predictions, "feature": feature, "HFO_type": HFO_type, "sample_freq": sample_freq, "feature_size": feature_size, "freq_range": freq_range, "time_range": time_range}
+        return {"channel_names": channel_names, "starts": starts, "ends": ends,
+                "artifact_predictions": artifact_predictions, "spike_predictions": spike_predictions,
+                "ehfo_predictions": ehfo_predictions, "feature": feature, "HFO_type": HFO_type,
+                "sample_freq": sample_freq, "feature_size": feature_size,
+                "freq_range": freq_range, "time_range": time_range}
     
     @staticmethod
     def from_dict(data):
@@ -157,6 +184,7 @@ class HFO_Feature():
         ends = data["ends"]
         artifact_predictions = data["artifact_predictions"]
         spike_predictions = data["spike_predictions"]
+        ehfo_predictions = data['ehfo_predictions']
         feature = data["feature"]
         HFO_type = data["HFO_type"]
         sample_freq = data["sample_freq"]
@@ -164,7 +192,7 @@ class HFO_Feature():
         freq_range = data["freq_range"]
         time_range = data["time_range"]
         biomarker_feature = HFO_Feature(channel_names, np.array([starts, ends]).T, feature, HFO_type, sample_freq, freq_range, time_range, feature_size)
-        biomarker_feature.update_pred(artifact_predictions, spike_predictions)
+        biomarker_feature.update_pred(artifact_predictions, spike_predictions, ehfo_predictions)
 
         return biomarker_feature
 
@@ -184,10 +212,10 @@ class HFO_Feature():
         self.ehfo_predictions = ehfo_predictions
         self.num_ehfo = np.sum(ehfo_predictions == 1)
     
-    def update_pred(self, artifact_predictions, spike_predictions):
+    def update_pred(self, artifact_predictions, spike_predictions, ehfo_predictions):
         self.update_artifact_pred(artifact_predictions)
         self.update_spike_pred(spike_predictions)
-
+        self.update_ehfo_pred(ehfo_predictions)
 
     def group_by_channel(self):
         channel_names = self.channel_names
@@ -214,6 +242,7 @@ class HFO_Feature():
         ends = self.ends
         artifact_predictions = np.array(self.artifact_predictions)
         spike_predictions = np.array(self.spike_predictions)
+        ehfo_predictions = np.array(self.ehfo_predictions)
         indexes = channel_names == channel_name
         if min_start is not None and max_end is not None:
             indexes = indexes & (starts >= min_start) & (ends <= max_end)
@@ -222,21 +251,31 @@ class HFO_Feature():
         try:
             artifact_predictions = artifact_predictions[indexes]
             spike_predictions = spike_predictions[indexes] == 1
+            ehfo_predictions = ehfo_predictions[indexes] == 1
         except:
             artifact_predictions = []
             spike_predictions = []
-        return starts, ends, artifact_predictions, spike_predictions
+            ehfo_predictions = []
+        return starts, ends, artifact_predictions, spike_predictions, ehfo_predictions
     
     def get_annotation_text(self, index):
         channel_name = self.channel_names[index]
         if self.annotated[index] == 0:
             suffix = "Unannotated"
-        elif self.artifact_annotations[index] == 0:
+        elif self.artifact_annotations[index] == 1:
             suffix = "Artifact"
-        elif self.spike_annotations[index] == 1:
-            suffix = "Spike"
+        # elif self.spike_annotations[index] == 1:
+        #     suffix = "Spike"
+        # else:
+        #     suffix = "Real"
+        elif self.pathological_annotations[index] == 1:
+            suffix = "Pathological"
+        elif self.physiological_annotations[index] == 1:
+            suffix = "Physiological"
         else:
-            suffix = "Real"
+            import warnings
+            warnings.warn("Annotation type not supported", category=UserWarning)
+
         return f" No.{index+1}: {channel_name} : {suffix}"
 
     def to_df(self):
@@ -245,8 +284,11 @@ class HFO_Feature():
         ends = self.ends
         artifact_predictions = np.array(self.artifact_predictions)
         spike_predictions = np.array(self.spike_predictions)
+        ehfo_predictions = np.array(self.ehfo_predictions)
         artifact_annotations = np.array(self.artifact_annotations)
-        spike_annotations = np.array(self.spike_annotations)
+        # spike_annotations = np.array(self.spike_annotations)
+        pathological_annotations = np.array(self.pathological_annotations)
+        physiological_annotations = np.array(self.physiological_annotations)
         annotated = np.array(self.annotated)
         df = pd.DataFrame()
         df["channel_names"] = channel_names
@@ -257,11 +299,17 @@ class HFO_Feature():
             df["artifact"] = artifact_predictions
         if len(spike_predictions) > 0:
             df["spike"] = spike_predictions
+        if len(ehfo_predictions) > 0:
+            df["ehfo"] = ehfo_predictions
         df['annotated'] = annotated
         if len(artifact_annotations) > 0:
             df["artifact annotations"] = artifact_annotations
-        if len(spike_annotations) > 0:
-            df["spike annotations"] = spike_annotations
+        # if len(spike_annotations) > 0:
+        #     df["spike annotations"] = spike_annotations
+        if len(pathological_annotations) > 0:
+            df["pathological annotations"] = pathological_annotations
+        if len(pathological_annotations) > 0:
+            df["physiological annotations"] = physiological_annotations
         return df
 
     def export_csv(self, file_path):
@@ -275,26 +323,38 @@ class HFO_Feature():
             df_out["artifact"] = 0
         if "spike" not in df_out.columns:
             df_out["spike"] = 0
+        if "ehfo" not in df_out.columns:
+            df_out["ehfo"] = 0
+        if "pathological annotations" not in df_out.columns:
+            df_out["pathological annotations"] = 0
+        if "physiological annotations" not in df_out.columns:
+            df_out["physiological annotations"] = 0
         if "artifact annotations" not in df_out.columns:
             df_out["artifact annotations"] = 0
-        if "spike annotations" not in df_out.columns:
-            df_out["spike annotations"] = 0
         df_out["artifact"] = (df_out["artifact"] > 0).astype(int)
         df_out["spike"] = (df_out["spike"] > 0).astype(int)
+        df_out["ehfo"] = (df_out["ehfo"] > 0).astype(int)
         df_out['annotated'] = 1 - (df_out["annotated"] > 0).astype(int)
         df_out["artifact annotations"] = (df_out["artifact annotations"] > 0).astype(int)
-        df_out["spike annotations"] = (df_out["spike annotations"] > 0).astype(int)
+        df_out["pathological annotations"] = (df_out["pathological annotations"] > 0).astype(int)
+        df_out["physiological annotations"] = (df_out["physiological annotations"] > 0).astype(int)
         df_channel = df_out.groupby("channel_names").agg({"starts": "count",
-                                                          "artifact": "sum", "spike": "sum",
+                                                          "artifact": "sum",
+                                                          "spike": "sum",
+                                                          "ehfo": "sum",
                                                           "annotated": "sum",
-                                                          "artifact annotations": "sum", "spike annotations": "sum"}).reset_index()
+                                                          "artifact annotations": "sum",
+                                                          "pathological annotations": "sum",
+                                                          "physiological annotations": "sum"}).reset_index()
         df_channel.rename(columns={"starts": "Total Detection",
-                                   "artifact": "HFO", "spike": "spk-HFO",
+                                   "artifact": "HFO",
+                                   "spike": "spkHFO",
+                                   "ehfo": "eHFO",
                                    "annotated": "Unannotated",
-                                   "artifact annotations": "HFO annotations", "spike annotations": "spk-HFO annotations"}, inplace=True)
-        df.rename(columns={"artifact": "HFO", "spike": "spk-HFO",
+                                   "artifact annotations": "HFO annotations"}, inplace=True)
+        df.rename(columns={"artifact": "HFO", "spike": "spkHFO",
                            "annotated": "Annotated",
-                           "artifact annotations": "HFO annotations", "spike annotations": "spk-HFO annotations"}, inplace=True)
+                           "artifact annotations": "HFO annotations"}, inplace=True)
         df['Annotated'] = df["Annotated"] > 0
         df['Annotated'] = df['Annotated'].replace({True: 'Yes', False: 'No'})
         with pd.ExcelWriter(file_path) as writer:

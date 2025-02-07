@@ -120,7 +120,7 @@ class MainWaveformPlotModel:
         return eeg_data_to_display, y_100_length, y_scale_length, offset_value
 
     def get_all_biomarkers_for_all_current_channels_and_color(self, channel_in_name):
-        starts, ends, artifacts, spikes = self.backend.event_features.get_biomarkers_for_channel(channel_in_name, int(self.start_in_time*self.sample_freq),int(self.end_in_time*self.sample_freq))
+        starts, ends, artifacts, spikes, ehfos = self.backend.event_features.get_biomarkers_for_channel(channel_in_name, int(self.start_in_time*self.sample_freq),int(self.end_in_time*self.sample_freq))
         colors = []
         windows_in_time = []
 
@@ -130,6 +130,8 @@ class MainWaveformPlotModel:
                     color = self.color_dict["artifact"]
                 elif spikes[j]:
                     color = self.color_dict["spike"]
+                elif ehfos[j]:
+                    color = self.color_dict["ehfo"]
                 else:
                     color = self.color_dict["non_spike"]
             except:

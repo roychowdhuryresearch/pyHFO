@@ -35,3 +35,10 @@ class AnnotationModel:
         selected_index = self.backend.event_features.index
         item_text = self.backend.event_features.get_annotation_text(selected_index)
         return selected_index, item_text
+
+    def set_current_freq_limit(self, min_freq, max_freq):
+        self.fft_plot.set_current_freq_limit(min_freq, max_freq)
+
+    def set_current_interval(self, interval):
+        self.waveform_plot.set_current_interval(interval)
+        self.fft_plot.set_current_interval(interval)

@@ -24,11 +24,37 @@
     <item row="0" column="0">
      <layout class="QGridLayout" name="gridLayout_4" columnstretch="7,0">
       <item row="0" column="1">
-       <layout class="QGridLayout" name="left_panel" rowstretch="1,0,0,0,0,0,0">
-        <item row="3" column="0">
-         <layout class="QHBoxLayout" name="FFT_layout"/>
+       <layout class="QGridLayout" name="left_panel" rowstretch="1,0,0,0,0,0,0,0">
+        <item row="5" column="0">
+         <widget class="QComboBox" name="EventDropdown_Box">
+          <property name="font">
+           <font>
+            <family>Arial</family>
+            <pointsize>9</pointsize>
+           </font>
+          </property>
+          <item>
+           <property name="text">
+            <string>--- Event Type ---</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Spike</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Real</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Artifact</string>
+           </property>
+          </item>
+         </widget>
         </item>
-
         <item row="6" column="0">
          <widget class="QComboBox" name="IntervalDropdownBox">
           <property name="font">
@@ -54,23 +80,67 @@
           </item>
          </widget>
         </item>
-
-        <item row="7" column="0">
-         <layout class="QHBoxLayout" name="horizontalLayout_2">
+        <item row="3" column="0">
+         <layout class="QHBoxLayout" name="freq_control_layout">
           <item>
-           <widget class="QPushButton" name="Accept">
+           <widget class="QGroupBox" name="groupBox_2">
             <property name="font">
              <font>
               <family>Arial</family>
-              <pointsize>9</pointsize>
              </font>
             </property>
-            <property name="text">
-             <string>Accept</string>
+            <property name="title">
+             <string>Frequency Controls</string>
             </property>
+            <layout class="QGridLayout" name="gridLayout">
+             <item row="1" column="1">
+              <widget class="QSpinBox" name="spinBox_minFreq">
+               <property name="maximum">
+                <number>1000</number>
+               </property>
+               <property name="value">
+                <number>10</number>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="4">
+              <widget class="QPushButton" name="SetFreqLimit">
+               <property name="text">
+                <string>Set Freq Limits</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="3">
+              <widget class="QSpinBox" name="spinBox_maxFreq">
+               <property name="maximum">
+                <number>1000</number>
+               </property>
+               <property name="value">
+                <number>500</number>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QLabel" name="label">
+               <property name="text">
+                <string>minFreq</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="3">
+              <widget class="QLabel" name="label_2">
+               <property name="text">
+                <string>maxFreq</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
            </widget>
           </item>
          </layout>
+        </item>
+        <item row="1" column="0">
+         <widget class="QComboBox" name="AnotationDropdownBox"/>
         </item>
         <item row="0" column="0">
          <layout class="QHBoxLayout" name="horizontalLayout">
@@ -102,73 +172,42 @@
           </item>
          </layout>
         </item>
-        <item row="5" column="0">
-         <widget class="QComboBox" name="EventDropdown_Box">
-          <property name="font">
-           <font>
-            <family>Arial</family>
-            <pointsize>9</pointsize>
-           </font>
-          </property>
-          <item>
-           <property name="text">
-            <string>--- Event Type ---</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>Spike</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>Real</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>Artifact</string>
-           </property>
-          </item>
-         </widget>
-        </item>
-
         <item row="2" column="0">
-         <layout class="QHBoxLayout" name="FFT_layout_2"/>
+         <layout class="QHBoxLayout" name="FFT_layout"/>
         </item>
         <item row="4" column="0">
          <widget class="QGroupBox" name="groupBox">
           <property name="font">
            <font>
             <family>Arial</family>
-            <pointsize>12</pointsize>
+            <pointsize>9</pointsize>
            </font>
           </property>
           <property name="title">
            <string>Event Information</string>
           </property>
           <layout class="QGridLayout" name="gridLayout_3">
-           <item row="0" column="0">
-            <layout class="QHBoxLayout" name="horizontalLayout_7">
+           <item row="3" column="0">
+            <layout class="QHBoxLayout" name="horizontalLayout_12">
              <item>
-              <widget class="QLabel" name="label_9">
+              <widget class="QLabel" name="label_13">
                <property name="font">
                 <font>
                  <family>Arial</family>
-                 <pointsize>11</pointsize>
+                 <pointsize>9</pointsize>
                 </font>
                </property>
                <property name="text">
-                <string>Channel:</string>
+                <string>DL Suggestion:</string>
                </property>
               </widget>
              </item>
              <item>
-              <widget class="QLabel" name="channel_name_textbox">
+              <widget class="QLabel" name="model_textbox">
                <property name="font">
                 <font>
                  <family>Arial</family>
-                 <pointsize>11</pointsize>
+                 <pointsize>9</pointsize>
                 </font>
                </property>
                <property name="styleSheet">
@@ -181,27 +220,27 @@
              </item>
             </layout>
            </item>
-           <item row="1" column="0">
-            <layout class="QHBoxLayout" name="horizontalLayout_8">
+           <item row="0" column="0">
+            <layout class="QHBoxLayout" name="horizontalLayout_7">
              <item>
-              <widget class="QLabel" name="label_10">
+              <widget class="QLabel" name="label_9">
                <property name="font">
                 <font>
                  <family>Arial</family>
-                 <pointsize>11</pointsize>
+                 <pointsize>9</pointsize>
                 </font>
                </property>
                <property name="text">
-                <string>Event Length:</string>
+                <string>Channel:</string>
                </property>
               </widget>
              </item>
              <item>
-              <widget class="QLabel" name="length_textbox">
+              <widget class="QLabel" name="channel_name_textbox">
                <property name="font">
                 <font>
                  <family>Arial</family>
-                 <pointsize>11</pointsize>
+                 <pointsize>9</pointsize>
                 </font>
                </property>
                <property name="styleSheet">
@@ -223,7 +262,7 @@
                  <property name="font">
                   <font>
                    <family>Arial</family>
-                   <pointsize>11</pointsize>
+                   <pointsize>9</pointsize>
                   </font>
                  </property>
                  <property name="text">
@@ -236,7 +275,7 @@
                  <property name="font">
                   <font>
                    <family>Arial</family>
-                   <pointsize>11</pointsize>
+                   <pointsize>9</pointsize>
                   </font>
                  </property>
                  <property name="styleSheet">
@@ -256,7 +295,7 @@
                  <property name="font">
                   <font>
                    <family>Arial</family>
-                   <pointsize>11</pointsize>
+                   <pointsize>9</pointsize>
                   </font>
                  </property>
                  <property name="text">
@@ -269,7 +308,7 @@
                  <property name="font">
                   <font>
                    <family>Arial</family>
-                   <pointsize>11</pointsize>
+                   <pointsize>9</pointsize>
                   </font>
                  </property>
                  <property name="styleSheet">
@@ -284,27 +323,27 @@
              </item>
             </layout>
            </item>
-           <item row="3" column="0">
-            <layout class="QHBoxLayout" name="horizontalLayout_12">
+           <item row="1" column="0">
+            <layout class="QHBoxLayout" name="horizontalLayout_8">
              <item>
-              <widget class="QLabel" name="label_13">
+              <widget class="QLabel" name="label_10">
                <property name="font">
                 <font>
                  <family>Arial</family>
-                 <pointsize>11</pointsize>
+                 <pointsize>9</pointsize>
                 </font>
                </property>
                <property name="text">
-                <string>Model Prediction:</string>
+                <string>Event Length:</string>
                </property>
               </widget>
              </item>
              <item>
-              <widget class="QLabel" name="model_textbox">
+              <widget class="QLabel" name="length_textbox">
                <property name="font">
                 <font>
                  <family>Arial</family>
-                 <pointsize>11</pointsize>
+                 <pointsize>9</pointsize>
                 </font>
                </property>
                <property name="styleSheet">
@@ -317,14 +356,25 @@
              </item>
             </layout>
            </item>
-           <item row="4" column="0">
-            <layout class="QHBoxLayout" name="horizontalLayout_13"/>
-           </item>
           </layout>
          </widget>
         </item>
-        <item row="1" column="0">
-         <widget class="QComboBox" name="AnotationDropdownBox"/>
+        <item row="7" column="0">
+         <layout class="QHBoxLayout" name="horizontalLayout_2">
+          <item>
+           <widget class="QPushButton" name="Accept">
+            <property name="font">
+             <font>
+              <family>Arial</family>
+              <pointsize>9</pointsize>
+             </font>
+            </property>
+            <property name="text">
+             <string>Accept</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </item>
        </layout>
       </item>
@@ -341,7 +391,7 @@
      <x>0</x>
      <y>0</y>
      <width>1116</width>
-     <height>25</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuEdit">
