@@ -299,7 +299,7 @@ class SpindleApp(object):
             len(ret)), np.empty(len(ret), dtype=object), np.zeros((len(ret), win_size, win_size)), np.zeros(
             (len(ret), win_size, win_size))
         for i in range(len(ret)):
-            channel_names[i], starts[i], ends[i], time_frequncy_img[i], amplitude_coding_plot[i] = ret[i]
+            channel_names[i], starts[i], ends[i], time_frequncy_img[i], amplitude_coding_plot[i], _ = ret[i]
         interval = np.concatenate([starts[:, None], ends[:, None]], axis=1)
         feature = np.concatenate([time_frequncy_img[:, None, :, :], amplitude_coding_plot[:, None, :, :]], axis=1)
         self.event_features = SpindleFeature(channel_names, interval, feature, sample_freq=self.sample_freq,

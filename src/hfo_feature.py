@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 class HFO_Feature():
-    def __init__(self, channel_names, interval, features = [], HFO_type = "STE", sample_freq = 2000, freq_range = [10, 500], time_range = [0, 1000], feature_size = 224):
+    def __init__(self, channel_names, interval, features = [], HFO_type = "STE", sample_freq = 2000, freq_range = [10, 500], time_range = [0, 1000], feature_size = 224, raw_spectrums = None):
         self.channel_names = channel_names
         if interval.size == 0:
             self.starts = np.array([])
@@ -41,6 +41,7 @@ class HFO_Feature():
         self.artifact_predicted = False
         self.spike_predicted = False
         self.ehfo_predicted = False
+        self.raw_spectrums = raw_spectrums
 
     def __str__(self):
         return "HFO_Feature: {} HFOs, {} artifacts, {} spikes, {} eHFOs, {} real HFOs".format(
@@ -154,7 +155,10 @@ class HFO_Feature():
 
     def get_features(self):
         return self.features
-    
+
+    def get_raw_spectrums(self):
+        return self.raw_spectrums
+
     def to_dict(self):
         channel_names = self.channel_names
         starts = self.starts

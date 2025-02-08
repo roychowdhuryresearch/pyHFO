@@ -3,7 +3,7 @@ from tqdm import tqdm
 import numpy as np
 from src.param.param_classifier import ParamModel, ParamPreprocessing
 def load_ckpt(func, model_path):
-    model_load = torch.load(model_path, map_location=torch.device('cpu'))
+    model_load = torch.load(model_path, map_location=torch.device('cpu'), weights_only=False)
     model = model_load["model"]
     return ParamPreprocessing.from_dict(model_load["preprocessing"]), model
 
@@ -43,6 +43,8 @@ def batch_iterate(x, model, device ,batch_size = 256):
         d = x[start:end].to(device)
         d[:, 0, :, :] = normalize_img(d[:, 0, :, :])
         d[:, 1, :, :] = normalize_img(d[:, 1, :, :])
+        if d.shape[1] == 3:
+            d[:, 2, :, :] = normalize_img(d[:, 2, :, :])
         res.append(model(d).detach())
     res = torch.cat(res, 0)
     if device != "cpu":

@@ -275,12 +275,14 @@ class HFO_App(object):
                         "time_window_ms" : (time_range[1] - time_range[0])//2,
                        } for i in range(len(starts))]
         ret = parallel_process(param_list, compute_biomarker_feature, n_jobs=self.n_jobs, use_kwargs=True, front_num=2)
-        starts, ends, channel_names, time_frequncy_img, amplitude_coding_plot = np.zeros(len(ret)), np.zeros(len(ret)), np.empty(len(ret), dtype= object), np.zeros((len(ret), win_size,win_size)), np.zeros((len(ret), win_size, win_size)) 
+        starts, ends, channel_names, time_frequncy_img, amplitude_coding_plot, raw_spectrums = np.zeros(len(ret)), np.zeros(len(ret)), np.empty(len(ret), dtype= object), np.zeros((len(ret), win_size,win_size)), np.zeros((len(ret), win_size, win_size)), []
         for i in range(len(ret)):
-            channel_names[i], starts[i], ends[i], time_frequncy_img[i], amplitude_coding_plot[i] = ret[i]
+            channel_names[i], starts[i], ends[i], time_frequncy_img[i], amplitude_coding_plot[i],  raw_spectrum= ret[i]
+            raw_spectrums.append(raw_spectrum)
+        raw_spectrums = np.array(raw_spectrums)
         interval = np.concatenate([starts[:, None], ends[:, None]], axis=1)
         feature = np.concatenate([time_frequncy_img[:, None, :, :], amplitude_coding_plot[:, None, :, :]], axis=1)
-        self.event_features = HFO_Feature(channel_names, interval, feature, sample_freq = self.sample_freq, HFO_type=self.param_detector.detector_type, feature_size=win_size, freq_range=freq_range, time_range=time_range)
+        self.event_features = HFO_Feature(channel_names, interval, feature, sample_freq = self.sample_freq, HFO_type=self.param_detector.detector_type, feature_size=win_size, freq_range=freq_range, time_range=time_range, raw_spectrums=raw_spectrums)
 
 
     '''

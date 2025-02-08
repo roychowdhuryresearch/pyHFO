@@ -2,7 +2,8 @@ import numpy as np
 from src.utils.utils_inference import inference, load_model, load_ckpt
 from src.param.param_classifier import ParamClassifier
 import torch
-from src.model import PreProcessing
+from src.model import PreProcessing, PreProcessing_ehfo, NeuralCNN_ehfo
+import src.model
 from transformers import TrainingArguments, ViTForImageClassification
 from transformers import Trainer
 from src.dl_models import *
@@ -61,9 +62,9 @@ class Classifier():
     def update_model_e(self, param:ParamClassifier):
         self.model_type = param.model_type
         self.ehfo_path = param.ehfo_path
-
-        # self.param_ehfo_preprocessing, self.model_e = load_ckpt(self.load_func, param.ehfo_path)
-        model_load = torch.load(self.ehfo_path, map_location=torch.device('cpu'))
+        import sys
+        sys.modules['src.model_pyhfo'] = src.model
+        model_load = torch.load(self.ehfo_path, map_location=torch.device('cpu'), weights_only=False)
         self.model_e = model_load["model"]
 
         if self.model_type == "default_cpu":
@@ -74,8 +75,7 @@ class Classifier():
             raise ValueError("Model type not supported!")
         self.device = param.device if torch.cuda.is_available() else "cpu"
         self.model_e = self.model_e.to(self.device)
-        # self.preprocessing_ehfo = PreProcessing_ehfo.from_param(self.param_ehfo_preprocessing)
-        self.preprocessing_ehfo = PreProcessing_ehfo.from_dict(model_load["preprocessing"], self.device)
+        self.preprocessing_ehfo = PreProcessing_ehfo.from_dict(model_load["preprocessing"])
 
     def update_model_toy(self, param:ParamClassifier):
         self.model_type = param.model_type
@@ -158,14 +158,15 @@ class Classifier():
 if __name__ == '__main__':
     model_type = 'default_cpu'
     device = "cpu"
-    ehfo_path = '/mnt/SSD1/chenda/HFO-Classifier-Neo/pruning/formal_pruning/pruned_model.tar'
-    ckpt = torch.load(ehfo_path, map_location=device)
+    ehfo_path = '/Users/duanchenda/Desktop/gitplay/pyHFO/ckpt/model_e.tar'
+    import sys
+    sys.modules['src.model_pyhfo'] = src.model
+    ckpt = torch.load(ehfo_path, map_location=device, weights_only=False)
+
     model_e = ckpt["model"].to(device).float()
     preprocessing_dict = ckpt["preprocessing"]
-    if "image_size" not in preprocessing_dict['feature_param']:
-        preprocessing_dict['feature_param']['image_size'] = 224
-    preprocessing = PreProcessing_ehfo.from_dict(preprocessing_dict, device)
-    
+    # preprocessing = PreProcessing_ehfo.from_dict(preprocessing_dict, device)
+    print(preprocessing_dict)
     
     # =====Test the Model=====
     

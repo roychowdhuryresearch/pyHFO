@@ -47,9 +47,7 @@ class NeuralCNN_ehfo(torch.nn.Module):
         a Tensor of output data. We can use Modules defined in the constructor as
         well as arbitrary operators on Tensors.
         """
-        assert x.shape[1] == 2, "Should have 2 channel"
-        x = x[:, 0:1, :, :]
-        x = x.repeat(1, 3, 1, 1)
+        assert x.shape[1] == 3, "Should have 3 channel"
         batch = self.cnn(x)
         # batch = self.bn0(batch)
         # print(batch.shape)
@@ -141,6 +139,20 @@ class PreProcessing():
             'time_window_ms': d['time_range_ms'][1],
         }, index=[0])
         return PreProcessing.from_df_args(data_meta, d)
+    @staticmethod
+    def from_df_args(data_meta, args):
+        if len(data_meta) != 1:
+            AssertionError("Data meta should be a single row")
+        freq_range_hz = [data_meta["freq_min_hz"].values[0], data_meta["freq_max_hz"].values[0]]
+        fs = data_meta["resample"].values[0]
+        event_length = data_meta["time_window_ms"].values[0]
+        image_size = data_meta["image_size"].values[0]
+        selected_window_size_ms = args['selected_window_size_ms']
+        selected_freq_range_hz = args['selected_freq_range_hz']
+        random_shift_ms = args['random_shift_ms']
+        preProcessing = PreProcessing(image_size, fs, freq_range_hz, event_length, selected_window_size_ms,
+                                      selected_freq_range_hz, random_shift_ms)
+        return preProcessing
 
     @staticmethod
     def from_df_args(data_meta, args):
@@ -225,4 +237,105 @@ class PreProcessing():
         self.initialize()
         self.disable_random_shift()
         data = self(data)
+        return data
+class PreProcessing_ehfo(PreProcessing):
+    def __init__(self, image_size, fs, freq_range_hz, event_length, selected_window_size_ms, selected_freq_range_hz,
+                    random_shift_ms):
+        self.image_width = image_size
+        super(PreProcessing_ehfo, self).__init__(image_size, fs, freq_range_hz, event_length, selected_window_size_ms, selected_freq_range_hz,
+                    random_shift_ms)
+
+    @staticmethod
+    def from_dict(d):
+        data_meta = pd.DataFrame({
+            'image_size': d['image_size'],
+            'freq_min_hz': d['freq_range_hz'][0],
+            'freq_max_hz': d['freq_range_hz'][1],
+            'resample': d['fs'],
+            'time_window_ms': d['time_range_ms'][1],
+        }, index=[0])
+        return PreProcessing_ehfo.from_df_args(data_meta, d)
+
+    @staticmethod
+    def from_df_args(data_meta, args):
+        if len(data_meta) != 1:
+            AssertionError("Data meta should be a single row")
+        freq_range_hz = [data_meta["freq_min_hz"].values[0], data_meta["freq_max_hz"].values[0]]
+        fs = data_meta["resample"].values[0]
+        event_length = data_meta["time_window_ms"].values[0]
+        image_size = data_meta["image_size"].values[0]
+        selected_window_size_ms = args['selected_window_size_ms']
+        selected_freq_range_hz = args['selected_freq_range_hz']
+        random_shift_ms = args['random_shift_ms']
+        preProcessing = PreProcessing_ehfo(image_size, fs, freq_range_hz, event_length, selected_window_size_ms,
+                                      selected_freq_range_hz, random_shift_ms)
+        return preProcessing
+    def initialize(self):
+        self.freq_range_low = self.freq_range[0]  # in HZ
+        self.freq_range_high = self.freq_range[1]  # in HZ
+        self.time_range = [0, self.event_length]  # in ms
+        self.crop_range_index = self.crop_time / self.event_length * self.image_width  # in index
+        self.crop_freq_low = self.crop_freq[0]  # in HZ
+        self.crop_freq_high = self.crop_freq[1]  # in HZ
+        self.crop = self.freq_range_low == self.crop_freq_low and self.freq_range_high == self.crop_freq_high and self.crop_time * 2 == self.event_length
+        self.calculate_crop_index()
+        self.random_shift_index = int(self.random_shift_time * (self.image_width / self.event_length))  # in index
+        self.random_shift = self.random_shift_time != 0
+
+    def check_bound_time(self, x, text):
+        if x < 0 or x > self.image_width:
+            raise AssertionError(f"Index out of bound on {text}")
+        return True
+
+    def calculate_crop_index(self):
+        # calculate the index of the crop, high_freq is low index
+        self.crop_freq_index_low = self.image_size - self.image_size / (self.freq_range_high - self.freq_range_low) * (
+                    self.crop_freq_low - self.freq_range_low)
+        self.crop_freq_index_high = self.image_size - self.image_size / (self.freq_range_high - self.freq_range_low) * (
+                    self.crop_freq_high - self.freq_range_low)
+        self.crop_freq_index = np.array([self.crop_freq_index_high, self.crop_freq_index_low]).astype(int)  # in index
+        self.crop_time_index = np.array([-self.crop_range_index, self.crop_range_index]).astype(int)  # in index
+        self.crop_time_index_r = self.image_width // 2 + self.crop_time_index  # in index
+        # print("crop freq: ", self.crop_freq, "crop time: ", self.crop_time, "crop freq index: ", self.crop_freq_index, "crop time index: ", self.crop_time_index_r)
+        self.check_bound(self.crop_freq_index_low, "selected_freq_range_hz_low")
+        self.check_bound(self.crop_freq_index_high, "selected_freq_range_hz_high")
+        self.check_bound_time(self.crop_time_index_r[0], "crop_time")
+        self.check_bound_time(self.crop_time_index_r[1], "crop_time")
+        self.crop_index_w = np.abs(self.crop_time_index_r[0] - self.crop_time_index_r[1])
+        self.crop_index_h = np.abs(self.crop_freq_index[0] - self.crop_freq_index[1])
+
+    def _cropping(self, data):
+        assert data.shape[2] == int(self.event_length * self.fs / 1000), "Waveform length is not correct"
+        # self.freq_range = [self.freq_range_low, int(self.fs / 2)]
+        self.image_width = data.shape[2]
+        self.initialize()
+        time_crop_index = self.crop_time_index_r.copy()
+        if self.random_shift:
+            shift = np.random.randint(-self.random_shift_index, self.random_shift_index)
+            time_crop_index += shift
+        cropped_result = data[:, self.crop_freq_index[0]:self.crop_freq_index[1],
+                         time_crop_index[0]:time_crop_index[1]]
+        cropped_result = torch.from_numpy(cropped_result)
+        resized_result = torch.nn.functional.interpolate(
+            cropped_result.unsqueeze(1),  # Add channel dim [batch, 1, freq, time]
+            size=(self.image_size, self.image_size),
+            mode='bilinear',  # or 'bicubic' for potentially better quality
+            align_corners=False
+        )
+        return resized_result
+
+    def __call__(self, data):
+        data = self._cropping(data)
+        data = data.repeat(1, 3, 1, 1)
+        data = data.numpy()
+        return data
+    def process_biomarker_feature(self, feature):
+        data = feature.get_features()
+        raw_data = feature.get_raw_spectrums()
+        self.freq_range = feature.freq_range
+        self.event_length = max(feature.time_range) * 2
+        self.fs = feature.sample_freq
+        self.initialize()
+        self.disable_random_shift()
+        data = self(raw_data)
         return data

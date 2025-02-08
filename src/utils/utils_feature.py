@@ -50,7 +50,7 @@ def compute_biomarker_feature(start, end, channel_name, data, sample_rate, win_s
     select_spectrum_img = spectrum_img[:, middle_index-left_index:middle_index+right_index]
     time_frequncy_img = resize(select_spectrum_img, (win_size, win_size))
     amplitude_coding_plot = resize(select_amplitude_coding_plot, (win_size, win_size))
-    return channel_name, start, end, time_frequncy_img, amplitude_coding_plot
+    return channel_name, start, end, time_frequncy_img, amplitude_coding_plot, spectrum_img
 
 def compute_spectrum(org_sig, ps_SampleRate = 2000, ps_FreqSeg = 512, ps_MinFreqHz = 10, ps_MaxFreqHz = 500):
     def create_extended_sig(sig):
