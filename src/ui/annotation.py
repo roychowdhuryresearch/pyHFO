@@ -18,7 +18,7 @@ class Annotation(QtWidgets.QMainWindow):
         self.annotation_controller = AnnotationController(self, backend)
 
         self.biomarker_type = biomarker_type
-        print(f"initializing {self.biomarker_type} Annotation")
+        # print(f"initializing {self.biomarker_type} Annotation")
         self.backend = backend
         self.ui = uic.loadUi(os.path.join(ROOT_DIR, 'annotation.ui'), self)
         self.setWindowTitle(f"{self.biomarker_type} Annotator")

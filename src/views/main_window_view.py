@@ -73,6 +73,7 @@ class MainWindowView(QObject):
         layout = QGridLayout()
 
         detection_groupbox_ste = QGroupBox(groupbox_title)
+        detection_groupbox_ste.setFont(QFont('Arial', 13))
         ste_parameter_layout = QGridLayout(detection_groupbox_ste)
 
         clear_layout(ste_parameter_layout)
@@ -85,6 +86,13 @@ class MainWindowView(QObject):
         label5 = QLabel('Min Oscillations')
         label6 = QLabel('Peak Threshold')
         label7 = QLabel('RMS Threshold')
+        label1.setFont(text_font)
+        label2.setFont(text_font)
+        label3.setFont(text_font)
+        label4.setFont(text_font)
+        label5.setFont(text_font)
+        label6.setFont(text_font)
+        label7.setFont(text_font)
 
         self.window.ste_epoch_display = QLabel()
         self.window.ste_epoch_display.setStyleSheet("background-color: rgb(235, 235, 235);")
@@ -136,6 +144,7 @@ class MainWindowView(QObject):
         layout = QGridLayout()
 
         detection_groupbox_mni = QGroupBox(groupbox_title)
+        detection_groupbox_mni.setFont(QFont('Arial', 13))
         mni_parameter_layout = QGridLayout(detection_groupbox_mni)
 
         clear_layout(mni_parameter_layout)
@@ -153,6 +162,16 @@ class MainWindowView(QObject):
         label8 = QLabel('Shift')
         label9 = QLabel('Threshold')
         label10 = QLabel('Min Time')
+        label1.setFont(text_font)
+        label2.setFont(text_font)
+        label3.setFont(text_font)
+        label4.setFont(text_font)
+        label5.setFont(text_font)
+        label6.setFont(text_font)
+        label7.setFont(text_font)
+        label8.setFont(text_font)
+        label9.setFont(text_font)
+        label10.setFont(text_font)
 
         self.window.mni_epoch_display = QLabel()
         self.window.mni_epoch_display.setStyleSheet("background-color: rgb(235, 235, 235);")
@@ -224,6 +243,7 @@ class MainWindowView(QObject):
         layout = QGridLayout()
 
         detection_groupbox_hil = QGroupBox(groupbox_title)
+        detection_groupbox_hil.setFont(QFont('Arial', 13))
         hil_parameter_layout = QGridLayout(detection_groupbox_hil)
 
         clear_layout(hil_parameter_layout)
@@ -237,6 +257,12 @@ class MainWindowView(QObject):
         label4 = QLabel('Stop Band (Hz)')
         label5 = QLabel('Sample Frequency')
         label6 = QLabel('SD Threshold')
+        label1.setFont(text_font)
+        label2.setFont(text_font)
+        label3.setFont(text_font)
+        label4.setFont(text_font)
+        label5.setFont(text_font)
+        label6.setFont(text_font)
 
         self.window.hil_epoch_time_display = QLabel()
         self.window.hil_epoch_time_display.setStyleSheet("background-color: rgb(235, 235, 235);")
@@ -283,6 +309,7 @@ class MainWindowView(QObject):
         layout = QGridLayout()
 
         detection_groupbox_yasa = QGroupBox(groupbox_title)
+        detection_groupbox_yasa.setFont(QFont('Arial', 13))
         yasa_parameter_layout = QGridLayout(detection_groupbox_yasa)
 
         clear_layout(yasa_parameter_layout)
@@ -297,6 +324,13 @@ class MainWindowView(QObject):
         label5 = QLabel('rel_pow')
         label6 = QLabel('corr')
         label7 = QLabel('rms')
+        label1.setFont(text_font)
+        label2.setFont(text_font)
+        label3.setFont(text_font)
+        label4.setFont(text_font)
+        label5.setFont(text_font)
+        label6.setFont(text_font)
+        label7.setFont(text_font)
 
         self.window.yasa_freq_sp_display = QLabel()
         self.window.yasa_freq_sp_display.setStyleSheet("background-color: rgb(235, 235, 235);")
@@ -354,6 +388,7 @@ class MainWindowView(QObject):
         layout = QGridLayout()
 
         detection_groupbox = QGroupBox('Detection Parameters')
+        detection_groupbox.setFont(QFont('Arial', 13))
         parameter_layout = QGridLayout(detection_groupbox)
 
         clear_layout(parameter_layout)
@@ -371,6 +406,17 @@ class MainWindowView(QObject):
         label9 = QLabel('sec')
         label10 = QLabel('sec')
         label11 = QLabel('sec')
+        label1.setFont(text_font)
+        label2.setFont(text_font)
+        label3.setFont(text_font)
+        label4.setFont(text_font)
+        label5.setFont(text_font)
+        label6.setFont(text_font)
+        label7.setFont(text_font)
+        label8.setFont(text_font)
+        label9.setFont(text_font)
+        label10.setFont(text_font)
+        label11.setFont(text_font)
 
         self.window.ste_rms_window_input = QLineEdit()
         self.window.ste_rms_window_input.setFont(text_font)
@@ -421,6 +467,7 @@ class MainWindowView(QObject):
         layout = QGridLayout()
 
         detection_groupbox = QGroupBox('Detection Parameters')
+        detection_groupbox.setFont(QFont('Arial', 13))
         parameter_layout = QGridLayout(detection_groupbox)
 
         clear_layout(parameter_layout)
@@ -444,6 +491,23 @@ class MainWindowView(QObject):
         label15 = QLabel('sec')
         label16 = QLabel('%')
         label17 = QLabel('%')
+        label1.setFont(text_font)
+        label2.setFont(text_font)
+        label3.setFont(text_font)
+        label4.setFont(text_font)
+        label5.setFont(text_font)
+        label6.setFont(text_font)
+        label7.setFont(text_font)
+        label8.setFont(text_font)
+        label9.setFont(text_font)
+        label10.setFont(text_font)
+        label11.setFont(text_font)
+        label12.setFont(text_font)
+        label13.setFont(text_font)
+        label14.setFont(text_font)
+        label15.setFont(text_font)
+        label16.setFont(text_font)
+        label17.setFont(text_font)
 
         self.window.mni_epoch_time_input = QLineEdit()
         self.window.mni_epoch_time_input.setFont(text_font)
@@ -509,6 +573,7 @@ class MainWindowView(QObject):
         layout = QGridLayout()
 
         detection_groupbox = QGroupBox('Detection Parameters')
+        detection_groupbox.setFont(QFont('Arial', 13))
         parameter_layout = QGridLayout(detection_groupbox)
 
         clear_layout(parameter_layout)
@@ -527,6 +592,18 @@ class MainWindowView(QObject):
         label11 = QLabel('Hz')
         label12 = QLabel('Hz')
         label13 = QLabel('Hz')
+        label1.setFont(text_font)
+        label2.setFont(text_font)
+        label3.setFont(text_font)
+        label4.setFont(text_font)
+        label5.setFont(text_font)
+        label6.setFont(text_font)
+        label8.setFont(text_font)
+        label9.setFont(text_font)
+        label10.setFont(text_font)
+        label11.setFont(text_font)
+        label12.setFont(text_font)
+        label13.setFont(text_font)
 
         self.window.hil_sample_freq_input = QLineEdit()
         self.window.hil_sample_freq_input.setFont(text_font)
@@ -574,6 +651,7 @@ class MainWindowView(QObject):
         layout = QGridLayout()
 
         detection_groupbox = QGroupBox('Detection Parameters')
+        detection_groupbox.setFont(QFont('Arial', 13))
         parameter_layout = QGridLayout(detection_groupbox)
 
         clear_layout(parameter_layout)
@@ -591,6 +669,17 @@ class MainWindowView(QObject):
         label9 = QLabel('Hz')
         label10 = QLabel('sec')
         label11 = QLabel('ms')
+        label1.setFont(text_font)
+        label2.setFont(text_font)
+        label3.setFont(text_font)
+        label4.setFont(text_font)
+        label5.setFont(text_font)
+        label6.setFont(text_font)
+        label7.setFont(text_font)
+        label8.setFont(text_font)
+        label9.setFont(text_font)
+        label10.setFont(text_font)
+        label11.setFont(text_font)
 
         self.window.yasa_freq_sp_input = QLineEdit()
         self.window.yasa_freq_sp_input.setFont(text_font)

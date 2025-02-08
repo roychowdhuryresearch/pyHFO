@@ -146,7 +146,7 @@ class Classifier():
         model = model.to(self.device)
         features = self.preprocessing_ehfo.process_biomarker_feature(biomarker_feature)
         ehfo_predictions = np.zeros(features.shape[0]) -1
-        keep_index = np.where(biomarker_feature.artifact_predictions > 0)[0]
+        keep_index = np.where(biomarker_feature.artifact_predictions > -10)[0]
         features = features[keep_index]
         if len(features) != 0:
             predictions = inference(model, features, self.device, self.batch_size)

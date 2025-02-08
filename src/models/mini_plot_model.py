@@ -53,15 +53,15 @@ class MiniPlotModel:
         return self.backend.event_features.get_biomarkers_for_channel(channel, t_start, t_end)
 
     def get_all_biomarkers_for_channel_and_color(self, channel, t_start=0, t_end=sys.maxsize):
-        starts, ends, artifacts, spikes, ehfos = self.get_all_biomarkers_for_channel(channel, t_start, t_end)
+        starts, ends, artifacts, spk_hfos, e_hfos = self.get_all_biomarkers_for_channel(channel, t_start, t_end)
         colors = []
         for j in range(len(starts)):
             try:
                 if int(artifacts[j])<1:
                     color = self.color_dict["artifact"]
-                elif spikes[j]:
+                elif spk_hfos[j]:
                     color = self.color_dict["spike"]
-                elif ehfos[j]:
+                elif e_hfos[j]:
                     color = self.color_dict["ehfo"]
                 else:
                     color = self.color_dict["non_spike"]

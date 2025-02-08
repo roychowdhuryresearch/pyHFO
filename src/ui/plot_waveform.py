@@ -34,13 +34,13 @@ class CenterWaveformAndMiniPlotController():
         self.backend = backend
         self.filtered = False
         self.time_window_increment = 100 #in percent
-        self.waveform_color = (0,0,255) #dark blue
-        self.artifact_color=(245,130,48) #orange
-        self.spike_color=(240,30,250) #pink
-        self.non_spike_color=(60,180,75) #green
-        self.HFO_color=self.non_spike_color
-        self.color_dict={"artifact":self.artifact_color,"spike":self.spike_color,
-                         "non_spike":self.non_spike_color,"HFO":self.HFO_color}
+        # self.waveform_color = (0,0,255) #dark blue
+        # self.artifact_color=(245,130,48) #orange
+        # self.spike_color=(240,30,250) #pink
+        # self.non_spike_color=(60,180,75) #green
+        # self.HFO_color=self.non_spike_color
+        # self.color_dict={"artifact":self.artifact_color,"spike":self.spike_color,
+        #                  "non_spike":self.non_spike_color,"HFO":self.HFO_color}
         self.plot_biomarkers = False
         self.normalize_vertical = False
         self.stds = None

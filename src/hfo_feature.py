@@ -44,7 +44,7 @@ class HFO_Feature():
         self.raw_spectrums = raw_spectrums
 
     def __str__(self):
-        return "HFO_Feature: {} HFOs, {} artifacts, {} spikes, {} eHFOs, {} real HFOs".format(
+        return "HFO_Feature: {} HFOs, {} artifacts, {} spkHFOs, {} eHFOs, {} real HFOs".format(
             self.num_HFO, self.num_artifact, self.num_spike, self.num_ehfo, self.num_real)
     @staticmethod
     def construct(channel_names, start_end, HFO_type = "STE", sample_freq = 2000, freq_range = [10, 500], time_range = [0, 1000], feature_size = 224):
@@ -112,7 +112,7 @@ class HFO_Feature():
         if predictions.get("Artifact", 1) != 1:
             return "Artifact"
 
-        priority_order = ["Spike", "eHFO", "HFO"]
+        priority_order = ["spkHFO", "eHFO", "HFO"]
         detected_labels = [label for label in priority_order if predictions.get(label, 0) == 1]
         return " and ".join(detected_labels) if detected_labels else "HFO"
 
@@ -131,7 +131,7 @@ class HFO_Feature():
         end = self.ends[self.index]
 
         prediction = self._get_prediction({'Artifact': self.artifact_predictions[self.index],
-                                           'Spike': self.spike_predictions[self.index],
+                                           'spkHFO': self.spike_predictions[self.index],
                                            'eHFO': self.ehfo_predictions[self.index]}) if self.artifact_predicted else None
         annotation = self._get_annotation(self.artifact_annotations[self.index],
                                           self.pathological_annotations[self.index],

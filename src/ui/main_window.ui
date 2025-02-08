@@ -76,7 +76,7 @@
      </widget>
     </item>
     <item row="3" column="0">
-     <layout class="QGridLayout" name="gridLayout_2" columnstretch="7,3">
+     <layout class="QGridLayout" name="gridLayout_2" columnstretch="8,2">
       <property name="sizeConstraint">
        <enum>QLayout::SetDefaultConstraint</enum>
       </property>
@@ -1749,6 +1749,12 @@
                      <verstretch>0</verstretch>
                     </sizepolicy>
                    </property>
+                   <property name="font">
+                    <font>
+                     <family>Arial</family>
+                     <pointsize>11</pointsize>
+                    </font>
+                   </property>
                   </widget>
                  </item>
                 </layout>
@@ -1776,6 +1782,12 @@
                      <verstretch>0</verstretch>
                     </sizepolicy>
                    </property>
+                   <property name="font">
+                    <font>
+                     <family>Arial</family>
+                     <pointsize>11</pointsize>
+                    </font>
+                   </property>
                   </widget>
                  </item>
                 </layout>
@@ -1802,6 +1814,12 @@
                      <horstretch>0</horstretch>
                      <verstretch>0</verstretch>
                     </sizepolicy>
+                   </property>
+                   <property name="font">
+                    <font>
+                     <family>Arial</family>
+                     <pointsize>11</pointsize>
+                    </font>
                    </property>
                   </widget>
                  </item>
