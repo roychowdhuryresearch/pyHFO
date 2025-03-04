@@ -2,10 +2,14 @@ import torch
 from tqdm import tqdm
 import numpy as np
 from src.param.param_classifier import ParamModel, ParamPreprocessing
+
 def load_ckpt(func, model_path):
     model_load = torch.load(model_path, map_location=torch.device('cpu'), weights_only=False)
     model = model_load["model"]
     return ParamPreprocessing.from_dict(model_load["preprocessing"]), model
+
+def load_preprocessing_param(param_dict):
+    return ParamPreprocessing.from_dict(param_dict)
 
 def load_model(model, state_dict, device):
     model.load_state_dict(state_dict)

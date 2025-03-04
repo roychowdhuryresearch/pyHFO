@@ -1,5 +1,5 @@
 import numpy as np
-from src.utils.utils_inference import inference, load_model, load_ckpt
+from src.utils.utils_inference import *
 from src.param.param_classifier import ParamClassifier
 import torch
 from src.model import PreProcessing, PreProcessing_ehfo, NeuralCNN_ehfo
@@ -20,12 +20,14 @@ class Classifier():
         self.use_ehfo = param.use_ehfo
         self.load_func = torch.load if "default" in self.model_type else torch.load  #torch.hub.load_state_dict_from_url 
         if param.artifact_path:
-            self.update_model_a(param)
-            self.update_model_toy(param)
+            # self.update_model_a(param)
+            self.update_model_artifact(param)
         if param.spike_path:
-            self.update_model_s(param)
+            # self.update_model_s(param)
+            self.update_model_spkhfo(param)
         if param.ehfo_path:
-            self.update_model_e(param)
+            # self.update_model_e(param)
+            self.update_model_ehfo(param)
         
     def update_model_s(self, param:ParamClassifier):
         self.model_type = param.model_type
@@ -77,13 +79,37 @@ class Classifier():
         self.model_e = self.model_e.to(self.device)
         self.preprocessing_ehfo = PreProcessing_ehfo.from_dict(model_load["preprocessing"])
 
-    def update_model_toy(self, param:ParamClassifier):
+    def update_model_spkhfo(self, param:ParamClassifier):
+        self.model_type = param.model_type
+        self.spike_path = param.spike_path
+
+        model = NeuralCNNForImageClassification.from_pretrained('roychowdhuryresearch/HFO-spkHFO')
+
+        preprocessing_param_dict = {'freq_range_hz': [10, 500], 'fs': 2000, 'image_size': 224,
+                                    'random_shift_ms': 50, 'selected_freq_range_hz': [10, 220],
+                                    'selected_window_size_ms': 214.28571429, 'time_range_ms': [0, 1000]}
+        self.param_spike_preprocessing = load_preprocessing_param(preprocessing_param_dict)
+        if self.model_type == "default_cpu":
+            param.device = "cpu"
+        elif self.model_type == "default_gpu":
+            param.device = "cuda:0"
+        else:
+            raise ValueError("Model type not supported!")
+        self.device = param.device if torch.cuda.is_available() else "cpu"
+        self.model_s = model.to(self.device)
+        self.preprocessing_spike = PreProcessing.from_param(self.param_spike_preprocessing)
+
+    def update_model_artifact(self, param:ParamClassifier):
         self.model_type = param.model_type
         self.artifact_path = param.artifact_path
         res_dir = os.path.dirname(param.artifact_path)
-        model = NeuralCNNForImageClassification.from_pretrained(os.path.join(res_dir, 'model_toy'))
+        model = NeuralCNNForImageClassification.from_pretrained('roychowdhuryresearch/HFO-artifact')
 
-        self.param_artifact_preprocessing, _ = load_ckpt(self.load_func, param.artifact_path)
+        preprocessing_param_dict = {'freq_range_hz': [10, 500], 'fs': 2000, 'image_size': 224,
+                                    'random_shift_ms': 50, 'selected_freq_range_hz': [10, 220],
+                                    'selected_window_size_ms': 214.28571429, 'time_range_ms': [0, 1000]
+                                    }
+        self.param_artifact_preprocessing = load_preprocessing_param(preprocessing_param_dict)
         if "default" in self.model_type:
             model.channel_selection = True
             model.input_channels = 1
@@ -94,8 +120,28 @@ class Classifier():
         else:
             raise ValueError("Model type not supported!")
         self.device = param.device if torch.cuda.is_available() else "cpu"
-        self.model_toy = model.to(self.device)
+        self.model_a = model.to(self.device)
         self.preprocessing_artifact = PreProcessing.from_param(self.param_artifact_preprocessing)
+
+    def update_model_ehfo(self, param:ParamClassifier):
+        self.model_type = param.model_type
+        self.ehfo_path = param.ehfo_path
+
+        model = NeuralCNNForImageClassification.from_pretrained('roychowdhuryresearch/HFO-eHFO')
+        preprocessing_param_dict = {'freq_range_hz': [10, 500], 'fs': 2000, 'image_size': 224,
+                                    'random_shift_ms': 0, 'selected_freq_range_hz': [10, 500],
+                                    'selected_window_size_ms': 1000, 'time_range_ms': [0, 2000]}
+        # self.param_ehfo_preprocessing = load_preprocessing_param(preprocessing_param_dict)
+
+        if self.model_type == "default_cpu":
+            param.device = "cpu"
+        elif self.model_type == "default_gpu":
+            param.device = "cuda:0"
+        else:
+            raise ValueError("Model type not supported!")
+        self.device = param.device if torch.cuda.is_available() else "cpu"
+        self.model_e = model.to(self.device)
+        self.preprocessing_ehfo = PreProcessing_ehfo.from_dict(preprocessing_param_dict)
 
     def artifact_detection(self, biomarker_features, ignore_region, threshold=0.5):
         if not self.model_a:

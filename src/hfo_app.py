@@ -314,6 +314,7 @@ class HFO_App(object):
         '''
         self.set_artifact_classifier(param)
         self.set_spike_classifier(param)
+        self.set_ehfo_classifier(param)
 
 
     def set_artifact_classifier(self, param:ParamClassifier):
@@ -335,6 +336,14 @@ class HFO_App(object):
         '''
         self.param_classifier = param
         self.classifier.update_model_s(param)
+
+    def set_ehfo_classifier(self, param: ParamClassifier):
+        '''
+        This is the function should be linked to the confirm button in the set spike window
+
+        '''
+        self.param_classifier = param
+        self.classifier.update_model_e(param)
 
     def set_default_cpu_classifier(self):
         '''

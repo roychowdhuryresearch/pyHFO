@@ -29,8 +29,9 @@ class NeuralCNNModel(PreTrainedModel):
         self.stride = config.stride
         self.padding = config.padding
         self.cnn = models.resnet18(weights=ResNet18_Weights.DEFAULT)
-        self.cnn.conv1 = nn.Conv2d(self.input_channels, self.hidden_size, self.kernel_size, self.stride, self.padding,
-                                   bias=False)
+        if self.input_channels != 3:
+            self.cnn.conv1 = nn.Conv2d(self.input_channels, self.hidden_size, self.kernel_size, self.stride,
+                                       self.padding, bias=False)
         self.cnn.fc = nn.Sequential(nn.Linear(512, self.hidden_size // 2))
         for param in self.cnn.fc.parameters():
             param.requires_grad = not config.freeze
@@ -53,6 +54,8 @@ class NeuralCNNModel(PreTrainedModel):
         a Tensor of output data. We can use Modules defined in the constructor as
         well as arbitrary operators on Tensors.
         """
+
+        x = x[:, 0:self.input_channels, :, :]
         batch = self.cnn(x)
         batch = self.bn(self.relu(self.fc(batch)))
         batch = self.bn1(self.relu1(self.fc1(batch)))
@@ -79,9 +82,10 @@ class NeuralCNNForImageClassification(PreTrainedModel):
         self.stride = config.stride
         self.padding = config.padding
         self.cnn = models.resnet18(weights=ResNet18_Weights.DEFAULT)
-        self.cnn.conv1 = nn.Conv2d(self.input_channels, self.hidden_size, self.kernel_size, self.stride, self.padding,
-                                   bias=False)
-        self.cnn.fc = nn.Linear(512, self.hidden_size // 2)
+        if self.input_channels != 3:
+            self.cnn.conv1 = nn.Conv2d(self.input_channels, self.hidden_size, self.kernel_size, self.stride,
+                                       self.padding, bias=False)
+        self.cnn.fc = nn.Sequential(nn.Linear(512, self.hidden_size // 2))
         for param in self.cnn.fc.parameters():
             param.requires_grad = not config.freeze
         self.bn0 = nn.BatchNorm1d(self.hidden_size // 2)
@@ -105,8 +109,7 @@ class NeuralCNNForImageClassification(PreTrainedModel):
         a Tensor of output data. We can use Modules defined in the constructor as
         well as arbitrary operators on Tensors.
         """
-        if self.input_channels == 1:
-            input_features = input_features[:, 0:1, :, :]
+        input_features = input_features[:, 0:self.input_channels, :, :]
         batch = self.cnn(input_features)
         batch = self.bn(self.relu(self.fc(batch)))
         batch = self.bn1(self.relu1(self.fc1(batch)))
