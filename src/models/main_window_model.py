@@ -217,7 +217,7 @@ class MainWindowModel(QObject):
         safe_connect_signal_slot(self.window.classifier_save_button.clicked, self.set_custom_classifier_param)
 
         # detect_all_button
-        safe_connect_signal_slot(self.window.detect_all_button.clicked, lambda: self.classify(True))
+        safe_connect_signal_slot(self.window.detect_all_button.clicked, self.classify)
         self.window.detect_all_button.setEnabled(False)
         # # self.detect_artifacts_button.clicked.connect(lambda : self.classify(False))
 
@@ -289,10 +289,22 @@ class MainWindowModel(QObject):
     def set_classifier_param_display(self):
         classifier_param = self.backend.get_classifier_param()
 
-        self.window.overview_artifact_path_display.setText(classifier_param.artifact_path)
-        self.window.overview_spike_path_display.setText(classifier_param.spike_path)
+        if classifier_param.artifact_card:
+            self.window.overview_artifact_path_display.setText(classifier_param.artifact_card)
+        elif classifier_param.artifact_path:
+            self.window.overview_artifact_path_display.setText(classifier_param.artifact_path)
+
+        if classifier_param.spike_card:
+            self.window.overview_spike_path_display.setText(classifier_param.spike_card)
+        elif classifier_param.spike_path:
+            self.window.overview_spike_path_display.setText(classifier_param.spike_path)
+
+        if classifier_param.ehfo_card:
+            self.window.overview_ehfo_path_display.setText(classifier_param.ehfo_card)
+        elif classifier_param.ehfo_path:
+            self.window.overview_ehfo_path_display.setText(classifier_param.ehfo_path)
+
         self.window.overview_use_spike_checkbox.setChecked(classifier_param.use_spike)
-        self.window.overview_ehfo_path_display.setText(classifier_param.ehfo_path)
         self.window.overview_use_ehfo_checkbox.setChecked(classifier_param.use_ehfo)
         self.window.overview_device_display.setText(str(classifier_param.device))
         self.window.overview_batch_size_display.setText(str(classifier_param.batch_size))
@@ -300,8 +312,13 @@ class MainWindowModel(QObject):
         # set also the input fields
         self.window.classifier_artifact_filename.setText(classifier_param.artifact_path)
         self.window.classifier_spike_filename.setText(classifier_param.spike_path)
-        self.window.use_spike_checkbox.setChecked(classifier_param.use_spike)
         self.window.classifier_ehfo_filename.setText(classifier_param.ehfo_path)
+
+        self.window.classifier_artifact_card_name.setText(classifier_param.artifact_card)
+        self.window.classifier_spike_card_name.setText(classifier_param.spike_card)
+        self.window.classifier_ehfo_card_name.setText(classifier_param.ehfo_card)
+
+        self.window.use_spike_checkbox.setChecked(classifier_param.use_spike)
         self.window.use_ehfo_checkbox.setChecked(classifier_param.use_ehfo)
         self.window.classifier_device_input.setText(str(classifier_param.device))
         self.window.classifier_batch_size_input.setText(str(classifier_param.batch_size))
@@ -315,10 +332,17 @@ class MainWindowModel(QObject):
         self.set_classifier_param_display()
 
     def set_custom_classifier_param(self):
+        # local
         artifact_path = self.window.classifier_artifact_filename.text()
         spike_path = self.window.classifier_spike_filename.text()
-        use_spike = self.window.use_spike_checkbox.isChecked()
         ehfo_path = self.window.classifier_ehfo_filename.text()
+
+        # hugging face
+        artifact_card = self.window.classifier_artifact_card_name.text()
+        spike_card = self.window.classifier_spike_card_name.text()
+        ehfo_card = self.window.classifier_ehfo_card_name.text()
+
+        use_spike = self.window.use_spike_checkbox.isChecked()
         use_ehfo = self.window.use_ehfo_checkbox.isChecked()
         device = self.window.classifier_device_input.text()
         if device == "cpu":
@@ -336,8 +360,9 @@ class MainWindowModel(QObject):
             return
         batch_size = self.window.classifier_batch_size_input.text()
 
-        classifier_param = ParamClassifier(artifact_path=artifact_path, spike_path=spike_path, use_spike=use_spike,
-                                           ehfo_path=ehfo_path, use_ehfo=use_ehfo,
+        classifier_param = ParamClassifier(artifact_path=artifact_path, spike_path=spike_path, ehfo_path=ehfo_path,
+                                           artifact_card=artifact_card, spike_card=spike_card, ehfo_card=ehfo_card,
+                                           use_spike=use_spike, use_ehfo=use_ehfo,
                                            device=device, batch_size=int(batch_size), model_type=model_type)
         self.backend.set_classifier(classifier_param)
         self.set_classifier_param_display()
@@ -351,13 +376,17 @@ class MainWindowModel(QObject):
         elif model_type == "ehfo":
             self.window.classifier_ehfo_filename.setText(fname)
 
-    def _classify(self, artifact_only=False):
+    def _classify(self):
         threshold = 0.5
         seconds_to_ignore_before = float(self.window.overview_ignore_before_input.text())
         seconds_to_ignore_after = float(self.window.overview_ignore_after_input.text())
         self.backend.classify_artifacts([seconds_to_ignore_before, seconds_to_ignore_after], threshold)
-        if not artifact_only:
+
+        use_spike = self.window.overview_use_spike_checkbox.isChecked()
+        use_ehfo = self.window.overview_use_ehfo_checkbox.isChecked()
+        if use_spike:
             self.backend.classify_spikes()
+        if use_ehfo:
             self.backend.classify_ehfos()
         return []
 
@@ -367,15 +396,9 @@ class MainWindowModel(QObject):
         self.window.waveform_plot.set_plot_biomarkers(True)
         self.window.save_csv_button.setEnabled(True)
 
-    def classify(self, check_spike=True):
+    def classify(self):
         self.message_handler("Classifying HFOs...")
-        if check_spike:
-            use_spike = self.window.overview_use_spike_checkbox.isChecked()
-            use_ehfo = self.window.overview_use_ehfo_checkbox.isChecked()
-        else:
-            use_spike = False
-            use_ehfo = False
-        worker = Worker(lambda progress_callback: self._classify((not use_spike)))
+        worker = Worker(lambda progress_callback: self._classify())
         safe_connect_signal_slot(worker.signals.result, self._classify_finished)
         self.window.threadpool.start(worker)
 

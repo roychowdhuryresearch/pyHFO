@@ -425,6 +425,9 @@
          </item>
          <item>
           <widget class="QWidget" name="widget" native="true">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
            <property name="sizePolicy">
             <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
              <horstretch>0</horstretch>
@@ -983,6 +986,9 @@
                     <layout class="QHBoxLayout" name="horizontalLayout_9">
                      <item>
                       <widget class="QCheckBox" name="overview_use_spike_checkbox">
+                       <property name="enabled">
+                        <bool>false</bool>
+                       </property>
                        <property name="font">
                         <font>
                          <family>Arial</family>
@@ -992,6 +998,9 @@
                        </property>
                        <property name="text">
                         <string>Use spk-HFO</string>
+                       </property>
+                       <property name="checkable">
+                        <bool>true</bool>
                        </property>
                       </widget>
                      </item>
@@ -1183,6 +1192,9 @@
                     <layout class="QHBoxLayout" name="horizontalLayout_19">
                      <item>
                       <widget class="QCheckBox" name="overview_use_ehfo_checkbox">
+                       <property name="enabled">
+                        <bool>false</bool>
+                       </property>
                        <property name="font">
                         <font>
                          <family>Arial</family>
@@ -1742,7 +1754,7 @@
                   </widget>
                  </item>
                  <item>
-                  <widget class="QLineEdit" name="lineEdit_3">
+                  <widget class="QLineEdit" name="classifier_ehfo_card_name">
                    <property name="sizePolicy">
                     <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
                      <horstretch>0</horstretch>
@@ -1754,6 +1766,9 @@
                      <family>Arial</family>
                      <pointsize>11</pointsize>
                     </font>
+                   </property>
+                   <property name="placeholderText">
+                    <string>Model Card Name...</string>
                    </property>
                   </widget>
                  </item>
@@ -1775,7 +1790,7 @@
                   </widget>
                  </item>
                  <item>
-                  <widget class="QLineEdit" name="lineEdit_2">
+                  <widget class="QLineEdit" name="classifier_spike_card_name">
                    <property name="sizePolicy">
                     <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
                      <horstretch>0</horstretch>
@@ -1787,6 +1802,9 @@
                      <family>Arial</family>
                      <pointsize>11</pointsize>
                     </font>
+                   </property>
+                   <property name="placeholderText">
+                    <string>Model Card Name...</string>
                    </property>
                   </widget>
                  </item>
@@ -1808,7 +1826,7 @@
                   </widget>
                  </item>
                  <item>
-                  <widget class="QLineEdit" name="lineEdit">
+                  <widget class="QLineEdit" name="classifier_artifact_card_name">
                    <property name="sizePolicy">
                     <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
                      <horstretch>0</horstretch>
@@ -1820,6 +1838,9 @@
                      <family>Arial</family>
                      <pointsize>11</pointsize>
                     </font>
+                   </property>
+                   <property name="placeholderText">
+                    <string>Model Card Name...</string>
                    </property>
                   </widget>
                  </item>

@@ -326,7 +326,10 @@ class HFO_App(object):
         self.param_classifier = param
         if self.classifier is None:
             self.classifier = Classifier(param)
-        else:
+
+        if param.artifact_card:
+            self.classifier.update_model_artifact(param)
+        elif param.artifact_path:
             self.classifier.update_model_a(param)
 
     def set_spike_classifier(self, param:ParamClassifier):
@@ -335,7 +338,16 @@ class HFO_App(object):
         
         '''
         self.param_classifier = param
-        self.classifier.update_model_s(param)
+        if self.classifier is None:
+            self.classifier = Classifier(param)
+
+        if not param.use_spike:
+            return
+
+        if param.spike_card:
+            self.classifier.update_model_spkhfo(param)
+        elif param.spike_path:
+            self.classifier.update_model_s(param)
 
     def set_ehfo_classifier(self, param: ParamClassifier):
         '''
@@ -343,7 +355,16 @@ class HFO_App(object):
 
         '''
         self.param_classifier = param
-        self.classifier.update_model_e(param)
+        if self.classifier is None:
+            self.classifier = Classifier(param)
+
+        if not param.use_ehfo:
+            return
+
+        if param.ehfo_card:
+            self.classifier.update_model_ehfo(param)
+        elif param.ehfo_path:
+            self.classifier.update_model_e(param)
 
     def set_default_cpu_classifier(self):
         '''
@@ -352,8 +373,12 @@ class HFO_App(object):
         artifact_path = os.path.join(Path(os.path.dirname(__file__)).parent, "ckpt", "model_a.tar")
         spike_path = os.path.join(Path(os.path.dirname(__file__)).parent, "ckpt", "model_s.tar")
         ehfo_path = os.path.join(Path(os.path.dirname(__file__)).parent, "ckpt", "model_e.tar")
-        self.param_classifier = ParamClassifier(artifact_path=artifact_path, spike_path=spike_path, use_spike=True,
-                                                ehfo_path=ehfo_path, use_ehfo=True,
+        artifact_card = 'roychowdhuryresearch/HFO-artifact'
+        spike_card = 'roychowdhuryresearch/HFO-spkHFO'
+        ehfo_card = 'roychowdhuryresearch/HFO-eHFO'
+        self.param_classifier = ParamClassifier(artifact_path=artifact_path, spike_path=spike_path, ehfo_path=ehfo_path,
+                                                artifact_card=artifact_card, spike_card=spike_card, ehfo_card=ehfo_card,
+                                                use_spike=True, use_ehfo=True,
                                                 device="cpu", batch_size=32, model_type="default_cpu")
         self.classifier = Classifier(self.param_classifier)
 
@@ -364,8 +389,12 @@ class HFO_App(object):
         artifact_path = os.path.join(Path(os.path.dirname(__file__)).parent, "ckpt", "model_a.tar")
         spike_path = os.path.join(Path(os.path.dirname(__file__)).parent, "ckpt", "model_s.tar")
         ehfo_path = os.path.join(Path(os.path.dirname(__file__)).parent, "ckpt", "model_e.tar")
-        self.param_classifier = ParamClassifier(artifact_path=artifact_path, spike_path=spike_path, use_spike=True,
-                                                ehfo_path=ehfo_path, use_ehfo=True,
+        artifact_card = 'roychowdhuryresearch/HFO-artifact'
+        spike_card = 'roychowdhuryresearch/HFO-spkHFO'
+        ehfo_card = 'roychowdhuryresearch/HFO-eHFO'
+        self.param_classifier = ParamClassifier(artifact_path=artifact_path, spike_path=spike_path, ehfo_path=ehfo_path,
+                                                artifact_card=artifact_card, spike_card=spike_card, ehfo_card=ehfo_card,
+                                                use_spike=True, use_ehfo=True,
                                                 device="cuda:0", batch_size=32, model_type="default_gpu")
         self.classifier = Classifier(self.param_classifier) 
 

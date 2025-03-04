@@ -18,16 +18,7 @@ class Classifier():
         self.model_type = param.model_type
         self.use_spike = param.use_spike
         self.use_ehfo = param.use_ehfo
-        self.load_func = torch.load if "default" in self.model_type else torch.load  #torch.hub.load_state_dict_from_url 
-        if param.artifact_path:
-            # self.update_model_a(param)
-            self.update_model_artifact(param)
-        if param.spike_path:
-            # self.update_model_s(param)
-            self.update_model_spkhfo(param)
-        if param.ehfo_path:
-            # self.update_model_e(param)
-            self.update_model_ehfo(param)
+        self.load_func = torch.load if "default" in self.model_type else torch.load  #torch.hub.load_state_dict_from_url
         
     def update_model_s(self, param:ParamClassifier):
         self.model_type = param.model_type
@@ -81,9 +72,9 @@ class Classifier():
 
     def update_model_spkhfo(self, param:ParamClassifier):
         self.model_type = param.model_type
-        self.spike_path = param.spike_path
+        self.spike_card = param.spike_card
 
-        model = NeuralCNNForImageClassification.from_pretrained('roychowdhuryresearch/HFO-spkHFO')
+        model = NeuralCNNForImageClassification.from_pretrained(param.spike_card)
 
         preprocessing_param_dict = {'freq_range_hz': [10, 500], 'fs': 2000, 'image_size': 224,
                                     'random_shift_ms': 50, 'selected_freq_range_hz': [10, 220],
@@ -101,9 +92,9 @@ class Classifier():
 
     def update_model_artifact(self, param:ParamClassifier):
         self.model_type = param.model_type
-        self.artifact_path = param.artifact_path
-        res_dir = os.path.dirname(param.artifact_path)
-        model = NeuralCNNForImageClassification.from_pretrained('roychowdhuryresearch/HFO-artifact')
+        self.artifact_card = param.artifact_card
+
+        model = NeuralCNNForImageClassification.from_pretrained(param.artifact_card)
 
         preprocessing_param_dict = {'freq_range_hz': [10, 500], 'fs': 2000, 'image_size': 224,
                                     'random_shift_ms': 50, 'selected_freq_range_hz': [10, 220],
@@ -125,9 +116,9 @@ class Classifier():
 
     def update_model_ehfo(self, param:ParamClassifier):
         self.model_type = param.model_type
-        self.ehfo_path = param.ehfo_path
+        self.ehfo_card = param.ehfo_card
 
-        model = NeuralCNNForImageClassification.from_pretrained('roychowdhuryresearch/HFO-eHFO')
+        model = NeuralCNNForImageClassification.from_pretrained(param.ehfo_card)
         preprocessing_param_dict = {'freq_range_hz': [10, 500], 'fs': 2000, 'image_size': 224,
                                     'random_shift_ms': 0, 'selected_freq_range_hz': [10, 500],
                                     'selected_window_size_ms': 1000, 'time_range_ms': [0, 2000]}
@@ -192,7 +183,7 @@ class Classifier():
         model = model.to(self.device)
         features = self.preprocessing_ehfo.process_biomarker_feature(biomarker_feature)
         ehfo_predictions = np.zeros(features.shape[0]) -1
-        keep_index = np.where(biomarker_feature.artifact_predictions > -10)[0]
+        keep_index = np.where(biomarker_feature.artifact_predictions > 0)[0]
         features = features[keep_index]
         if len(features) != 0:
             predictions = inference(model, features, self.device, self.batch_size)
