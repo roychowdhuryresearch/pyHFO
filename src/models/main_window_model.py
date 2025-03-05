@@ -347,7 +347,7 @@ class MainWindowModel(QObject):
         device = self.window.classifier_device_input.text()
         if device == "cpu":
             model_type = "default_cpu"
-        elif device == "cuda:0" and self.window.gpu:
+        elif device == "cuda:0" and self.gpu:
             model_type = "default_gpu"
         else:
             # print("device not recognized, please set to cpu for cpu or cuda:0 for gpu")

@@ -19,11 +19,9 @@ class HFO_Feature():
             self.features = features
             self.artifact_predictions = np.zeros(self.starts.shape)
             self.artifact_annotations = np.zeros(self.starts.shape)
-            self.spike_predictions = []
-            # self.spike_annotations = np.zeros(self.starts.shape)
+            self.spike_predictions = np.array([])
+            self.ehfo_predictions = np.array([])
             self.pathological_annotations = np.zeros(self.starts.shape)
-            self.ehfo_predictions = []
-            # self.ehfo_annotations = np.zeros(self.starts.shape)
             self.physiological_annotations = np.zeros(self.starts.shape)
             self.annotated = np.zeros(self.starts.shape)
         self.HFO_type = HFO_type
@@ -52,8 +50,13 @@ class HFO_Feature():
         Construct HFO_Feature object from detector output
         '''
         channel_names = np.concatenate([[channel_names[i]]*len(start_end[i]) for i in range(len(channel_names))])
-        start_end = [start_end[i] for i in range(len(start_end)) if len(start_end[i])>0]
-        start_end = np.concatenate(start_end) if len(start_end) > 0 else np.array([])
+        start_end = [se for se in start_end if se]
+        start_end = np.concatenate(start_end) if start_end else np.empty((0, 2), dtype=int)
+
+        # Filter out long event
+        valid_indices = np.where((start_end[:, 1] - start_end[:, 0]) < sample_freq)[0] if start_end.size > 0 else np.array([])
+        start_end = start_end[valid_indices] if valid_indices.size > 0 else np.empty((0, 2), dtype=int)
+        channel_names = channel_names[valid_indices] if valid_indices.size > 0 else np.array([])
         return HFO_Feature(channel_names, start_end, np.array([]), HFO_type, sample_freq, freq_range, time_range, feature_size)
     
     def get_num_biomarker(self):

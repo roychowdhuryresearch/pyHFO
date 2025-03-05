@@ -457,15 +457,17 @@ class HFO_App(object):
             "param_filter": self.param_filter.to_dict() if self.param_filter else None,
             "HFOs": self.HFOs,
             "param_detector": self.param_detector.to_dict() if self.param_detector else None,
-            "HFO_features": self.event_features.to_dict() if self.event_features else None,
+            "event_features": self.event_features.to_dict() if self.event_features else None,
             "param_classifier": self.param_classifier.to_dict() if self.param_classifier else None,
             "classified": self.classified,
             "filtered": self.filtered,
             "detected": self.detected,
             "artifact_predictions": np.array(self.event_features.artifact_predictions),
             "spike_predictions": np.array(self.event_features.spike_predictions),
+            "ehfo_predictions": np.array(self.event_features.ehfo_predictions),
             "artifact_annotations": np.array(self.event_features.artifact_annotations),
-            "spike_annotations": np.array(self.event_features.spike_annotations),
+            "pathological_annotations": np.array(self.event_features.pathological_annotations),
+            "physiological_annotations": np.array(self.event_features.physiological_annotations),
             "annotated": np.array(self.event_features.annotated),
         }
         dump_to_npz(checkpoint, path)
@@ -479,29 +481,32 @@ class HFO_App(object):
         app = HFO_App()
         app.n_jobs = checkpoint["n_jobs"].item()
         app.eeg_data = checkpoint["eeg_data"]
+        app.eeg_data_un60 = checkpoint["eeg_data"]
         app.edf_param = checkpoint["edf_param"].item()
-        app.sample_freq = checkpoint["sample_freq"]
+        app.sample_freq = checkpoint["sample_freq"].item()
         app.channel_names = checkpoint["channel_names"]
         app.classified = checkpoint["classified"].item()
         app.filtered = checkpoint["filtered"].item()
         app.detected = checkpoint["detected"].item()
-        app.event_features.artifact_predictions = checkpoint["artifact_predictions"].item()
-        app.event_features.spike_predictions = checkpoint["spike_predictions"].item()
-        app.event_features.artifact_annotations = checkpoint["artifact_annotations"].item()
-        app.event_features.spike_annotations = checkpoint["spike_annotations"].item()
-        app.event_features.annotated = checkpoint["annotated"].item()
+
         if app.filtered:
             app.param_filter = ParamFilter.from_dict(checkpoint["param_filter"].item())
             app.filter_eeg_data(app.param_filter)
+        if app.classified:
+            app.param_classifier = ParamClassifier.from_dict(checkpoint["param_classifier"].item())
+
         if app.detected:
             # print("detected HFOs")
             app.HFOs = checkpoint["HFOs"]
             app.param_detector = ParamDetector.from_dict(checkpoint["param_detector"].item())
-            #print("new HFO features")
-            app.event_features = HFO_Feature.from_dict(checkpoint["HFO_features"].item())
-            # print(app.event_features)
-        if app.classified:
-            app.param_classifier = ParamClassifier.from_dict(checkpoint["param_classifier"].item())
+            app.event_features = HFO_Feature.from_dict(checkpoint["event_features"].item())
+            app.event_features.artifact_predictions = checkpoint["artifact_predictions"]
+            app.event_features.spike_predictions = checkpoint["spike_predictions"]
+            app.event_features.ehfo_predictions = checkpoint["ehfo_predictions"]
+            app.event_features.artifact_annotations = checkpoint["artifact_annotations"]
+            app.event_features.pathological_annotations = checkpoint["pathological_annotations"]
+            app.event_features.physiological_annotations = checkpoint["physiological_annotations"]
+            app.event_features.annotated = checkpoint["annotated"]
         return app
         
     def export_features(self, folder):
