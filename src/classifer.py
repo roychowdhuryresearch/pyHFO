@@ -2,7 +2,7 @@ import numpy as np
 from src.utils.utils_inference import *
 from src.param.param_classifier import ParamClassifier
 import torch
-from src.model import PreProcessing, PreProcessing_ehfo, NeuralCNN_ehfo
+from src.model import PreProcessing, NeuralCNN_ehfo
 import src.model
 from transformers import TrainingArguments, ViTForImageClassification
 from transformers import Trainer
@@ -56,7 +56,7 @@ class Classifier():
         self.model_type = param.model_type
         self.ehfo_path = param.ehfo_path
         import sys
-        sys.modules['src.model_pyhfo'] = src.model
+        sys.modules['src.model_pyhfo_process'] = src.model
         model_load = torch.load(self.ehfo_path, map_location=torch.device('cpu'), weights_only=False)
         self.model_e = model_load["model"]
 
@@ -68,7 +68,7 @@ class Classifier():
             raise ValueError("Model type not supported!")
         self.device = param.device if torch.cuda.is_available() else "cpu"
         self.model_e = self.model_e.to(self.device)
-        self.preprocessing_ehfo = PreProcessing_ehfo.from_dict(model_load["preprocessing"])
+        self.preprocessing_ehfo = PreProcessing.from_dict(model_load["preprocessing"])
 
     def update_model_spkhfo(self, param:ParamClassifier):
         self.model_type = param.model_type
@@ -121,7 +121,7 @@ class Classifier():
         model = NeuralCNNForImageClassification.from_pretrained(param.ehfo_card)
         preprocessing_param_dict = {'freq_range_hz': [10, 500], 'fs': 2000, 'image_size': 224,
                                     'random_shift_ms': 0, 'selected_freq_range_hz': [10, 500],
-                                    'selected_window_size_ms': 1000, 'time_range_ms': [0, 2000]}
+                                    'selected_window_size_ms': 500, 'time_range_ms': [0, 1000]}
         # self.param_ehfo_preprocessing = load_preprocessing_param(preprocessing_param_dict)
 
         if self.model_type == "default_cpu":
@@ -132,7 +132,7 @@ class Classifier():
             raise ValueError("Model type not supported!")
         self.device = param.device if torch.cuda.is_available() else "cpu"
         self.model_e = model.to(self.device)
-        self.preprocessing_ehfo = PreProcessing_ehfo.from_dict(preprocessing_param_dict)
+        self.preprocessing_ehfo = PreProcessing.from_dict(preprocessing_param_dict)
 
     def artifact_detection(self, biomarker_features, ignore_region, threshold=0.5):
         if not self.model_a:
@@ -182,6 +182,9 @@ class Classifier():
             raise ValueError("Please run artifact classifier first!")
         model = model.to(self.device)
         features = self.preprocessing_ehfo.process_biomarker_feature(biomarker_feature)
+        features = features[:, 0, :, :]
+        features = np.expand_dims(features, axis=1)  # New shape: (batch, 1, height, width)
+        features = np.repeat(features, repeats=3, axis=1)  # New shape: (batch, 3, height, w
         ehfo_predictions = np.zeros(features.shape[0]) -1
         keep_index = np.where(biomarker_feature.artifact_predictions > 0)[0]
         features = features[keep_index]
@@ -197,7 +200,7 @@ if __name__ == '__main__':
     device = "cpu"
     ehfo_path = '/Users/duanchenda/Desktop/gitplay/pyHFO/ckpt/model_e.tar'
     import sys
-    sys.modules['src.model_pyhfo'] = src.model
+    sys.modules['src.model_pyhfo_process'] = src.model
     ckpt = torch.load(ehfo_path, map_location=device, weights_only=False)
 
     model_e = ckpt["model"].to(device).float()
