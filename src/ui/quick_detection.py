@@ -49,6 +49,8 @@ class HFOQuickDetector(QtWidgets.QDialog):
                                  lambda: self.choose_model_file("artifact"))
         safe_connect_signal_slot(self.qd_choose_spike_model_button.clicked,
                                  lambda: self.choose_model_file("spike"))
+        safe_connect_signal_slot(self.qd_choose_ehfo_model_button.clicked,
+                                 lambda: self.choose_model_file("ehfo"))
 
         safe_connect_signal_slot(self.run_button.clicked, self.run)
         self.run_button.setEnabled(False)
@@ -247,15 +249,18 @@ class HFOQuickDetector(QtWidgets.QDialog):
         artifact_path = self.qd_classifier_artifact_filename_display.text()
         spike_path = self.qd_classifier_spike_filename_display.text()
         use_spike = self.qd_use_spikes_checkbox.isChecked()
+        use_ehfo = self.qd_use_ehfo_checkbox.isChecked()
         device = self.qd_classifier_device_input.text()
         batch_size = self.qd_classifier_batch_size_input.text()
 
-        classifier_param = ParamClassifier(artifact_path=artifact_path, spike_path=spike_path, use_spike=use_spike,
-                                          device=device, batch_size=int(batch_size))
+        classifier_param = ParamClassifier(artifact_path=artifact_path, spike_path=spike_path,
+                                           use_spike=use_spike, use_ehfo=use_ehfo,
+                                           device=device, batch_size=int(batch_size))
         
         seconds_before = float(self.qd_ignore_sec_before_input.text())
         seconds_after = float(self.qd_ignore_sec_after_input.text())
-        return {"classifier_param":classifier_param,"use_spike":use_spike, "seconds_before":seconds_before, "seconds_after":seconds_after}
+        return {"classifier_param": classifier_param, "use_spike": use_spike, "use_ehfo": use_ehfo,
+                "seconds_before": seconds_before, "seconds_after": seconds_after}
     
     def set_classifier_param_display(self):
         classifier_param = self.backend.get_classifier_param()
@@ -263,7 +268,9 @@ class HFOQuickDetector(QtWidgets.QDialog):
         #set also the input fields
         self.qd_classifier_artifact_filename_display.setText(classifier_param.artifact_path)
         self.qd_classifier_spike_filename_display.setText(classifier_param.spike_path)
+        self.qd_classifier_ehfo_filename_display.setText(classifier_param.ehfo_path)
         self.qd_use_spikes_checkbox.setChecked(classifier_param.use_spike)
+        self.qd_use_ehfo_checkbox.setChecked(classifier_param.use_ehfo)
         self.qd_classifier_device_input.setText(str(classifier_param.device))
         self.qd_classifier_batch_size_input.setText(str(classifier_param.batch_size))
 
@@ -281,6 +288,8 @@ class HFOQuickDetector(QtWidgets.QDialog):
             self.qd_classifier_artifact_filename_display.setText(fname)
         elif model_type == "spike":
             self.qd_classifier_spike_filename_display.setText(fname)
+        elif model_type == "ehfo":
+            self.qd_classifier_ehfo_filename_display.setText(fname)
     
     def _detect(self, progress_callback):
         #call detect HFO function on backend

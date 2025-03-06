@@ -45,12 +45,12 @@ class HFO_Feature():
         return "HFO_Feature: {} HFOs, {} artifacts, {} spkHFOs, {} eHFOs, {} real HFOs".format(
             self.num_HFO, self.num_artifact, self.num_spike, self.num_ehfo, self.num_real)
     @staticmethod
-    def construct(channel_names, start_end, HFO_type = "STE", sample_freq = 2000, freq_range = [10, 500], time_range = [0, 1000], feature_size = 224):
+    def construct(channel_names, start_end, HFO_type="STE", sample_freq=2000, freq_range=[10, 500], time_range=[0, 1000], feature_size=224):
         '''
         Construct HFO_Feature object from detector output
         '''
         channel_names = np.concatenate([[channel_names[i]]*len(start_end[i]) for i in range(len(channel_names))])
-        start_end = [se for se in start_end if se]
+        start_end = [se for se in start_end if len(se) > 0]
         start_end = np.concatenate(start_end) if start_end else np.empty((0, 2), dtype=int)
 
         # Filter out long event
