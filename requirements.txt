@@ -1,7 +1,7 @@
 HFODetector
 matplotlib
 mne
-numpy
+numpy==1.26.4
 p_tqdm
 pandas
 openpyxl
