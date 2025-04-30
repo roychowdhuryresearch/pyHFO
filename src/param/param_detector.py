@@ -123,7 +123,7 @@ class ParamMNI:
         )
 
 class ParamHIL:
-    def __init__(self, sample_freq=2000, pass_band=80, stop_band=500, epoch_time=10, sd_threshold=5, min_window=0.006, n_jobs=32):
+    def __init__(self, sample_freq=2000, pass_band=80, stop_band=500, epoch_time=3600, sd_threshold=5, min_window=0.01, n_jobs=32):
         self.sample_freq = sample_freq
         self.pass_band = pass_band
         self.stop_band = stop_band
