@@ -50,6 +50,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 import scipy.fft as fft
 
 
+
 def custom_formatter(x, pos):
     # if number >1000, then use scientific notation but still fix the width to 5
     max_width = 5
@@ -65,138 +66,295 @@ class AnnotationPlot(FigureCanvasQTAgg):
         fig,self.axs = plt.subplots(3,1,figsize=(width, height), dpi=dpi)
         super(AnnotationPlot, self).__init__(fig)
         self.backend = backend
-        self.interval = 1.0
+        self.interval = (1.0, 1.0, 1.0)
 
         FigureCanvasQTAgg.setSizePolicy(self, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         FigureCanvasQTAgg.updateGeometry(self)
         # self.setParent(parent)
         # self.plot()
 
-    def set_current_interval(self, interval):
-        self.interval = interval
+    def set_current_interval(self, interval, ax_idx):
+        list_interval = list(self.interval)
+        list_interval[ax_idx] = interval
+        self.interval = tuple(list_interval)
 
-    def plot(self,start_index: int = None, end_index: int = None, channel:str = None):
-        #first clear the plot
+    def configure_plot_axes(self, ax, title, ylabel, yformatter, xlim=None, ylim=None):
+        """
+        Configure a matplotlib axis with title, label, formatters, and limits.
+        
+        Args:
+            ax (matplotlib.axes.Axes): Axis to configure.
+            title (str): Title of the plot.
+            ylabel (str): Y-axis label.
+            yformatter (Formatter): Y-axis formatter.
+            xlim (tuple, optional): X-axis limits.
+            ylim (tuple, optional): Y-axis limits.
+        """
+        ax.set_title(title)
+        ax.set_ylabel(ylabel, rotation=90, labelpad=6)
+        ax.set_xlabel("Time (s)")
+        ax.yaxis.set_major_formatter(yformatter)
+        ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f"{x:.1f}"))
+        ax.yaxis.set_label_position("right")
+        if ylim:
+            ax.set_ylim(ylim)
+        if xlim:
+            ax.set_xlim(xlim)
+    
+    def compute_tf_global_minmax(self, event_start_index, event_end_index, channel):
+        fs = self.backend.sample_freq
+        # Use the default window for the event
+        unfiltered_eeg_data, channel_names = self.backend.get_eeg_data(event_start_index, event_end_index)
+        unfiltered = unfiltered_eeg_data[channel_names == channel, :][0]
+        tf_data = calculate_time_frequency(unfiltered, fs, freq_min=10, freq_max=500)
+        self.tf_vmin = np.min(tf_data)
+        self.tf_vmax = np.max(tf_data)
+
+    def plot(self, event_start_index: int = None, event_end_index: int = None, channel: str = None, xlims: list = None, ylims: list = None):
         for ax in self.axs:
             ax.cla()
-        # check if the index are in correct range
-        if None:
-            return
-        if start_index < 0:
+
+        if event_start_index is None or event_start_index < 0:
             return
 
-        channel_name = channel
         fs = self.backend.sample_freq
+        channel_name = channel
         prediction = self.backend.event_features.get_current_info()["prediction"]
-        if prediction is not None:
-            event_color = COLOR_MAP[prediction]
-        else:
-            event_color = COLOR_MAP['HFO']
+        event_color = COLOR_MAP.get(prediction, COLOR_MAP['HFO'])
         signal_color = COLOR_MAP['waveform']
-
-        #both sets of data (filtered/unfiltered) for plots
+        win_len = int(fs * self.interval[0])
         length = self.backend.get_eeg_data_shape()[1]
-        # window_start_index, window_end_index, relative_start_index, relative_end_end = calcuate_boundary(plot_start_index, plot_end_index, length, fs)
-        window_start_index, window_end_index, relative_start_index, relative_end_end = calcuate_boundary(start_index, end_index, length, win_len=fs * self.interval)
-        unfiltered_eeg_data, self.channel_names = self.backend.get_eeg_data(window_start_index, window_end_index)
-        filtered_eeg_data,_ = self.backend.get_eeg_data(window_start_index, window_end_index, filtered=True)
 
-        unfiltered_eeg_data_to_display_one = unfiltered_eeg_data[self.channel_names == channel_name,:][0]
-        filtered_eeg_data_to_display = filtered_eeg_data[self.channel_names == channel_name,:][0]
-        # print("window_start_index: ", window_start_index)
-        # print("window_end_index: ", window_end_index)
-        # print("relative_start_index: ", relative_start_index)
-        # print("relative_end_end: ", relative_end_end)
-        time_to_display = np.arange(0, unfiltered_eeg_data_to_display_one.shape[0])/fs+window_start_index/fs
-        # print("this is time to display: ", time_to_display.shape)
-        # print("this is unfiltered_eeg_data_to_display_one: ", unfiltered_eeg_data_to_display_one.shape)
-        # print("this is filtered_eeg_data_to_display: ", filtered_eeg_data_to_display.shape)
-        self.axs[0].set_title("EEG Tracing")
-        self.axs[0].plot(time_to_display, unfiltered_eeg_data_to_display_one, color=signal_color)
-        # self.axs[0].plot(time_to_display[int(start_index - window_start_index):int(end_index - window_start_index)],
-        #                  unfiltered_eeg_data_to_display_one[int(start_index - window_start_index):int(end_index - window_start_index)], color='orange')
-        self.axs[0].plot(time_to_display[relative_start_index:relative_end_end], unfiltered_eeg_data_to_display_one[relative_start_index:relative_end_end], color=event_color)
-        self.axs[0].set_xticks([])
-        # keep the y axis label fixed (not moving when the plot is updated)
+        boundary_template = {
+            "window_start_time": 0,
+            "window_end_time": 0,
+            "window_start_index": 0,
+            "window_end_index": 0,
+            "relative_start_index": 0,
+            "relative_end_index": 0
+        }
 
-        self.axs[0].set_ylabel('Amplitude (uV)', rotation=90, labelpad=5)
-        self.axs[0].yaxis.set_major_formatter(ticker.FuncFormatter(custom_formatter))
-        #self.axs[0].yaxis.set_label_coords(-0.1, 0.5)
-        # set the y axis label to the right side
-        self.axs[0].yaxis.set_label_position("right")
-        self.axs[0].set_ylim([unfiltered_eeg_data_to_display_one.min(), unfiltered_eeg_data_to_display_one.max()])
+        boundaries = [boundary_template.copy() for _ in range(3)]
 
-        middle_index = (relative_start_index + relative_end_end) // 2
-        half_interval_samples = int((self.interval * fs) // 2)
-        plot_start_index = max(0, int(middle_index - half_interval_samples))
-        plot_end_index = int(min(self.backend.get_eeg_data_shape()[1], middle_index + half_interval_samples))
-        plot_start_index = max(0, min(len(time_to_display) - 1, plot_start_index))
-        plot_end_index = min(len(time_to_display) - 1, int(middle_index + half_interval_samples))
+        # Determine window in time
+        if xlims is not None:
+            for i in range(3):
+                boundaries[i]["window_start_time"] = xlims[i][0]
+                boundaries[i]["window_end_time"] = xlims[i][1]
+                boundaries[i]["window_start_index"] = int(boundaries[i]["window_start_time"] * fs)
+                boundaries[i]["window_end_index"] = int(boundaries[i]["window_end_time"] * fs)
+                boundaries[i]["relative_start_index"] = max(0, event_start_index - boundaries[i]["window_start_index"])
+                boundaries[i]["relative_end_index"] = max(0, event_end_index - boundaries[i]["window_start_index"])
+        else:
+            # Use same default boundary for all 3 subplots
+            ws_idx, we_idx, rs_idx, re_idx = calculate_default_boundary(
+                event_start_index, event_end_index, length, win_len=win_len
+            )
+            for i in range(3):
+                boundaries[i]["window_start_index"] = ws_idx
+                boundaries[i]["window_end_index"] = we_idx
+                boundaries[i]["relative_start_index"] = rs_idx
+                boundaries[i]["relative_end_index"] = re_idx
+                boundaries[i]["window_start_time"] = ws_idx / fs
+                boundaries[i]["window_end_time"] = we_idx / fs
 
-        # print(f"time_to_display range: {time_to_display[0]} to {time_to_display[-1]}")
-        # print(f"plot_start_index: {plot_start_index}")
-        # print(f"plot_end_index: {plot_end_index}")
-        # print(f"relative_start_index: {relative_start_index}")
-        # print(f"relative_end_index: {relative_end_end}")
+        # Get EEG data
+        # === Get unfiltered EEG data for Plot 0 ===
+        unfiltered_eeg_data, self.channel_names = self.backend.get_eeg_data(
+            boundaries[0]["window_start_index"],
+            boundaries[0]["window_end_index"]
+        )
+    
+        # === Get filtered EEG data for Plot 1 ===
+        filtered_eeg_data, _ = self.backend.get_eeg_data(
+            boundaries[1]["window_start_index"],
+            boundaries[1]["window_end_index"],
+            filtered=True
+        )
 
-        self.axs[0].set_xlim(time_to_display[plot_start_index], time_to_display[plot_end_index])
+        unfiltered_eeg_data_2, self.channel_names = self.backend.get_eeg_data(
+            boundaries[2]["window_start_index"],
+            boundaries[2]["window_end_index"]
+        )
 
-        #self.axs[0].grid()
-        # print("this is time to display: ", time_to_display.shape)
-        # print("this is filtered_eeg_data_to_display: ", filtered_eeg_data_to_display.shape)
-        self.axs[1].set_title("Filtered Tracing")
-        self.axs[1].plot(time_to_display, filtered_eeg_data_to_display,  color=signal_color)
-        # self.axs[1].plot(time_to_display[int(start_index - window_start_index):int(end_index - window_start_index)],
-        #     filtered_eeg_data_to_display[int(start_index - window_start_index):int(end_index - window_start_index)], color='orange')
-        self.axs[1].plot(time_to_display[relative_start_index:relative_end_end], filtered_eeg_data_to_display[relative_start_index:relative_end_end], color=event_color)
+        # === Slice channels ===
+        unfiltered = unfiltered_eeg_data[self.channel_names == channel_name, :][0]
+        filtered = filtered_eeg_data[self.channel_names == channel_name, :][0]
+        unfiltered_2 = unfiltered_eeg_data_2[self.channel_names == channel_name, :][0]
 
-        self.axs[1].set_ylabel('Amplitude (uV)', rotation=90, labelpad=6)
-        self.axs[1].set_xticks([])
-        self.axs[1].yaxis.set_major_formatter(ticker.FuncFormatter(custom_formatter))
-        #self.axs[1].yaxis.set_label_coords(-0.1, 0.5)
-        # set the y axis label to the right side
-        self.axs[1].yaxis.set_label_position("right")
-        self.axs[1].set_ylim([filtered_eeg_data_to_display.min(), filtered_eeg_data_to_display.max()])  # Set y-axis limits
-        self.axs[1].set_xlim(time_to_display[plot_start_index], time_to_display[plot_end_index])
+        # === Time-to-display for each subplot ===
+        time0 = np.arange(unfiltered.shape[0]) / fs + boundaries[0]["window_start_time"]
+        time1 = np.arange(filtered.shape[0]) / fs + boundaries[1]["window_start_time"]
+        time2 = np.arange(unfiltered_2.shape[0]) / fs + boundaries[2]["window_start_time"]  # Use same signal for TF
 
-        #self.axs[1].grid()
+        # === Default xlims ===
+        default_xlim_0 = (time0[0], time0[-1])
+        default_xlim_1 = (time1[0], time1[-1])
+        default_xlim_2 = (time2[0], time2[-1])
 
-        time_frequency = calculate_time_frequency(unfiltered_eeg_data_to_display_one, fs, freq_min=10, freq_max=500)
-        self.axs[2].set_title("Time Frequency")
-        self.axs[2].imshow(time_frequency,extent=[time_to_display[0], time_to_display[-1], 10, 500], aspect='auto', cmap='jet')
-        # set xticks as time
-        self.axs[2].set_xticks(np.linspace(time_to_display[0], time_to_display[-1], 5))
-        self.axs[2].set_xticklabels(np.round(np.linspace(time_to_display[0], time_to_display[-1], 5),1))
-        # set yticks as frequency
-        self.axs[2].set_yticks(np.linspace(10, 500, 5).astype(int))
-        self.axs[2].yaxis.set_major_formatter(ticker.FuncFormatter(custom_formatter))
+        # === Plot 1: Unfiltered ===
+        y0lim = ylims[0] if ylims is not None and ylims[0] is not None else (unfiltered.min(), unfiltered.max())
+        x0lim = xlims[0] if xlims is not None and xlims[0] is not None else default_xlim_0
+        self.axs[0].plot(time0, unfiltered, color=signal_color)
+        start0 = boundaries[0]["relative_start_index"]
+        end0 = boundaries[0]["relative_end_index"]
+        self.axs[0].plot(time0[start0:end0], unfiltered[start0:end0], color=event_color)
+        self.configure_plot_axes(self.axs[0], "EEG Tracing", 'Amplitude (uV)', ticker.FuncFormatter(custom_formatter), x0lim, y0lim)
+
+        # === Plot 2: Filtered ===
+        y1lim = ylims[1] if ylims is not None and ylims[1] is not None else (filtered.min(), filtered.max())
+        x1lim = xlims[1] if xlims is not None and xlims[1] is not None else default_xlim_1
+        self.axs[1].plot(time1, filtered, color=signal_color)
+        start1 = boundaries[1]["relative_start_index"]
+        end1 = boundaries[1]["relative_end_index"]
+        self.axs[1].plot(time1[start1:end1], filtered[start1:end1], color=event_color)
+        self.configure_plot_axes(self.axs[1], "Filtered Tracing", 'Amplitude (uV)', ticker.FuncFormatter(custom_formatter), x1lim, y1lim)
+
+        # === Plot 3: Time-Frequency ===
+        x2lim = xlims[2] if xlims is not None and xlims[2] is not None else default_xlim_2
+        y2lim = ylims[2] if ylims is not None and ylims[2] is not None else (10, 500)
+        tf_data = calculate_time_frequency(unfiltered_2, fs, freq_min=y2lim[0], freq_max=y2lim[1])
+        self.compute_tf_global_minmax(event_start_index, event_end_index, channel)
+        self.axs[2].imshow(tf_data, extent=[time2[0], time2[-1], y2lim[0], y2lim[1]], aspect='auto', cmap='jet', vmin = self.tf_vmin, vmax = self.tf_vmax)
+        self.axs[2].set_xticks(np.linspace(time2[0], time2[-1], 5))
+        ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f"{x:.1f}"))
+        self.axs[2].set_xticklabels(np.round(np.linspace(time2[0], time2[-1], 5), 1))
+        self.axs[2].set_yticks(np.linspace(y2lim[0], y2lim[1], 5).astype(int))
+        self.configure_plot_axes(self.axs[2], "Time Frequency", 'Frequency (Hz)', ticker.FuncFormatter(custom_formatter), x2lim, y2lim)
         self.axs[2].set_xlabel('Time (s)')
-        self.axs[2].set_ylabel('Frequency (Hz)', rotation=90, labelpad=4)
-        #self.axs[2].yaxis.set_label_coords(-0.1, 0.5)
-        # set the y axis label to the right side
-        self.axs[2].yaxis.set_label_position("right")
-        self.axs[2].set_xlim(time_to_display[plot_start_index], time_to_display[plot_end_index])
 
-        #share x axis
-        #self.axs[0].sharex(self.axs[1])
-        # self.axs[0].sharex(self.axs[2])
-        #self.axs[1].sharex(self.axs[2])
-        #call the draw function
         plt.tight_layout()
         self.draw()
+
+        #print(time2[0])
+
+
+    def get_active_axes_index(self, event):
+        """
+        Determine which subplot the mouse is currently over (plotting area only).
+        Returns:
+            int: Index of self.axs the mouse is over, or None if not over any.
+        """
+        for i, ax in enumerate(self.axs):
+            bbox = ax.get_position()  # in figure coordinates
+            fig_w, fig_h = self.figure.get_size_inches() * self.figure.dpi  # in pixels
+            left = bbox.x0 * fig_w
+            right = bbox.x1 * fig_w
+            bottom = (1 - bbox.y1) * fig_h  # flip because (0,0) is top-left in Qt coords
+            top = (1 - bbox.y0) * fig_h
+
+            if left <= event.x() <= right and bottom <= event.y() <= top:
+                return i
+        return None
+    
+    def wheelEvent(self, event):
+        
+        if not self.backend:
+            return
+        
+        ax_idx = self.get_active_axes_index(event)
+        #print(f"Wheel event on axis index: {ax_idx}")
+        if ax_idx is None:
+            return
+        
+        event_info = self.backend.event_features.get_current_info()
+        start_index = int(event_info["start_index"])
+        end_index = int(event_info["end_index"])
+        channel = event_info["channel_name"]
+        fs = self.backend.sample_freq
+
+        # Initialize full xlims and ylims for all axes
+        xlims = []
+        ylims = []
+        for ax in self.axs:
+            xlims.append(ax.get_xlim())
+            ylims.append(ax.get_ylim())
+
+        is_zoom_in = event.angleDelta().y() > 0
+
+        # Zoom factor
+        zoom_amount = 1.3
+        zoom_factor = 1/zoom_amount if is_zoom_in else zoom_amount
+        new_interval = self.interval[ax_idx] * zoom_factor
+        # Allow zoom factor to change even when hitting boundaries, but keep reasonable limits
+        if new_interval < 0.01 or new_interval > 100.0:
+            print(f"New interval {new_interval} is out of reasonable bounds")
+            return
+
+        # Get mouse position in data coords
+        qt_x = event.pos().x()
+        qt_y = event.pos().y()
+        widget_h = self.height()
+
+        mpl_x = qt_x
+        mpl_y = widget_h - qt_y  # flip y-axis
+
+        inv = self.axs[ax_idx].transData.inverted()
+        try:
+            xdata, ydata = inv.transform((mpl_x, mpl_y))
+        except Exception as e:
+            print(f"Transform failed: {e}")
+            return
+
+        # Determine relative mouse position on the axes
+        y_min, y_max = self.axs[ax_idx].get_ylim()
+        axes_bbox = self.axs[ax_idx].get_window_extent()
+        y_range = y_max - y_min
+        y_frac = (ydata - y_min) / y_range
+        x_frac = (qt_x - axes_bbox.x0) / axes_bbox.width
+
+        # Calculate new window start so that xdata stays at the same relative position
+        new_window_start = xdata - new_interval * x_frac
+        new_window_end = new_window_start + new_interval
+        new_y_range = y_range * zoom_factor
+        new_y_min = ydata - new_y_range * y_frac
+        new_y_max = new_y_min + new_y_range
+
+        # Always update the interval to maintain consistent zoom behavior
+        self.set_current_interval(new_interval, ax_idx)
+        
+        # Get data bounds
+        total_samples = self.backend.get_eeg_data_shape()[1]  # shape is (channels, samples)
+        total_duration = total_samples / fs
+        
+        # Clamp x-axis window to data bounds while maintaining zoom factor
+        clamped_window_start = max(0, min(new_window_start, total_duration - new_interval))
+        clamped_window_end = clamped_window_start + new_interval
+        
+        # Clamp y-axis for time-frequency plot (axis 2)
+        if ax_idx == 2:
+            max_freq = fs / 2
+            # First clamp y_min to be >= 0
+            clamped_y_min = max(0, new_y_min)
+            # Then clamp y_max to be <= max_freq
+            clamped_y_max = min(max_freq, new_y_max)
+            # If the range is too large, adjust to fit within bounds
+            if clamped_y_max - clamped_y_min > max_freq:
+                clamped_y_min = 0
+                clamped_y_max = max_freq
+            print(f"Clamped y min from {new_y_min} to {clamped_y_min} and y max from {new_y_max} to {clamped_y_max}")
+        else:
+            clamped_y_min = new_y_min
+            clamped_y_max = new_y_max
+        
+        xlims[ax_idx] = (clamped_window_start, clamped_window_end)
+        ylims[ax_idx] = (clamped_y_min, clamped_y_max)
+        
+        self.plot(event_start_index=start_index, event_end_index=end_index, channel=channel, xlims=xlims, ylims=ylims)
+        
 
 
 class FFTPlot(FigureCanvasQTAgg):
     def __init__(self, parent=None, width=5, height=4, dpi=100, backend=None):
-            fig,self.axs = plt.subplots(1,1,figsize=(width, height), dpi=dpi)
-            super(FFTPlot, self).__init__(fig)
-            self.backend = backend
-            self.min_freq = 10
-            self.max_freq = 500
-            self.interval = 1.0
+        fig,self.axs = plt.subplots(1,1,figsize=(width, height), dpi=dpi)
+        super(FFTPlot, self).__init__(fig)
+        self.backend = backend
+        self.min_freq = 10
+        self.max_freq = 500
+        self.interval = 1.0
 
-            FigureCanvasQTAgg.setSizePolicy(self, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
-            FigureCanvasQTAgg.updateGeometry(self)
+        FigureCanvasQTAgg.setSizePolicy(self, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        FigureCanvasQTAgg.updateGeometry(self)
 
     def set_current_freq_limit(self, min_freq, max_freq):
         self.min_freq = min_freq

@@ -1,5 +1,6 @@
 from pathlib import Path
 from queue import Queue
+import os
 
 from PyQt5 import uic
 from PyQt5.QtGui import *
@@ -457,7 +458,111 @@ class MainWindowModel(QObject):
             self.window.threadpool.start(worker)
 
     def _load_from_npz(self, fname, progress_callback):
-        self.backend = self.backend.import_app(fname)
+        # Load the NPZ file and optimize the loading process
+        checkpoint = np.load(fname, allow_pickle=True)
+        
+        # Create a new backend instance
+        if self.biomarker_type == 'HFO':
+            from src.hfo_app import HFO_App
+            self.backend = HFO_App()
+        else:  # Spindle
+            from src.spindle_app import SpindleApp
+            self.backend = SpindleApp()
+        
+        # Load basic data
+        self.backend.n_jobs = checkpoint["n_jobs"].item()
+        self.backend.eeg_data = checkpoint["eeg_data"]
+        self.backend.edf_param = checkpoint["edf_param"].item()
+        self.backend.sample_freq = checkpoint["sample_freq"].item()
+        self.backend.channel_names = checkpoint["channel_names"]
+        self.backend.classified = checkpoint["classified"].item()
+        self.backend.filtered = checkpoint["filtered"].item()
+        self.backend.detected = checkpoint["detected"].item()
+
+        # Load pre-computed data to avoid recomputation
+        if "eeg_data_un60" in checkpoint:
+            self.backend.eeg_data_un60 = checkpoint["eeg_data_un60"]
+        else:
+            self.backend.eeg_data_un60 = checkpoint["eeg_data"]  # Fallback for old files
+            
+        if "eeg_data_60" in checkpoint:
+            self.backend.eeg_data_60 = checkpoint["eeg_data_60"]
+            self.message_handler("Loaded pre-computed 60Hz filtered data")
+        else:
+            # Skip 60Hz filtering for old files to avoid processing delay
+            self.message_handler("Skipping 60Hz filtering for faster loading (will compute on demand)")
+            self.backend.eeg_data_60 = None  # Will be computed when needed
+
+        # Handle filtering - load pre-computed data if available
+        if self.backend.filtered:
+            from src.param.param_filter import ParamFilter
+            self.backend.param_filter = ParamFilter.from_dict(checkpoint["param_filter"].item())
+            
+            # Load pre-computed filtered data instead of recomputing
+            if "filter_data" in checkpoint and checkpoint["filter_data"] is not None:
+                self.backend.filter_data = checkpoint["filter_data"]
+                self.backend.filtered = True
+                self.message_handler("Loaded pre-computed filtered data (fast loading)")
+            else:
+                # Fallback for old files - recompute filtering
+                self.message_handler("Recomputing filtered data (slow loading for old files)")
+                self.backend.filter_eeg_data(self.backend.param_filter)
+                
+            # Load 60Hz filtered data if available
+            if "filter_data_un60" in checkpoint and checkpoint["filter_data_un60"] is not None:
+                self.backend.filter_data_un60 = checkpoint["filter_data_un60"]
+            if "filter_data_60" in checkpoint and checkpoint["filter_data_60"] is not None:
+                self.backend.filter_data_60 = checkpoint["filter_data_60"]
+                
+        # Handle classification
+        if self.backend.classified:
+            from src.param.param_classifier import ParamClassifier
+            self.backend.param_classifier = ParamClassifier.from_dict(checkpoint["param_classifier"].item())
+
+        # Handle detection and event features
+        if self.backend.detected:
+            if self.biomarker_type == 'HFO':
+                from src.hfo_feature import HFO_Feature
+                from src.param.param_detector import ParamDetector
+                
+                self.backend.HFOs = checkpoint["HFOs"]
+                self.backend.param_detector = ParamDetector.from_dict(checkpoint["param_detector"].item())
+                self.backend.event_features = HFO_Feature.from_dict(checkpoint["event_features"].item())
+                self.backend.event_features.artifact_predictions = checkpoint["artifact_predictions"]
+                self.backend.event_features.spike_predictions = checkpoint["spike_predictions"]
+                self.backend.event_features.ehfo_predictions = checkpoint["ehfo_predictions"]
+                self.backend.event_features.artifact_annotations = checkpoint["artifact_annotations"]
+                self.backend.event_features.pathological_annotations = checkpoint["pathological_annotations"]
+                self.backend.event_features.physiological_annotations = checkpoint["physiological_annotations"]
+                self.backend.event_features.annotated = checkpoint["annotated"]
+            else:  # Spindle
+                from src.spindle_feature import SpindleFeature
+                from src.param.param_detector import ParamDetector
+                
+                self.backend.Spindles = checkpoint["Spindles"]
+                self.backend.param_detector = ParamDetector.from_dict(checkpoint["param_detector"].item())
+                self.backend.event_features = SpindleFeature.from_dict(checkpoint["Spindle_features"].item())
+                
+                # Handle prediction arrays that might be empty after detection but before classification
+                loaded_artifact_predictions = checkpoint["artifact_predictions"]
+                loaded_spike_predictions = checkpoint["spike_predictions"]
+                
+                # If prediction arrays are empty but we have detected events, initialize them with zeros
+                num_events = len(self.backend.event_features.starts)
+                if len(loaded_artifact_predictions) == 0 and num_events > 0:
+                    self.backend.event_features.artifact_predictions = np.zeros(num_events)
+                else:
+                    self.backend.event_features.artifact_predictions = loaded_artifact_predictions
+                    
+                if len(loaded_spike_predictions) == 0 and num_events > 0:
+                    self.backend.event_features.spike_predictions = np.zeros(num_events)
+                else:
+                    self.backend.event_features.spike_predictions = loaded_spike_predictions
+                    
+                self.backend.event_features.artifact_annotations = checkpoint["artifact_annotations"]
+                self.backend.event_features.spike_annotations = checkpoint["spike_annotations"]
+                self.backend.event_features.annotated = checkpoint["annotated"]
+        
         return []
 
     def load_from_npz(self):
@@ -472,33 +577,54 @@ class MainWindowModel(QObject):
         # print(self.hfo_app.get_edf_info())
 
     def load_from_npz_finished(self):
-        edf_info = self.backend.get_edf_info()
+        self.message_handler("Setting up UI...")
+        
+        # Update backend reference in waveform plot
         self.window.waveform_plot.update_backend(self.backend)
+        
+        # Initialize waveform plot data (this is the main processing step)
+        self.message_handler("Initializing waveform display...")
         self.window.waveform_plot.init_eeg_data()
+        
+        # Update basic file information
+        edf_info = self.backend.get_edf_info()
         edf_name = str(edf_info["edf_fn"])
         edf_name = edf_name[edf_name.rfind("/") + 1:]
         self.update_edf_info([edf_name, str(edf_info["sfreq"]),
                               str(edf_info["nchan"]), str(self.backend.eeg_data.shape[1])])
-        # update number of jobs
+        
+        # Update number of jobs
         self.window.n_jobs_spinbox.setValue(self.backend.n_jobs)
+        
+        # Handle filtered data UI updates
         if self.backend.filtered:
+            self.message_handler("Setting up filter UI...")
             self.filtering_complete()
             filter_param = self.backend.param_filter
-            # update filter params
+            # Update filter params
             self.window.fp_input.setText(str(filter_param.fp))
             self.window.fs_input.setText(str(filter_param.fs))
             self.window.rp_input.setText(str(filter_param.rp))
             self.window.rs_input.setText(str(filter_param.rs))
-        # update the detector parameters:
+        
+        # Handle detection results UI updates
         if self.backend.detected:
+            self.message_handler("Setting up detection UI...")
             self.set_detector_param_display()
             self._detect_finished()
             self.update_statistics_label()
-        # update classifier param
+            
+            # Offer to directly open annotation window
+            self._offer_direct_annotation()
+            
+        # Handle classification results UI updates
         if self.backend.classified:
+            self.message_handler("Setting up classification UI...")
             self.set_classifier_param_display()
             self._classify_finished()
             self.update_statistics_label()
+            
+        self.message_handler("NPZ loading complete!")
 
     def open_channel_selection(self):
         self.window.channel_selection_window = ChannelSelectionWindow(self.backend, self, self.window.close_signal)
@@ -726,6 +852,120 @@ class MainWindowModel(QObject):
         self.window.waveform_plot.set_plot_biomarkers(True)
         self.window.detect_all_button.setEnabled(True)
         self.window.annotation_button.setEnabled(True)
+        
+        # Auto-save the detection state for future annotation work
+        self._auto_save_detection_state()
+
+    def _auto_save_detection_state(self):
+        """Automatically save the detection state to an NPZ file for future annotation"""
+        try:
+            # Generate a filename based on the original EDF file
+            edf_info = self.backend.get_edf_info()
+            original_filename = edf_info.get('edf_fn', 'unknown_file')
+            base_name = os.path.splitext(os.path.basename(original_filename))[0]
+            detector_type = self.backend.param_detector.detector_type if self.backend.param_detector else 'unknown'
+            
+            # Create a states directory if it doesn't exist
+            states_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'states')
+            os.makedirs(states_dir, exist_ok=True)
+            
+            # Generate the NPZ filename
+            npz_filename = f"{base_name}_{self.biomarker_type}_{detector_type}_detected.npz"
+            npz_path = os.path.join(states_dir, npz_filename)
+            
+            # Create enhanced checkpoint with 60Hz data for fast loading
+            checkpoint = {
+                "n_jobs": self.backend.n_jobs,
+                "eeg_data": self.backend.eeg_data,
+                "edf_param": self.backend.edf_param,
+                "sample_freq": self.backend.sample_freq,
+                "channel_names": self.backend.channel_names,
+                "param_filter": self.backend.param_filter.to_dict() if self.backend.param_filter else None,
+                "classified": self.backend.classified,
+                "filtered": self.backend.filtered,
+                "detected": self.backend.detected,
+                # Save pre-computed 60Hz data for fast loading
+                "eeg_data_un60": self.backend.eeg_data_un60,
+                "eeg_data_60": self.backend.eeg_data_60,
+                "filter_data": self.backend.filter_data if self.backend.filtered else None,
+                "filter_data_un60": self.backend.filter_data_un60 if self.backend.filtered else None,
+                "filter_data_60": self.backend.filter_data_60 if self.backend.filtered else None,
+            }
+            
+            # Add biomarker-specific data
+            if self.biomarker_type == 'HFO':
+                checkpoint.update({
+                    "HFOs": self.backend.HFOs,
+                    "param_detector": self.backend.param_detector.to_dict() if self.backend.param_detector else None,
+                    "event_features": self.backend.event_features.to_dict() if self.backend.event_features else None,
+                    "param_classifier": self.backend.param_classifier.to_dict() if self.backend.param_classifier else None,
+                    "artifact_predictions": np.array(self.backend.event_features.artifact_predictions),
+                    "spike_predictions": np.array(self.backend.event_features.spike_predictions),
+                    "ehfo_predictions": np.array(self.backend.event_features.ehfo_predictions),
+                    "artifact_annotations": np.array(self.backend.event_features.artifact_annotations),
+                    "pathological_annotations": np.array(self.backend.event_features.pathological_annotations),
+                    "physiological_annotations": np.array(self.backend.event_features.physiological_annotations),
+                    "annotated": np.array(self.backend.event_features.annotated),
+                })
+            else:  # Spindle
+                checkpoint.update({
+                    "Spindles": self.backend.Spindles,
+                    "param_detector": self.backend.param_detector.to_dict() if self.backend.param_detector else None,
+                    "Spindle_features": self.backend.event_features.to_dict() if self.backend.event_features else None,
+                    "param_classifier": self.backend.param_classifier.to_dict() if self.backend.param_classifier else None,
+                    "artifact_predictions": np.array(self.backend.event_features.artifact_predictions),
+                    "spike_predictions": np.array(self.backend.event_features.spike_predictions),
+                    "artifact_annotations": np.array(self.backend.event_features.artifact_annotations),
+                    "spike_annotations": np.array(self.backend.event_features.spike_annotations),
+                    "annotated": np.array(self.backend.event_features.annotated),
+                })
+            
+            # Save using the same method as the backend
+            from src.utils.utils_io import dump_to_npz
+            dump_to_npz(checkpoint, npz_path)
+            
+            # Notify the user
+            num_events = len(self.backend.event_features.starts) if self.backend.event_features else 0
+            self.message_handler(f"Auto-saved {num_events} {self.biomarker_type} events to: {npz_filename}")
+            
+        except Exception as e:
+            self.message_handler(f"Warning: Auto-save failed: {str(e)}")
+
+    def _offer_direct_annotation(self):
+        """Offer to directly open annotation window after loading detection state"""
+        if self.backend.detected and self.backend.event_features:
+            num_events = len(self.backend.event_features.starts)
+            if num_events > 0:
+                # Ensure prediction arrays are properly sized before opening annotation
+                self._ensure_prediction_arrays_are_sized()
+                
+                # Create a message box asking if user wants to open annotation directly
+                msg = QMessageBox()
+                msg.setIcon(QMessageBox.Question)
+                msg.setWindowTitle("Open Annotation Window")
+                msg.setText(f"Loaded {num_events} {self.biomarker_type} events successfully!")
+                msg.setInformativeText("Would you like to open the annotation window directly to start annotating these events?")
+                msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+                msg.setDefaultButton(QMessageBox.Yes)
+                
+                response = msg.exec_()
+                if response == QMessageBox.Yes:
+                    self.open_annotation()
+
+    def _ensure_prediction_arrays_are_sized(self):
+        """Ensure prediction arrays have the same size as the number of detected events"""
+        if self.backend.detected and self.backend.event_features:
+            import numpy as np
+            num_events = len(self.backend.event_features.starts)
+            
+            # Fix spike_predictions array if it's empty
+            if len(self.backend.event_features.spike_predictions) == 0 and num_events > 0:
+                self.backend.event_features.spike_predictions = np.zeros(num_events)
+            
+            # Fix ehfo_predictions array if it's empty (for HFO type)
+            if hasattr(self.backend.event_features, 'ehfo_predictions'):
+                if len(self.backend.event_features.ehfo_predictions) == 0 and num_events > 0:
+                    self.backend.event_features.ehfo_predictions = np.zeros(num_events)
 
     def _detect(self, progress_callback):
         # call detect HFO function on backend
@@ -1101,5 +1341,7 @@ class MainWindowModel(QObject):
 
     def open_annotation(self):
         self.window.save_csv_button.setEnabled(True)
+        # Ensure prediction arrays are properly sized before opening annotation
+        self._ensure_prediction_arrays_are_sized()
         annotation = Annotation(self.backend, self.window, self.window.close_signal)
         annotation.show()

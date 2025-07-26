@@ -1,4 +1,4 @@
-def calcuate_boundary(start:int, end:int, length:int, win_len=2000)->tuple:
+def calculate_default_boundary(start:int, end:int, length:int, win_len=2000)->tuple:
             """_summary_
             Args:
             start (int): the start of the window
