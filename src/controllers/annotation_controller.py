@@ -18,7 +18,7 @@ class AnnotationController:
         self.model.create_waveform_plot()
         self.view.add_widget('VisulaizationVerticalLayout', self.model.waveform_plot)
         channel, start, end = self.get_current_event()
-        self.model.waveform_plot.plot(start, end, channel)  # Default interval
+        self.model.waveform_plot.plot_all_axes(start, end, channel)  # Default interval
 
     def create_fft_plot(self):
         self.model.create_fft_plot()
@@ -27,7 +27,7 @@ class AnnotationController:
         self.model.fft_plot.plot(start, end, channel)  # Default interval
 
     def update_plots(self, start, end, channel):
-        self.model.waveform_plot.plot(start, end, channel)
+        self.model.waveform_plot.plot_all_axes(start, end, channel)
         self.model.fft_plot.plot(start, end, channel)
 
     def get_current_event(self):
