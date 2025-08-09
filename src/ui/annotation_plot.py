@@ -78,8 +78,16 @@ def format_time_without_trailing_zeros(value: float, decimals: int) -> str:
     return text.rstrip('0').rstrip('.')
 
 class AnnotationPlot(FigureCanvasQTAgg):
-    def __init__(self, parent=None, width=10, height=4, dpi=100, backend=None):
-        fig,self.axs = plt.subplots(3,1,figsize=(width, height), dpi=dpi)
+    def __init__(self, parent=None, width=10, height=6, dpi=100, backend=None):
+        # Use fixed subplot positioning to prevent window shifting during zoom
+        fig, self.axs = plt.subplots(
+            3,
+            1,
+            figsize=(width, height),
+            dpi=dpi
+        )
+        # Set fixed subplot spacing to prevent shifting and text overlap
+        fig.subplots_adjust(left=0.1, right=0.85, top=0.90, bottom=0.15, hspace=0.75)
         super(AnnotationPlot, self).__init__(fig)
         self.backend = backend
         self.interval = [1.0, 1.0, 1.0]
@@ -306,7 +314,6 @@ class AnnotationPlot(FigureCanvasQTAgg):
             self.configure_plot_axes(self.axs[2], "Time Frequency", 'Frequency (Hz)', ticker.FuncFormatter(custom_formatter), x_decimals, xlim_final, ylim_final)
             self.axs[2].set_xlabel('Time (s)')
 
-        plt.tight_layout()
         self.draw()
 
        
@@ -425,6 +432,8 @@ class AnnotationPlot(FigureCanvasQTAgg):
 class FFTPlot(FigureCanvasQTAgg):
     def __init__(self, parent=None, width=5, height=4, dpi=100, backend=None):
         fig,self.axs = plt.subplots(1,1,figsize=(width, height), dpi=dpi)
+        # Set fixed subplot spacing to prevent label cutoff
+        fig.subplots_adjust(left=0.15, right=0.95, top=0.95, bottom=0.25)
         super(FFTPlot, self).__init__(fig)
         self.backend = backend
         self.min_freq = 10
@@ -474,5 +483,4 @@ class FFTPlot(FigureCanvasQTAgg):
         # self.axs.set_xlim([min(f), max(f)])
         self.axs.set_xlim([self.min_freq, self.max_freq])
         self.axs.grid(True)
-        plt.tight_layout()
         self.draw()
