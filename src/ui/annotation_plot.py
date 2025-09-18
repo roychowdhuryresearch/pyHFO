@@ -110,6 +110,7 @@ class AnnotationPlot(FigureCanvasQTAgg):
         }
 
         self.zoom_max = 10 # Seconds before and after the event
+        self.is_dragging = False
 
     def set_current_interval(self, interval, ax_idx):
         self.interval[ax_idx] = interval
@@ -332,7 +333,24 @@ class AnnotationPlot(FigureCanvasQTAgg):
                 return i
         return None
 
-    
+    def get_mouse_data_position(self, event, ax_idx):
+        qt_x = event.pos().x()
+        qt_y = event.pos().y()
+        widget_h = self.height()
+        mpl_x = qt_x
+        mpl_y = widget_h - qt_y  # flip y-axis
+        
+        # Use matplotlib's built-in coordinate transformation
+        inv = self.axs[ax_idx].transData.inverted()
+        try:
+            xdata, ydata = inv.transform((mpl_x, mpl_y))
+            # Check for valid coordinates
+            if not (np.isfinite(xdata) and np.isfinite(ydata)):
+                return None
+            return xdata, ydata
+        except Exception as e:
+            print(f"Transform failed: {e}")
+            return None
     
     def wheelEvent(self, event):
         
@@ -361,27 +379,14 @@ class AnnotationPlot(FigureCanvasQTAgg):
         if desired_x_range <= 0.01:
             return 
 
-        # Get mouse position in data coords
-        qt_x = event.pos().x()
-        qt_y = event.pos().y()
-        widget_h = self.height()
-
-        mpl_x = qt_x
-        mpl_y = widget_h - qt_y  # flip y-axis
-
-        inv = self.axs[ax_idx].transData.inverted()
-        try:
-            xdata, ydata = inv.transform((mpl_x, mpl_y))
-        except Exception as e:
-            print(f"Transform failed: {e}")
-            return
+        xdata, ydata = self.get_mouse_data_position(event, ax_idx)
 
         # Determine relative mouse position on the axes
         y_min, y_max = self.axs[ax_idx].get_ylim()
         axes_bbox = self.axs[ax_idx].get_window_extent()
         y_range = max(y_max - y_min, 1e-12)
         y_frac = (ydata - y_min) / y_range
-        x_frac = (qt_x - axes_bbox.x0) / axes_bbox.width
+        x_frac = (event.pos().x() - axes_bbox.x0) / axes_bbox.width
         x_frac = np.clip(x_frac, 0.0, 1.0)
         y_frac = np.clip(y_frac, 0.0, 1.0)
 
@@ -426,7 +431,97 @@ class AnnotationPlot(FigureCanvasQTAgg):
         # Update stored interval (seconds) for this axis
         self.set_current_interval(new_x_range, ax_idx)
         self.plot(ax_idx=ax_idx, event_start_index=start_index, event_end_index=end_index, channel=channel, xlim=xlim, ylim=ylim)
+    
+    def mousePressEvent(self, event):
+        self.is_dragging = True
+        ax_idx = self.get_active_axes_index(event)
+        if ax_idx is None:
+            return
         
+        # Store initial mouse position in screen/pixel coordinates
+        self.drag_start_screen_x = event.pos().x()
+        self.drag_start_screen_y = event.pos().y()
+        
+        # Store initial data position for reference
+        xdata, ydata = self.get_mouse_data_position(event, ax_idx)
+        self.drag_start_data_x = xdata
+        self.drag_start_data_y = ydata
+        
+        # Store initial limits when drag starts
+        self.drag_start_xlim = self.axs[ax_idx].get_xlim()
+        self.drag_start_ylim = self.axs[ax_idx].get_ylim()
+    
+    def mouseMoveEvent(self, event):
+        if not self.is_dragging:
+            return
+        
+        ax_idx = self.get_active_axes_index(event)
+        if ax_idx is None:
+            return
+        
+        # Calculate screen coordinate delta
+        screen_delta_x = event.pos().x() - self.drag_start_screen_x
+        screen_delta_y = event.pos().y() - self.drag_start_screen_y
+        
+        # Convert screen delta to data coordinate delta
+        # Get the current axis limits to calculate the scale
+        current_xlim = self.axs[ax_idx].get_xlim()
+        current_ylim = self.axs[ax_idx].get_ylim()
+        
+        # Get axis bounding box in screen coordinates
+        axes_bbox = self.axs[ax_idx].get_window_extent()
+        
+        # Calculate data coordinate delta based on screen delta and current scale
+        x_range = current_xlim[1] - current_xlim[0]
+        y_range = current_ylim[1] - current_ylim[0]
+        
+        data_delta_x = -(screen_delta_x / axes_bbox.width) * x_range
+        data_delta_y = (screen_delta_y / axes_bbox.height) * y_range  # Note: y is flipped
+        
+        # Calculate new limits by applying the data delta to the initial limits
+        new_xlim = (self.drag_start_xlim[0] + data_delta_x, self.drag_start_xlim[1] + data_delta_x)
+        new_ylim = (self.drag_start_ylim[0] + data_delta_y, self.drag_start_ylim[1] + data_delta_y)
+        
+        # Apply boundary constraints similar to wheelEvent
+        event_info = self.backend.event_features.get_current_info()
+        start_index = int(event_info["start_index"])
+        end_index = int(event_info["end_index"])
+        channel = event_info["channel_name"]
+        fs = self.backend.sample_freq
+        
+        total_samples = self.backend.get_eeg_data_shape()[1]
+        xlim_max = min(end_index / fs + self.zoom_max, total_samples / fs)
+        xlim_min = max(start_index / fs - self.zoom_max, 0)
+        
+        if ax_idx == 2:
+            ylim_min = 0
+            ylim_max = fs/2
+        else:
+            ylim_min = -np.inf
+            ylim_max = np.inf
+        
+        # Clamp x limits - use simpler clamping to avoid oscillations
+        x_range = new_xlim[1] - new_xlim[0]
+        if new_xlim[0] < xlim_min:
+            new_xlim = (xlim_min, xlim_min + x_range)
+        elif new_xlim[1] > xlim_max:
+            new_xlim = (xlim_max - x_range, xlim_max)
+        
+        # Clamp y limits if they are finite - use simpler clamping
+        if np.isfinite(ylim_min) and np.isfinite(ylim_max):
+            y_range = new_ylim[1] - new_ylim[0]
+            if new_ylim[0] < ylim_min:
+                new_ylim = (ylim_min, ylim_min + y_range)
+            elif new_ylim[1] > ylim_max:
+                new_ylim = (ylim_max - y_range, ylim_max)
+        
+        # Update the plot with new limits
+        self.plot(ax_idx=ax_idx, event_start_index=start_index, event_end_index=end_index, channel=channel, xlim=new_xlim, ylim=new_ylim)
+        
+        
+    def mouseReleaseEvent(self, event):
+        self.is_dragging = False
+    
 
 
 class FFTPlot(FigureCanvasQTAgg):
