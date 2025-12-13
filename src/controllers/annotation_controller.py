@@ -57,3 +57,7 @@ class AnnotationController:
 
     def set_current_interval(self, interval):
         self.model.set_current_interval(interval)
+
+    def reset_view_to_default(self, default_interval):
+        """Reset all plot windows to default view."""
+        self.model.reset_intervals_to_default(default_interval)

@@ -30,6 +30,7 @@ class Annotation(QtWidgets.QMainWindow):
         safe_connect_signal_slot(self.NextButton.clicked, self.plot_next)
         safe_connect_signal_slot(self.Accept.clicked, self.update_button_clicked)
         safe_connect_signal_slot(self.SetFreqLimit.clicked, self.update_frequency)
+        safe_connect_signal_slot(self.ResetViewButton.clicked, self.reset_view)
 
         # init event type selection dropdown box
         self.EventDropdown_Box.clear()
@@ -168,6 +169,12 @@ class Annotation(QtWidgets.QMainWindow):
         min_freq, max_freq = self.get_current_freq_limit()
         self.annotation_controller.set_current_freq_limit(min_freq, max_freq)
 
+        self.update_plots()
+
+    def reset_view(self):
+        """Reset the graph windows to default view."""
+        default_interval = self.get_current_interval()
+        self.annotation_controller.reset_view_to_default(default_interval)
         self.update_plots()
 
 

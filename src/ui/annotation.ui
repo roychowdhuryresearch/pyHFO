@@ -24,8 +24,8 @@
     <item row="0" column="0">
      <layout class="QGridLayout" name="gridLayout_4" columnstretch="7,0">
       <item row="0" column="1">
-       <layout class="QGridLayout" name="left_panel" rowstretch="1,0,0,0,0,0,0,0">
-        <item row="5" column="0">
+       <layout class="QGridLayout" name="left_panel" rowstretch="1,0,0,0,0,0,0,0,0">
+        <item row="6" column="0">
          <widget class="QComboBox" name="EventDropdown_Box">
           <property name="font">
            <font>
@@ -55,7 +55,7 @@
           </item>
          </widget>
         </item>
-        <item row="6" column="0">
+        <item row="7" column="0">
          <widget class="QComboBox" name="IntervalDropdownBox">
           <property name="font">
            <font>
@@ -176,6 +176,31 @@
          <layout class="QHBoxLayout" name="FFT_layout"/>
         </item>
         <item row="4" column="0">
+         <layout class="QHBoxLayout" name="zoom_control_layout">
+          <item>
+           <widget class="QGroupBox" name="zoomGroupBox">
+            <property name="font">
+             <font>
+              <family>Arial</family>
+             </font>
+            </property>
+            <property name="title">
+             <string>View controls</string>
+            </property>
+            <layout class="QGridLayout" name="gridLayout_zoom">
+             <item row="0" column="0">
+              <widget class="QPushButton" name="ResetViewButton">
+               <property name="text">
+                <string>Reset View</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item row="5" column="0">
          <widget class="QGroupBox" name="groupBox">
           <property name="font">
            <font>
@@ -359,7 +384,7 @@
           </layout>
          </widget>
         </item>
-        <item row="7" column="0">
+        <item row="8" column="0">
          <layout class="QHBoxLayout" name="horizontalLayout_2">
           <item>
            <widget class="QPushButton" name="Accept">

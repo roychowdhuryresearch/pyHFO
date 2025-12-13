@@ -110,7 +110,7 @@ class AnnotationPlot(FigureCanvasQTAgg):
             "relative_end_index": 0
         }
 
-        self.zoom_max = 10 # Seconds before and after the event
+        self.zoom_max = 5 # Seconds before and after the event
         self.is_dragging = False
 
     def set_current_interval(self, interval, ax_idx):
