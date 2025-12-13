@@ -40,5 +40,11 @@ class AnnotationModel:
         self.fft_plot.set_current_freq_limit(min_freq, max_freq)
 
     def set_current_interval(self, interval):
-        self.waveform_plot.set_current_interval(interval)
+        # Set interval for all axes
+        for ax_idx in range(3):
+            self.waveform_plot.set_current_interval(interval, ax_idx)
         self.fft_plot.set_current_interval(interval)
+
+    def reset_intervals_to_default(self, default_interval):
+        """Reset all axis intervals to the default value when navigating to a new event."""
+        self.waveform_plot.reset_intervals_to_default(default_interval)

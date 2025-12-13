@@ -26,7 +26,9 @@ class AnnotationController:
         channel, start, end = self.get_current_event()
         self.model.fft_plot.plot(start, end, channel)  # Default interval
 
-    def update_plots(self, start, end, channel):
+    def update_plots(self, start, end, channel, reset_intervals=False, default_interval=None):
+        if reset_intervals and default_interval is not None:
+            self.model.reset_intervals_to_default(default_interval)
         self.model.waveform_plot.plot_all_axes(start, end, channel)
         self.model.fft_plot.plot(start, end, channel)
 

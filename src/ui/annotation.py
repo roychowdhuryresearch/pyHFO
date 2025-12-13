@@ -101,27 +101,26 @@ class Annotation(QtWidgets.QMainWindow):
     def plot_prev(self):
         # start, end: index of the prev hfo
         channel, start, end = self.annotation_controller.get_previous_event()
-        # interval = self.get_current_interval()
-        self.annotation_controller.update_plots(start, end, channel)
+        # Reset intervals to default when navigating to prevent zoom state from persisting
+        default_interval = self.get_current_interval()
+        self.annotation_controller.update_plots(start, end, channel, reset_intervals=True, default_interval=default_interval)
         self.update_infos()
 
     def plot_next(self):
         # start, end: index of the next hfo
         channel, start, end = self.annotation_controller.get_next_event()
-        # interval = self.get_current_interval()
-        self.annotation_controller.update_plots(start, end, channel)
+        # Reset intervals to default when navigating to prevent zoom state from persisting
+        default_interval = self.get_current_interval()
+        self.annotation_controller.update_plots(start, end, channel, reset_intervals=True, default_interval=default_interval)
         self.update_infos()
 
     def plot_jump(self):
         selected_index = self.AnotationDropdownBox.currentIndex()
         # start, end: index of the next hfo
         channel, start, end = self.annotation_controller.get_jumped_event(selected_index)
-        # try:
-        #     interval = float(self.IntervalDropdownBox.currentText().rstrip('s'))
-        # except (ValueError, AttributeError):
-        #     interval = 1.0  # Default interval
-
-        self.annotation_controller.update_plots(start, end, channel)
+        # Reset intervals to default when navigating to prevent zoom state from persisting
+        default_interval = self.get_current_interval()
+        self.annotation_controller.update_plots(start, end, channel, reset_intervals=True, default_interval=default_interval)
         self.update_infos()
 
     def update_infos(self):

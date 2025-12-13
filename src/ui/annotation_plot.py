@@ -115,6 +115,11 @@ class AnnotationPlot(FigureCanvasQTAgg):
     def set_current_interval(self, interval, ax_idx):
         self.interval[ax_idx] = interval
 
+    def reset_intervals_to_default(self, default_interval):
+        """Reset all axis intervals to the default value (e.g., from dropdown)."""
+        for ax_idx in range(3):
+            self.interval[ax_idx] = default_interval
+
     def get_event_key(self, channel_name, event_start_index, event_end_index):
         return f"{channel_name}_{event_start_index}_{event_end_index}"
 
