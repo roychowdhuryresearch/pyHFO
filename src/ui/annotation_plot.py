@@ -94,6 +94,7 @@ class AnnotationPlot(FigureCanvasQTAgg):
         
         # Cache for time-frequency data per event
         self.tf_cache = {}  # {event_key: tf_data}
+        self.tf_cache_vmin_vmax = {}  # {event_key: (vmin, vmax)} for consistent color scaling
         self.current_event_key = None
         self.max_cached_events = 5  # Limit cache size to prevent excessive memory usage
 
@@ -136,11 +137,33 @@ class AnnotationPlot(FigureCanvasQTAgg):
             if len(self.tf_cache) >= self.max_cached_events:
                 oldest_key = next(iter(self.tf_cache))
                 del self.tf_cache[oldest_key]
+                if oldest_key in self.tf_cache_vmin_vmax:
+                    del self.tf_cache_vmin_vmax[oldest_key]
             
             # Get full channel data for the zoom range and calculate time-frequency
             full_eeg_data, channel_names = self.backend.get_eeg_data(full_start_index, full_end_index)
             channel_data = full_eeg_data[channel_names == channel_name, :][0]
-            self.tf_cache[event_key] = calculate_time_frequency(channel_data, fs)
+            tf_data = calculate_time_frequency(channel_data, fs)
+            self.tf_cache[event_key] = tf_data
+            
+            # Compute vmin/vmax from default interval window (same as before zoom was implemented)
+            # Use the default interval for the time-frequency plot (ax_idx=2)
+            default_interval = self.interval[2]
+            length = self.backend.get_eeg_data_shape()[1]
+            win_len = int(fs * default_interval)
+            ws_idx, we_idx, _, _ = calculate_default_boundary(
+                event_start_index, event_end_index, length, win_len=win_len
+            )
+            # Convert to relative indices within the cached data
+            default_relative_start = max(0, ws_idx - full_start_index)
+            default_relative_end = min(tf_data.shape[1], we_idx - full_start_index)
+            # Extract default interval portion and compute min/max
+            default_interval_data = tf_data[:, default_relative_start:default_relative_end]
+            if default_interval_data.size > 0:
+                self.tf_cache_vmin_vmax[event_key] = (np.min(default_interval_data), np.max(default_interval_data))
+            else:
+                # Fallback to full data if default interval extraction fails
+                self.tf_cache_vmin_vmax[event_key] = (np.min(tf_data), np.max(tf_data))
         
         # Slice the cached data based on the requested index range
         cached_data = self.tf_cache[event_key]
@@ -178,6 +201,7 @@ class AnnotationPlot(FigureCanvasQTAgg):
 
     def clear_tf_cache(self):
         self.tf_cache.clear()
+        self.tf_cache_vmin_vmax.clear()
         self.current_event_key = None
 
     def configure_plot_axes(self, ax, title, ylabel, yformatter, x_decimals: int, xlim=None, ylim=None):
@@ -302,15 +326,22 @@ class AnnotationPlot(FigureCanvasQTAgg):
             # Use cached time-frequency data
             index_range = (boundaries["window_start_index"], boundaries["window_end_index"])
             tf_data = self.get_cached_tf_data(channel_name, event_start_index, event_end_index, index_range, ylim_final)
-            # Align the image extent with axis limits and slightly overdraw right edge to prevent subpixel white gap (small visual fix)
+            # Get vmin/vmax from full cached data for consistent color scaling
+            event_key = self.get_event_key(channel_name, event_start_index, event_end_index)
+            if event_key in self.tf_cache_vmin_vmax:
+                vmin, vmax = self.tf_cache_vmin_vmax[event_key]
+            else:
+                # Fallback: compute from current data if cache entry missing
+                vmin, vmax = np.min(tf_data), np.max(tf_data)
+            # Align the image extent directly with axis limits to prevent aspect ratio distortion
+            # Use xlim_final directly instead of calculating from data to avoid rounding errors
+            x_left, x_right = xlim_final
             dt = 1.0 / fs
-            left_edge_time = time[0]
-            right_edge_time = left_edge_time + tf_data.shape[1] * dt
-            epsilon = dt * 0.5 
+            epsilon = dt * 0.5  # Slightly overdraw right edge to prevent subpixel white gap
             self.axs[2].imshow(
                 tf_data,
-                extent=[left_edge_time, right_edge_time + epsilon, ylim_final[0], ylim_final[1]],
-                aspect='auto', cmap='jet', vmin=0, vmax=fs
+                extent=[x_left, x_right + epsilon, ylim_final[0], ylim_final[1]],
+                aspect='auto', cmap='jet', vmin=vmin, vmax=vmax
             ) 
             # Use current x limits for ticks to keep them aligned with the displayed window
             x_left, x_right = xlim_final
