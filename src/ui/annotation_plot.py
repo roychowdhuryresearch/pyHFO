@@ -110,7 +110,7 @@ class AnnotationPlot(FigureCanvasQTAgg):
             "relative_end_index": 0
         }
 
-        self.zoom_max = 5 # Seconds before and after the event
+        self.zoom_max = 1 # Seconds before and after the event
         self.is_dragging = False
         self.sync_views = False
 
@@ -147,8 +147,8 @@ class AnnotationPlot(FigureCanvasQTAgg):
         event_key = self.get_event_key(channel_name, event_start_index, event_end_index)
 
         zoom_max_samples = int(self.zoom_max * fs)
-        full_start_index = max(0, event_start_index - zoom_max_samples)
-        full_end_index = min(self.backend.get_eeg_data_shape()[1], event_end_index + zoom_max_samples)
+        full_start_index = int(max(0, event_start_index - zoom_max_samples))
+        full_end_index = int(min(self.backend.get_eeg_data_shape()[1], event_end_index + zoom_max_samples))
         
         if event_key not in self.tf_cache:
             # Manage cache size
@@ -808,17 +808,20 @@ class AnnotationPlot(FigureCanvasQTAgg):
 
 
 class FFTPlot(FigureCanvasQTAgg):
-    def __init__(self, parent=None, width=5, height=4, dpi=100, backend=None):
+    def __init__(self, parent=None, width=5, height=3, dpi=100, backend=None):
         fig,self.axs = plt.subplots(1,1,figsize=(width, height), dpi=dpi)
         # Set fixed subplot spacing to prevent label cutoff
-        fig.subplots_adjust(left=0.15, right=0.95, top=0.95, bottom=0.25)
+        # Increased bottom margin to prevent frequency controls from blocking x-axis label
+        # Reduced top margin to prevent y-axis label from being cut off
+        fig.subplots_adjust(left=0.18, right=0.95, top=0.92, bottom=0.22)
         super(FFTPlot, self).__init__(fig)
         self.backend = backend
         self.min_freq = 10
         self.max_freq = 500
         self.interval = 1.0
 
-        FigureCanvasQTAgg.setSizePolicy(self, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        # Use Preferred policy to respect figsize aspect ratio instead of stretching
+        FigureCanvasQTAgg.setSizePolicy(self, QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
         FigureCanvasQTAgg.updateGeometry(self)
 
     def set_current_freq_limit(self, min_freq, max_freq):

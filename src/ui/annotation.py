@@ -76,12 +76,12 @@ class Annotation(QtWidgets.QMainWindow):
         rect = screen.availableGeometry()
 
         # Calculating the window size as a fraction of the screen size
-        width = rect.width() * 0.6  # 60% of the screen width
-        height = rect.height() * 0.6  # 60% of the screen height
+        width = rect.width() * 0.70  # 70% of the screen width
+        height = rect.height() * 0.80  # 80% of the screen height
         width = int(width)
         height = int(height)
         # Setting the initial size and fixing it
-        self.setGeometry(100, 100, width, height)
+        self.setGeometry(50, 50, width, height)
         self.setFixedSize(QSize(width, height))
     
     def get_current_interval(self):
@@ -170,7 +170,9 @@ class Annotation(QtWidgets.QMainWindow):
         min_freq, max_freq = self.get_current_freq_limit()
         self.annotation_controller.set_current_freq_limit(min_freq, max_freq)
 
-        self.update_plots()
+        # Only update the FFT plot - frequency limits should not affect the TF plot
+        channel, start, end = self.annotation_controller.get_current_event()
+        self.annotation_controller.model.fft_plot.plot(start, end, channel)
 
     def reset_view(self):
         """Reset the graph windows to default view."""
