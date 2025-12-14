@@ -48,3 +48,7 @@ class AnnotationModel:
     def reset_intervals_to_default(self, default_interval):
         """Reset all axis intervals to the default value when navigating to a new event."""
         self.waveform_plot.reset_intervals_to_default(default_interval)
+
+    def set_sync_views(self, enabled):
+        """Enable or disable syncing of view movements across all subplots."""
+        self.waveform_plot.set_sync_views(enabled)

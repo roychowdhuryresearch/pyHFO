@@ -61,3 +61,7 @@ class AnnotationController:
     def reset_view_to_default(self, default_interval):
         """Reset all plot windows to default view."""
         self.model.reset_intervals_to_default(default_interval)
+
+    def set_sync_views(self, enabled):
+        """Enable or disable syncing of view movements across all subplots."""
+        self.model.set_sync_views(enabled)

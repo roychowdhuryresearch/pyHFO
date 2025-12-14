@@ -112,6 +112,7 @@ class AnnotationPlot(FigureCanvasQTAgg):
 
         self.zoom_max = 5 # Seconds before and after the event
         self.is_dragging = False
+        self.sync_views = False
 
     def set_current_interval(self, interval, ax_idx):
         self.interval[ax_idx] = interval
@@ -120,6 +121,23 @@ class AnnotationPlot(FigureCanvasQTAgg):
         """Reset all axis intervals to the default value (e.g., from dropdown)."""
         for ax_idx in range(3):
             self.interval[ax_idx] = default_interval
+
+    def set_sync_views(self, enabled):
+        """Enable or disable syncing of view movements across all subplots."""
+        self.sync_views = enabled
+
+    def get_axis_limits(self, ax_idx, start_index, end_index, fs):
+        """Get the x and y limits for a given axis index."""
+        total_samples = self.backend.get_eeg_data_shape()[1]
+        xlim_max = min(end_index / fs + self.zoom_max, total_samples / fs)
+        xlim_min = max(start_index / fs - self.zoom_max, 0)
+        if ax_idx == 2:
+            ylim_min = 0
+            ylim_max = fs / 2
+        else:
+            ylim_min = -np.inf
+            ylim_max = np.inf
+        return xlim_min, xlim_max, ylim_min, ylim_max
 
     def get_event_key(self, channel_name, event_start_index, event_end_index):
         return f"{channel_name}_{event_start_index}_{event_end_index}"
@@ -222,7 +240,7 @@ class AnnotationPlot(FigureCanvasQTAgg):
         for ax_idx in range(3):
             self.plot(ax_idx, event_start_index, event_end_index, channel)
 
-    def plot(self, ax_idx: int, event_start_index: int = None, event_end_index: int = None, channel: str = None, xlim: tuple = None, ylim: tuple = None):
+    def plot(self, ax_idx: int, event_start_index: int = None, event_end_index: int = None, channel: str = None, xlim: tuple = None, ylim: tuple = None, skip_draw: bool = False):
         
         self.axs[ax_idx].cla()
 
@@ -351,7 +369,8 @@ class AnnotationPlot(FigureCanvasQTAgg):
             self.configure_plot_axes(self.axs[2], "Time Frequency", 'Frequency (Hz)', ticker.FuncFormatter(custom_formatter), x_decimals, xlim_final, ylim_final)
             self.axs[2].set_xlabel('Time (s)')
 
-        self.draw()
+        if not skip_draw:
+            self.draw()
 
        
 
@@ -466,7 +485,104 @@ class AnnotationPlot(FigureCanvasQTAgg):
 
         # Update stored interval (seconds) for this axis
         self.set_current_interval(new_x_range, ax_idx)
-        self.plot(ax_idx=ax_idx, event_start_index=start_index, event_end_index=end_index, channel=channel, xlim=xlim, ylim=ylim)
+        
+        if self.sync_views:
+            # Sync zoom across all three axes
+            # Use the same zoom factor and relative mouse position for all axes
+            can_sync = True
+            new_xlims = []
+            new_ylims = []
+            
+            for sync_ax_idx in range(3):
+                sync_xlim_min, sync_xlim_max, sync_ylim_min, sync_ylim_max = self.get_axis_limits(
+                    sync_ax_idx, start_index, end_index, fs
+                )
+                
+                # Get current limits for this axis
+                current_xlim = self.axs[sync_ax_idx].get_xlim()
+                current_ylim = self.axs[sync_ax_idx].get_ylim()
+                current_x_range = current_xlim[1] - current_xlim[0]
+                
+                # Apply the same zoom factor to this axis's current range
+                sync_desired_x_range = current_x_range * zoom_factor
+                
+                # Compute maximum allowed sizes
+                max_x_range = sync_xlim_max - sync_xlim_min
+                
+                # Scale to fit within bounds
+                scale_x = max_x_range / sync_desired_x_range if sync_desired_x_range > 0 else 1.0
+                overall_scale = min(1.0, scale_x)
+                sync_new_x_range = sync_desired_x_range * overall_scale
+                
+                # Use the same relative mouse position (x_frac) to center the zoom
+                # Calculate the center point based on relative position
+                sync_x_center = current_xlim[0] + current_x_range * x_frac
+                
+                # Calculate new x limits centered on the relative mouse position
+                sync_new_x_start = sync_x_center - sync_new_x_range * x_frac
+                sync_new_x_end = sync_new_x_start + sync_new_x_range
+                
+                # Clamp to ensure window stays within bounds
+                if sync_new_x_start < sync_xlim_min:
+                    sync_new_x_start = sync_xlim_min
+                    sync_new_x_end = sync_xlim_min + sync_new_x_range
+                elif sync_new_x_end > sync_xlim_max:
+                    sync_new_x_end = sync_xlim_max
+                    sync_new_x_start = sync_xlim_max - sync_new_x_range
+                
+                # Check if the resulting range is valid
+                if sync_new_x_start < sync_xlim_min or sync_new_x_end > sync_xlim_max or sync_new_x_range <= 0.01:
+                    can_sync = False
+                    break
+                
+                # For y-axis: zoom all axes proportionally to maintain aspect ratio
+                # Zoom is centered on the middle Y value (not mouse position)
+                current_y_range = current_ylim[1] - current_ylim[0]
+                sync_desired_y_range = current_y_range * zoom_factor
+                
+                # Calculate center Y value (middle of current range)
+                sync_y_center = (current_ylim[0] + current_ylim[1]) / 2.0
+                
+                # Center zoom around the middle Y value
+                sync_new_y_start = sync_y_center - sync_desired_y_range / 2.0
+                sync_new_y_end = sync_y_center + sync_desired_y_range / 2.0
+                
+                # Clamp y limits if finite
+                if np.isfinite(sync_ylim_min) and np.isfinite(sync_ylim_max):
+                    if sync_new_y_start < sync_ylim_min:
+                        sync_new_y_start = sync_ylim_min
+                        sync_new_y_end = sync_ylim_min + sync_desired_y_range
+                    elif sync_new_y_end > sync_ylim_max:
+                        sync_new_y_end = sync_ylim_max
+                        sync_new_y_start = sync_ylim_max - sync_desired_y_range
+                
+                sync_new_ylim = (sync_new_y_start, sync_new_y_end)
+                
+                new_xlims.append((sync_new_x_start, sync_new_x_end))
+                new_ylims.append(sync_new_ylim)
+            
+            if can_sync:
+                # Apply zoom to all axes - batch updates for performance
+                for sync_ax_idx in range(3):
+                    # Calculate the new x-range for this axis
+                    sync_new_x_range = new_xlims[sync_ax_idx][1] - new_xlims[sync_ax_idx][0]
+                    self.set_current_interval(sync_new_x_range, sync_ax_idx)
+                    # Use the calculated ylim (which already handles the grouping logic)
+                    self.plot(
+                        ax_idx=sync_ax_idx,
+                        event_start_index=start_index,
+                        event_end_index=end_index,
+                        channel=channel,
+                        xlim=new_xlims[sync_ax_idx],
+                        ylim=new_ylims[sync_ax_idx],
+                        skip_draw=True
+                    )
+                # Only draw once after all updates
+                self.draw()
+            # If can't sync, don't apply zoom to any axis
+        else:
+            # Original behavior: only update the active axis
+            self.plot(ax_idx=ax_idx, event_start_index=start_index, event_end_index=end_index, channel=channel, xlim=xlim, ylim=ylim)
     
     def mousePressEvent(self, event):
         self.is_dragging = True
@@ -486,6 +602,11 @@ class AnnotationPlot(FigureCanvasQTAgg):
         # Store initial limits when drag starts
         self.drag_start_xlim = self.axs[ax_idx].get_xlim()
         self.drag_start_ylim = self.axs[ax_idx].get_ylim()
+        
+        # If syncing, store initial limits for all axes
+        if self.sync_views:
+            self.drag_start_xlims = [self.axs[i].get_xlim() for i in range(3)]
+            self.drag_start_ylims = [self.axs[i].get_ylim() for i in range(3)]
     
     def mouseMoveEvent(self, event):
         if not self.is_dragging:
@@ -525,34 +646,143 @@ class AnnotationPlot(FigureCanvasQTAgg):
         channel = event_info["channel_name"]
         fs = self.backend.sample_freq
         
-        total_samples = self.backend.get_eeg_data_shape()[1]
-        xlim_max = min(end_index / fs + self.zoom_max, total_samples / fs)
-        xlim_min = max(start_index / fs - self.zoom_max, 0)
-        
-        if ax_idx == 2:
-            ylim_min = 0
-            ylim_max = fs/2
+        if self.sync_views:
+            # Sync pan across all three axes
+            # Use the same x-delta (time) for all axes
+            
+            # Check if all axes can pan with this x-delta
+            can_sync = True
+            new_xlims = []
+            new_ylims = []
+            
+            for sync_ax_idx in range(3):
+                sync_xlim_min, sync_xlim_max, sync_ylim_min, sync_ylim_max = self.get_axis_limits(
+                    sync_ax_idx, start_index, end_index, fs
+                )
+                
+                # Calculate new x limits by applying the same x-delta
+                sync_new_xlim = (
+                    self.drag_start_xlims[sync_ax_idx][0] + data_delta_x,
+                    self.drag_start_xlims[sync_ax_idx][1] + data_delta_x
+                )
+                
+                # Check if new x limits are within bounds
+                sync_x_range = sync_new_xlim[1] - sync_new_xlim[0]
+                if sync_new_xlim[0] < sync_xlim_min:
+                    can_sync = False
+                    break
+                elif sync_new_xlim[1] > sync_xlim_max:
+                    can_sync = False
+                    break
+                
+                # For y-axis: only sync within the group that was panned
+                # If panning in top 2 graphs (ax_idx 0 or 1), only sync y-axis of axes 0 and 1
+                # If panning in time-frequency (ax_idx 2), only sync y-axis of axis 2
+                if ax_idx == 2:
+                    # Panning in time-frequency: only sync y-axis for axis 2
+                    if sync_ax_idx == 2:
+                        # Apply the same relative delta (as fraction of y-range)
+                        active_y_range = self.drag_start_ylim[1] - self.drag_start_ylim[0]
+                        if active_y_range > 0:
+                            relative_y_delta = data_delta_y / active_y_range
+                        else:
+                            relative_y_delta = 0
+                        
+                        # Apply relative delta to time-frequency axis
+                        sync_y_range = self.drag_start_ylims[sync_ax_idx][1] - self.drag_start_ylims[sync_ax_idx][0]
+                        sync_data_delta_y = relative_y_delta * sync_y_range
+                        sync_new_ylim = (
+                            self.drag_start_ylims[sync_ax_idx][0] + sync_data_delta_y,
+                            self.drag_start_ylims[sync_ax_idx][1] + sync_data_delta_y
+                        )
+                        
+                        # Clamp y limits if finite
+                        if np.isfinite(sync_ylim_min) and np.isfinite(sync_ylim_max):
+                            sync_y_range = sync_new_ylim[1] - sync_new_ylim[0]
+                            if sync_new_ylim[0] < sync_ylim_min:
+                                sync_new_ylim = (sync_ylim_min, sync_ylim_min + sync_y_range)
+                            elif sync_new_ylim[1] > sync_ylim_max:
+                                sync_new_ylim = (sync_ylim_max - sync_y_range, sync_ylim_max)
+                    else:
+                        # Keep current ylim for top 2 graphs when panning time-frequency
+                        sync_new_ylim = self.drag_start_ylims[sync_ax_idx]
+                else:
+                    # Panning in top 2 graphs: only sync y-axis for axes 0 and 1
+                    if sync_ax_idx == 2:
+                        # Keep current ylim for time-frequency when panning top 2 graphs
+                        sync_new_ylim = self.drag_start_ylims[sync_ax_idx]
+                    else:
+                        # Apply the same relative delta (as fraction of y-range)
+                        # Calculate relative y-delta from the active axis
+                        active_y_range = self.drag_start_ylim[1] - self.drag_start_ylim[0]
+                        if active_y_range > 0:
+                            relative_y_delta = data_delta_y / active_y_range
+                        else:
+                            relative_y_delta = 0
+                        
+                        # Apply relative delta to each axis
+                        sync_y_range = self.drag_start_ylims[sync_ax_idx][1] - self.drag_start_ylims[sync_ax_idx][0]
+                        sync_data_delta_y = relative_y_delta * sync_y_range
+                        sync_new_ylim = (
+                            self.drag_start_ylims[sync_ax_idx][0] + sync_data_delta_y,
+                            self.drag_start_ylims[sync_ax_idx][1] + sync_data_delta_y
+                        )
+                        
+                        # Clamp y limits if finite
+                        if np.isfinite(sync_ylim_min) and np.isfinite(sync_ylim_max):
+                            sync_y_range = sync_new_ylim[1] - sync_new_ylim[0]
+                            if sync_new_ylim[0] < sync_ylim_min:
+                                sync_new_ylim = (sync_ylim_min, sync_ylim_min + sync_y_range)
+                            elif sync_new_ylim[1] > sync_ylim_max:
+                                sync_new_ylim = (sync_ylim_max - sync_y_range, sync_ylim_max)
+                
+                new_xlims.append(sync_new_xlim)
+                new_ylims.append(sync_new_ylim)
+            
+            if can_sync:
+                # Apply pan to all axes - batch updates for performance
+                for sync_ax_idx in range(3):
+                    self.plot(
+                        ax_idx=sync_ax_idx,
+                        event_start_index=start_index,
+                        event_end_index=end_index,
+                        channel=channel,
+                        xlim=new_xlims[sync_ax_idx],
+                        ylim=new_ylims[sync_ax_idx],
+                        skip_draw=True
+                    )
+                # Only draw once after all updates
+                self.draw()
+            # If can't sync, don't apply pan to any axis
         else:
-            ylim_min = -np.inf
-            ylim_max = np.inf
-        
-        # Clamp x limits - use simpler clamping to avoid oscillations
-        x_range = new_xlim[1] - new_xlim[0]
-        if new_xlim[0] < xlim_min:
-            new_xlim = (xlim_min, xlim_min + x_range)
-        elif new_xlim[1] > xlim_max:
-            new_xlim = (xlim_max - x_range, xlim_max)
-        
-        # Clamp y limits if they are finite - use simpler clamping
-        if np.isfinite(ylim_min) and np.isfinite(ylim_max):
-            y_range = new_ylim[1] - new_ylim[0]
-            if new_ylim[0] < ylim_min:
-                new_ylim = (ylim_min, ylim_min + y_range)
-            elif new_ylim[1] > ylim_max:
-                new_ylim = (ylim_max - y_range, ylim_max)
-        
-        # Update the plot with new limits
-        self.plot(ax_idx=ax_idx, event_start_index=start_index, event_end_index=end_index, channel=channel, xlim=new_xlim, ylim=new_ylim)
+            # Original behavior: only update the active axis
+            total_samples = self.backend.get_eeg_data_shape()[1]
+            xlim_max = min(end_index / fs + self.zoom_max, total_samples / fs)
+            xlim_min = max(start_index / fs - self.zoom_max, 0)
+            
+            if ax_idx == 2:
+                ylim_min = 0
+                ylim_max = fs/2
+            else:
+                ylim_min = -np.inf
+                ylim_max = np.inf
+            
+            # Clamp x limits - use simpler clamping to avoid oscillations
+            x_range = new_xlim[1] - new_xlim[0]
+            if new_xlim[0] < xlim_min:
+                new_xlim = (xlim_min, xlim_min + x_range)
+            elif new_xlim[1] > xlim_max:
+                new_xlim = (xlim_max - x_range, xlim_max)
+            
+            # Clamp y limits if they are finite - use simpler clamping
+            if np.isfinite(ylim_min) and np.isfinite(ylim_max):
+                y_range = new_ylim[1] - new_ylim[0]
+                if new_ylim[0] < ylim_min:
+                    new_ylim = (ylim_min, ylim_min + y_range)
+                elif new_ylim[1] > ylim_max:
+                    new_ylim = (ylim_max - y_range, ylim_max)
+            
+            self.plot(ax_idx=ax_idx, event_start_index=start_index, event_end_index=end_index, channel=channel, xlim=new_xlim, ylim=new_ylim)
         
         
     def mouseReleaseEvent(self, event):

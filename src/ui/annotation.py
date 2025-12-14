@@ -31,6 +31,7 @@ class Annotation(QtWidgets.QMainWindow):
         safe_connect_signal_slot(self.Accept.clicked, self.update_button_clicked)
         safe_connect_signal_slot(self.SetFreqLimit.clicked, self.update_frequency)
         safe_connect_signal_slot(self.ResetViewButton.clicked, self.reset_view)
+        safe_connect_signal_slot(self.SyncViewsCheckBox.toggled, self.toggle_sync_views)
 
         # init event type selection dropdown box
         self.EventDropdown_Box.clear()
@@ -176,6 +177,10 @@ class Annotation(QtWidgets.QMainWindow):
         default_interval = self.get_current_interval()
         self.annotation_controller.reset_view_to_default(default_interval)
         self.update_plots()
+
+    def toggle_sync_views(self, checked):
+        """Enable or disable syncing of view movements across all subplots."""
+        self.annotation_controller.set_sync_views(checked)
 
 
 if __name__ == '__main__':
