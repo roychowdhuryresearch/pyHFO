@@ -509,10 +509,19 @@ class AnnotationPlot(FigureCanvasQTAgg):
                 # Compute maximum allowed sizes
                 max_x_range = sync_xlim_max - sync_xlim_min
                 
-                # Scale to fit within bounds
+                # For y-axis: compute desired range and max range
+                current_y_range = current_ylim[1] - current_ylim[0]
+                sync_desired_y_range = current_y_range * zoom_factor
+                max_y_range = sync_ylim_max - sync_ylim_min
+                
+                # Scale to fit within bounds (consider both X and Y constraints, like non-sync code)
                 scale_x = max_x_range / sync_desired_x_range if sync_desired_x_range > 0 else 1.0
-                overall_scale = min(1.0, scale_x)
+                scale_y = max_y_range / sync_desired_y_range if (np.isfinite(max_y_range) and sync_desired_y_range > 0) else 1.0
+                overall_scale = min(1.0, scale_x, scale_y)
+                
+                # Apply overall_scale to both X and Y ranges (isotropic zoom)
                 sync_new_x_range = sync_desired_x_range * overall_scale
+                sync_new_y_range = sync_desired_y_range * overall_scale
                 
                 # Use the same relative mouse position (x_frac) to center the zoom
                 # Calculate the center point based on relative position
@@ -530,31 +539,39 @@ class AnnotationPlot(FigureCanvasQTAgg):
                     sync_new_x_end = sync_xlim_max
                     sync_new_x_start = sync_xlim_max - sync_new_x_range
                 
-                # Check if the resulting range is valid
-                if sync_new_x_start < sync_xlim_min or sync_new_x_end > sync_xlim_max or sync_new_x_range <= 0.01:
+                # Validate X-axis: check if range is too small
+                if sync_new_x_range <= 0.01:
                     can_sync = False
                     break
-                
-                # For y-axis: zoom all axes proportionally to maintain aspect ratio
-                # Zoom is centered on the middle Y value (not mouse position)
-                current_y_range = current_ylim[1] - current_ylim[0]
-                sync_desired_y_range = current_y_range * zoom_factor
+                # If we're at max range and trying to zoom out (zoom_factor > 1), prevent zoom
+                if zoom_factor > 1.0 and current_x_range >= max_x_range * 0.999:
+                    can_sync = False
+                    break
                 
                 # Calculate center Y value (middle of current range)
                 sync_y_center = (current_ylim[0] + current_ylim[1]) / 2.0
                 
                 # Center zoom around the middle Y value
-                sync_new_y_start = sync_y_center - sync_desired_y_range / 2.0
-                sync_new_y_end = sync_y_center + sync_desired_y_range / 2.0
+                sync_new_y_start = sync_y_center - sync_new_y_range / 2.0
+                sync_new_y_end = sync_y_center + sync_new_y_range / 2.0
                 
                 # Clamp y limits if finite
                 if np.isfinite(sync_ylim_min) and np.isfinite(sync_ylim_max):
                     if sync_new_y_start < sync_ylim_min:
                         sync_new_y_start = sync_ylim_min
-                        sync_new_y_end = sync_ylim_min + sync_desired_y_range
+                        sync_new_y_end = sync_ylim_min + sync_new_y_range
                     elif sync_new_y_end > sync_ylim_max:
                         sync_new_y_end = sync_ylim_max
-                        sync_new_y_start = sync_ylim_max - sync_desired_y_range
+                        sync_new_y_start = sync_ylim_max - sync_new_y_range
+                    
+                    # Validate Y-axis: check if range is too small
+                    if sync_new_y_range <= 0.01:
+                        can_sync = False
+                        break
+                    # If we're at max range and trying to zoom out (zoom_factor > 1), prevent zoom
+                    if zoom_factor > 1.0 and current_y_range >= max_y_range * 0.999:
+                        can_sync = False
+                        break
                 
                 sync_new_ylim = (sync_new_y_start, sync_new_y_end)
                 
