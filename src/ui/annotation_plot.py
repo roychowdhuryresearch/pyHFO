@@ -107,6 +107,9 @@ class AnnotationPlot(FigureCanvasQTAgg):
             print(f"Invalid event start index: {event_start_index}")
             return
         
+        event_start_index = int(event_start_index)
+        event_end_index = int(event_end_index)
+        
         fs = self.backend.sample_freq
         
         # Get event info for colors
