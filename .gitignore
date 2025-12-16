@@ -6,3 +6,4 @@ dist
 states   
 *.edf
 *.xlsx
+.vscode
