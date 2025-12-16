@@ -87,6 +87,20 @@ class HFOQuickDetector(QtWidgets.QDialog):
 
         self.close_signal = close_signal
         safe_connect_signal_slot(self.close_signal, self.close)
+        
+        # Store references to controls that should be disabled during detection
+        self.controls_to_disable = [
+            self.qd_loadEDF_button,
+            self.detectionTypeComboBox,
+            self.qd_fp_input, self.qd_fs_input, self.qd_rp_input, self.qd_rs_input,
+            self.qd_choose_artifact_model_button,
+            self.qd_choose_spike_model_button,
+            self.qd_choose_ehfo_model_button,
+            self.n_jobs_spinbox,
+            self.qd_use_classifier_checkbox,
+            self.qd_excel_checkbox,
+            self.qd_npz_checkbox
+        ]
 
     def open_file(self):
         fname, _ = QFileDialog.getOpenFileName(self, "Open File", "", "Recordings Files (*.edf *.eeg *.vhdr *.vmrk)")
@@ -338,8 +352,23 @@ class HFOQuickDetector(QtWidgets.QDialog):
         # self.threadpool.start(worker)
 
 
+    def set_ui_enabled(self, enabled):
+        """Enable or disable UI controls during detection"""
+        for control in self.controls_to_disable:
+            try:
+                control.setEnabled(enabled)
+            except:
+                pass  # Skip if control doesn't exist
+        
+        # Change cursor to indicate busy/ready state
+        if not enabled:
+            QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
+        else:
+            QtWidgets.QApplication.restoreOverrideCursor()
+
     def _run(self, progress_callback):
         self.run_button.setEnabled(False)
+        self.set_ui_enabled(False)  # Disable all controls during detection
         self.backend.n_jobs = int(self.n_jobs_spinbox.value())
         # get the filter parameters
         filter_param = self.get_filter_param()
@@ -389,15 +418,23 @@ class HFOQuickDetector(QtWidgets.QDialog):
     def run(self):
         worker=Worker(self._run)
         self.running = True
-        #disable cancel button
+        # Disable cancel button and update window title
         self.cancel_button.setEnabled(False)
+        self.setWindowTitle("Quick Detection - Running...")
         safe_connect_signal_slot(worker.signals.result, self._run_finished)
         self.threadpool.start(worker)
 
-    def _run_finished(self):
+    def _run_finished(self, result=None):
         self.run_button.setEnabled(True)
         self.cancel_button.setEnabled(True)
+        self.set_ui_enabled(True)  # Re-enable all controls
         self.running = False
+        self.setWindowTitle("Quick Detection - Complete")
+        # Ensure cursor is restored even if something went wrong
+        try:
+            QtWidgets.QApplication.restoreOverrideCursor()
+        except:
+            pass
         # print("run finished")
         
     # def close(self):
@@ -414,18 +451,32 @@ class HFOQuickDetector(QtWidgets.QDialog):
         # super().reject()
         # #if running a detection do not allow to close
         if self.running:
-            # print("cannot close while running detection")
-            return
-        else:
-            self.main_window.set_quick_detect_open(False)
-            # self.thread_stderr.stop()
-            self.thread_stderr.terminate()
-            self.thread_stderr.wait(5)
-            # self.thread_stdout.stop()
-            self.thread_stdout.terminate()
-            self.thread_stdout.wait(5)
-            # self.threadpool
-            super().reject()
+            # Show a message that detection is running
+            reply = QMessageBox.question(
+                self, 
+                'Detection Running',
+                'Detection is currently running. Are you sure you want to close?',
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            if reply == QMessageBox.No:
+                return
+        
+        # Restore cursor if it was changed
+        try:
+            QtWidgets.QApplication.restoreOverrideCursor()
+        except:
+            pass
+            
+        self.main_window.set_quick_detect_open(False)
+        # self.thread_stderr.stop()
+        self.thread_stderr.terminate()
+        self.thread_stderr.wait(5)
+        # self.thread_stdout.stop()
+        self.thread_stdout.terminate()
+        self.thread_stdout.wait(5)
+        # self.threadpool
+        super().reject()
         
         
 
