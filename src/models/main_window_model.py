@@ -627,6 +627,10 @@ class MainWindowModel(QObject):
         self.message_handler("NPZ loading complete!")
 
     def open_channel_selection(self):
+        # Check if EEG data is loaded
+        if not hasattr(self.backend, 'eeg_data') or self.backend.eeg_data is None:
+            QMessageBox.warning(self.window, "No Data", "Please load EEG data before selecting channels.")
+            return
         self.window.channel_selection_window = ChannelSelectionWindow(self.backend, self, self.window.close_signal)
         self.window.channel_selection_window.show()
 
@@ -854,7 +858,8 @@ class MainWindowModel(QObject):
         self.window.annotation_button.setEnabled(True)
         
         # Auto-save the detection state for future annotation work
-        self._auto_save_detection_state()
+        # Comment out the line below if you don't want automatic saving
+        # self._auto_save_detection_state()
 
     def _auto_save_detection_state(self):
         """Automatically save the detection state to an NPZ file for future annotation"""

@@ -15,16 +15,40 @@ class MainWaveformPlotView(QtWidgets.QGraphicsView):
         plot_widget.getPlotItem().hideAxis('bottom')
         plot_widget.getPlotItem().hideAxis('left')
         plot_widget.setBackground('w')
+        # Disable auto-ranging to use explicit ranges
+        plot_widget.disableAutoRange()
+        # Performance optimizations
+        plot_widget.setAntialiasing(False)  # Faster rendering
+        plot_widget.getPlotItem().setClipToView(True)  # Only render visible data
 
     def clear(self):
+        # Block updates during clear for better performance
+        self.plot_widget.getPlotItem().vb.setMouseEnabled(x=False, y=False)
         self.plot_widget.clear()
 
     def enable_axis_information(self):
         self.plot_widget.getPlotItem().showAxis('bottom')
         self.plot_widget.getPlotItem().showAxis('left')
+    
+    def begin_batch_update(self):
+        """Begin batching updates for better performance"""
+        self.plot_widget.getPlotItem().vb.setLimits(xMin=None, xMax=None, yMin=None, yMax=None)
+    
+    def end_batch_update(self):
+        """End batching updates and refresh the view"""
+        self.plot_widget.getPlotItem().vb.update()
 
     def plot_waveform(self, x, y, color, width):
-        self.plot_widget.plot(x, y, pen=pg.mkPen(color=color, width=width))
+        # Optimize plotting with performance settings
+        pen = pg.mkPen(color=color, width=width)
+        curve = self.plot_widget.plot(x, y, pen=pen, 
+                                      antialias=False,  # Faster rendering
+                                      skipFiniteCheck=False,  # Handle NaN values
+                                      connect='finite')  # Skip NaN values efficiently
+        # Enable clipping and downsampling for better performance
+        curve.setClipToView(True)
+        if len(x) > 1000:  # Only downsample if there are many points
+            curve.setDownsampling(auto=True, method='peak')
 
     def draw_scale_bar(self, x_pos, y_pos, y_100_length, y_scale_length):
         scale_line = pg.PlotDataItem([x_pos, x_pos], [y_pos, y_pos + y_scale_length],
@@ -42,5 +66,13 @@ class MainWaveformPlotView(QtWidgets.QGraphicsView):
 
         self.plot_widget.getAxis('left').setTicks([[(channel_names_locs[disp_i], channels_to_plot[chi_i])
                  for disp_i, chi_i in enumerate(range(first_channel_to_plot, first_channel_to_plot + n_channels_to_plot))]])
-        #set the max and min of the x axis
-        self.plot_widget.setXRange(start_in_time, end_in_time)
+        
+        # Set Y range to show all channels properly
+        y_max = offset_value  # top margin
+        y_min = -(n_channels_to_plot - 1) * offset_value - offset_value  # bottom margin
+        
+        # Batch range updates for better performance
+        self.plot_widget.setRange(xRange=(start_in_time, end_in_time), 
+                                  yRange=(y_min, y_max), 
+                                  padding=0, 
+                                  update=True)

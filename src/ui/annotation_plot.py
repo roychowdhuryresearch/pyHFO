@@ -98,6 +98,201 @@ class AnnotationPlot(FigureCanvasQTAgg):
         for ax_idx in range(3):
             self.plot_full_data(ax_idx, event_start_index, event_end_index, channel, skip_draw=True)
         self.draw()
+    
+    def reset_to_default_view(self, event_start_index: int, event_end_index: int):
+        """Reset all axes to their default auto-zoom view without replotting data."""
+        if not self.backend:
+            return
+        
+        fs = self.backend.sample_freq
+        total_samples = self.backend.get_eeg_data_shape()[1]
+        event_start_index = int(event_start_index)
+        event_end_index = int(event_end_index)
+        
+        for ax_idx in range(3):
+            if not self.data_plotted[ax_idx]:
+                continue
+            
+            # Recalculate default view window
+            win_len = int(fs * self.interval[ax_idx])
+            ws_idx, we_idx, _, _ = calculate_default_boundary(event_start_index, event_end_index, total_samples, win_len=win_len)
+            default_xlim = (ws_idx / fs, we_idx / fs)
+            
+            # Get current data limits for Y axis
+            if ax_idx == 2:
+                # Time-frequency: use adaptive range
+                max_freq = fs / 2
+                default_ylim = (max(10, 1), min(500, max_freq))
+            else:
+                # EEG plots: get current Y data range
+                current_xlim = self.axs[ax_idx].get_xlim()
+                lines = self.axs[ax_idx].get_lines()
+                if lines:
+                    # Get Y data from all lines in the current view
+                    all_y_data = []
+                    for line in lines:
+                        xdata, ydata = line.get_data()
+                        # Only consider data in the default view window
+                        mask = (xdata >= default_xlim[0]) & (xdata <= default_xlim[1])
+                        if np.any(mask):
+                            all_y_data.extend(ydata[mask])
+                    
+                    if all_y_data:
+                        y_min, y_max = np.min(all_y_data), np.max(all_y_data)
+                        y_margin = (y_max - y_min) * 0.1
+                        default_ylim = (y_min - y_margin, y_max + y_margin)
+                    else:
+                        default_ylim = self.axs[ax_idx].get_ylim()
+                else:
+                    default_ylim = self.axs[ax_idx].get_ylim()
+            
+            self.update_view(ax_idx, default_xlim, default_ylim, skip_draw=True)
+        
+        self.draw()
+    
+    def zoom_by_factor(self, zoom_factor):
+        """Zoom all axes by a factor, centered on current view."""
+        if not self.backend:
+            return
+        
+        event_info = self.backend.event_features.get_current_info()
+        start_index = int(event_info["start_index"])
+        end_index = int(event_info["end_index"])
+        fs = self.backend.sample_freq
+        
+        for ax_idx in range(3):
+            if not self.data_plotted[ax_idx]:
+                continue
+            
+            current_xlim = self.axs[ax_idx].get_xlim()
+            current_ylim = self.axs[ax_idx].get_ylim()
+            current_x_range = current_xlim[1] - current_xlim[0]
+            current_y_range = current_ylim[1] - current_ylim[0]
+            
+            # Calculate new ranges
+            new_x_range = current_x_range * zoom_factor
+            new_y_range = current_y_range * zoom_factor
+            
+            # Get axis limits
+            xlim_min, xlim_max, ylim_min, ylim_max = self.get_axis_limits(ax_idx, start_index, end_index, fs)
+            
+            # Apply minimum and maximum constraints
+            min_x_range = 0.05  # 50ms minimum
+            max_x_range = xlim_max - xlim_min
+            new_x_range = np.clip(new_x_range, min_x_range, max_x_range)
+            
+            # Center the zoom
+            x_center = (current_xlim[0] + current_xlim[1]) / 2.0
+            y_center = (current_ylim[0] + current_ylim[1]) / 2.0
+            
+            new_x_start = x_center - new_x_range / 2.0
+            new_x_end = new_x_start + new_x_range
+            
+            # Clamp to bounds
+            if new_x_start < xlim_min:
+                new_x_start = xlim_min
+                new_x_end = new_x_start + new_x_range
+            if new_x_end > xlim_max:
+                new_x_end = xlim_max
+                new_x_start = new_x_end - new_x_range
+            
+            # For signal plots, update Y-axis; for time-frequency, keep Y unchanged
+            if ax_idx != 2:
+                new_y_start = y_center - new_y_range / 2.0
+                new_y_end = new_y_start + new_y_range
+                
+                if np.isfinite(ylim_min) and np.isfinite(ylim_max):
+                    max_y_range = ylim_max - ylim_min
+                    new_y_range = min(new_y_range, max_y_range)
+                    if new_y_start < ylim_min:
+                        new_y_start = ylim_min
+                        new_y_end = new_y_start + new_y_range
+                    if new_y_end > ylim_max:
+                        new_y_end = ylim_max
+                        new_y_start = new_y_end - new_y_range
+            else:
+                # Keep time-frequency Y-axis (frequency) unchanged
+                new_y_start, new_y_end = current_ylim[0], current_ylim[1]
+            
+            self.set_current_interval(new_x_range, ax_idx)
+            self.update_view(ax_idx, (new_x_start, new_x_end), (new_y_start, new_y_end), skip_draw=True)
+        
+        self.draw()
+    
+    def pan_horizontal(self, fraction):
+        """Pan all axes horizontally by a fraction of current view width."""
+        if not self.backend:
+            return
+        
+        event_info = self.backend.event_features.get_current_info()
+        start_index = int(event_info["start_index"])
+        end_index = int(event_info["end_index"])
+        fs = self.backend.sample_freq
+        
+        for ax_idx in range(3):
+            if not self.data_plotted[ax_idx]:
+                continue
+            
+            current_xlim = self.axs[ax_idx].get_xlim()
+            current_x_range = current_xlim[1] - current_xlim[0]
+            delta_x = current_x_range * fraction
+            
+            new_x_start = current_xlim[0] + delta_x
+            new_x_end = current_xlim[1] + delta_x
+            
+            # Get axis limits
+            xlim_min, xlim_max, _, _ = self.get_axis_limits(ax_idx, start_index, end_index, fs)
+            
+            # Clamp to bounds
+            if new_x_start < xlim_min:
+                new_x_start = xlim_min
+                new_x_end = new_x_start + current_x_range
+            if new_x_end > xlim_max:
+                new_x_end = xlim_max
+                new_x_start = new_x_end - current_x_range
+            
+            self.update_view(ax_idx, (new_x_start, new_x_end), None, skip_draw=True)
+        
+        self.draw()
+    
+    def pan_vertical(self, fraction):
+        """Pan signal axes vertically by a fraction of current view height.
+        Does not affect time-frequency plot (axis 2) since up/down there means frequency."""
+        if not self.backend:
+            return
+        
+        event_info = self.backend.event_features.get_current_info()
+        start_index = int(event_info["start_index"])
+        end_index = int(event_info["end_index"])
+        fs = self.backend.sample_freq
+        
+        # Only pan axes 0 and 1 (EEG and filtered), skip axis 2 (time-frequency)
+        for ax_idx in [0, 1]:
+            if not self.data_plotted[ax_idx]:
+                continue
+            
+            current_ylim = self.axs[ax_idx].get_ylim()
+            current_y_range = current_ylim[1] - current_ylim[0]
+            delta_y = current_y_range * fraction
+            
+            new_y_start = current_ylim[0] + delta_y
+            new_y_end = current_ylim[1] + delta_y
+            
+            # Get axis limits
+            _, _, ylim_min, ylim_max = self.get_axis_limits(ax_idx, start_index, end_index, fs)
+            
+            # Clamp to bounds if finite
+            if np.isfinite(ylim_min) and np.isfinite(ylim_max):
+                if new_y_start < ylim_min:
+                    new_y_start = ylim_min
+                    new_y_end = new_y_start + current_y_range
+                if new_y_end > ylim_max:
+                    new_y_end = ylim_max
+                    new_y_start = new_y_end - current_y_range
+            
+            self.update_view(ax_idx, None, (new_y_start, new_y_end), skip_draw=True)
+        
+        self.draw()
 
     def plot_full_data(self, ax_idx: int, event_start_index: int, event_end_index: int, channel: str, skip_draw: bool = False):
         """Plot the full zoom range data for an axis. Called once when event changes."""
@@ -144,7 +339,15 @@ class AnnotationPlot(FigureCanvasQTAgg):
         
         if ax_idx in (0, 1):
             # EEG / Filtered plot
-            default_ylim = (eeg_data_to_display.min(), eeg_data_to_display.max())
+            # Calculate Y limits from visible window data for better auto-scaling
+            view_start = max(0, ws_idx - full_start_index)
+            view_end = min(len(eeg_data_to_display), we_idx - full_start_index)
+            if view_end > view_start:
+                view_data = eeg_data_to_display[view_start:view_end]
+                y_margin = (view_data.max() - view_data.min()) * 0.1  # 10% margin
+                default_ylim = (view_data.min() - y_margin, view_data.max() + y_margin)
+            else:
+                default_ylim = (eeg_data_to_display.min(), eeg_data_to_display.max())
             
             self.axs[ax_idx].plot(time, eeg_data_to_display, color=signal_color)
             self.axs[ax_idx].plot(
@@ -164,7 +367,8 @@ class AnnotationPlot(FigureCanvasQTAgg):
             # Use 1 Hz as min freq to avoid division by zero in wavelet transform
             min_freq = 1
             max_freq = fs / 2
-            default_ylim = (10, 500)
+            # Adaptive default Y range based on sampling frequency
+            default_ylim = (max(10, min_freq), min(500, max_freq))
             
             # Compute time-frequency data
             tf_data = calculate_time_frequency(eeg_data_to_display, fs, freq_min=min_freq, freq_max=max_freq)
@@ -195,23 +399,25 @@ class AnnotationPlot(FigureCanvasQTAgg):
         if not skip_draw:
             self.draw()
 
-    def update_view(self, ax_idx: int, xlim: tuple, ylim: tuple = None, skip_draw: bool = False):
+    def update_view(self, ax_idx: int, xlim: tuple = None, ylim: tuple = None, skip_draw: bool = False):
         """Update only the view limits without replotting data. Fast for zoom/pan."""
         if not self.data_plotted[ax_idx]:
             return
         
-        self.axs[ax_idx].set_xlim(xlim)
+        if xlim is not None:
+            self.axs[ax_idx].set_xlim(xlim)
+            # Update tick formatting
+            x_decimals = decimals_for_interval(xlim[1] - xlim[0])
+            self.axs[ax_idx].xaxis.set_major_formatter(
+                ticker.FuncFormatter(lambda x, _, d=x_decimals: format_time_without_trailing_zeros(x, d))
+            )
+        
         if ylim is not None:
             self.axs[ax_idx].set_ylim(ylim)
         
-        # Update tick formatting
-        x_decimals = decimals_for_interval(xlim[1] - xlim[0])
-        self.axs[ax_idx].xaxis.set_major_formatter(
-            ticker.FuncFormatter(lambda x, _, d=x_decimals: format_time_without_trailing_zeros(x, d))
-        )
-        
         if ax_idx == 2:
-            self.axs[ax_idx].set_xticks(np.linspace(xlim[0], xlim[1], 5))
+            if xlim is not None:
+                self.axs[ax_idx].set_xticks(np.linspace(xlim[0], xlim[1], 5))
             if ylim is not None:
                 self.axs[ax_idx].set_yticks(np.linspace(ylim[0], ylim[1], 5).astype(int))
         
@@ -266,40 +472,78 @@ class AnnotationPlot(FigureCanvasQTAgg):
         if desired_x_range <= 0.01:
             return
         
+        # Get current view limits FIRST
+        current_xlim = self.axs[ax_idx].get_xlim()
+        current_ylim = self.axs[ax_idx].get_ylim()
+        current_x_range = current_xlim[1] - current_xlim[0]
+        current_y_range = current_ylim[1] - current_ylim[0]
+        
+        # Get axis limits
+        xlim_min, xlim_max, ylim_min, ylim_max = self.get_axis_limits(ax_idx, start_index, end_index, fs)
+        max_x_range = xlim_max - xlim_min
+        
+        # Calculate mouse position in data coordinates
         mouse_pos = self.get_mouse_data_position(event, ax_idx)
         if mouse_pos is None:
             return
         xdata, ydata = mouse_pos
         
-        # Get current limits and calculate fractions
-        y_min, y_max = self.axs[ax_idx].get_ylim()
-        axes_bbox = self.axs[ax_idx].get_window_extent()
-        y_range = max(y_max - y_min, 1e-12)
-        y_frac = np.clip((ydata - y_min) / y_range, 0.0, 1.0)
-        x_frac = np.clip((event.pos().x() - axes_bbox.x0) / axes_bbox.width, 0.0, 1.0)
+        # Validate mouse position is within current view - if not, use center
+        if xdata < current_xlim[0] or xdata > current_xlim[1]:
+            xdata = (current_xlim[0] + current_xlim[1]) / 2.0
+        if ydata < current_ylim[0] or ydata > current_ylim[1]:
+            ydata = (current_ylim[0] + current_ylim[1]) / 2.0
         
-        desired_y_range = y_range * zoom_factor
+        # Calculate zoom fractions relative to current view
+        x_frac = np.clip((xdata - current_xlim[0]) / current_x_range, 0.1, 0.9)  # Keep away from edges
+        y_frac = np.clip((ydata - current_ylim[0]) / current_y_range, 0.1, 0.9)
         
-        # Get axis limits
-        xlim_min, xlim_max, ylim_min, ylim_max = self.get_axis_limits(ax_idx, start_index, end_index, fs)
-        max_x_range = xlim_max - xlim_min
-        max_y_range = ylim_max - ylim_min
+        # Calculate desired ranges after zoom
+        desired_y_range = current_y_range * zoom_factor
         
-        # Scale to fit within bounds
-        scale_x = max_x_range / desired_x_range if desired_x_range > 0 else 1.0
-        scale_y = max_y_range / desired_y_range if np.isfinite(max_y_range) and desired_y_range > 0 else 1.0
-        overall_scale = min(1.0, scale_x, scale_y)
-        new_x_range = desired_x_range * overall_scale
-        new_y_range = desired_y_range * overall_scale
+        # Clamp X range to valid bounds
+        new_x_range = min(desired_x_range, max_x_range)
         
-        # Calculate new limits
-        new_x_start = np.clip(xdata - new_x_range * x_frac, xlim_min, xlim_max - new_x_range)
-        new_y_start = ydata - new_y_range * y_frac
+        # For aggressive zoom in, limit minimum range to prevent zooming to empty areas
+        min_x_range = 0.05  # Minimum 50ms view
+        if new_x_range < min_x_range:
+            new_x_range = min_x_range
+        
+        # Clamp Y range if finite
         if np.isfinite(ylim_min) and np.isfinite(ylim_max):
-            new_y_start = np.clip(new_y_start, ylim_min, ylim_max - new_y_range)
+            max_y_range = ylim_max - ylim_min
+            new_y_range = min(desired_y_range, max_y_range)
+        else:
+            new_y_range = desired_y_range
         
-        xlim = (new_x_start, new_x_start + new_x_range)
-        ylim = (new_y_start, new_y_start + new_y_range)
+        # Calculate new limits centered on validated mouse position
+        new_x_start = xdata - new_x_range * x_frac
+        new_x_end = new_x_start + new_x_range
+        
+        # Ensure new view stays within valid data bounds
+        if new_x_start < xlim_min:
+            new_x_start = xlim_min
+            new_x_end = new_x_start + new_x_range
+        if new_x_end > xlim_max:
+            new_x_end = xlim_max
+            new_x_start = new_x_end - new_x_range
+        
+        # Clamp one more time to ensure we're within bounds
+        new_x_start = max(xlim_min, min(new_x_start, xlim_max - new_x_range))
+        
+        new_y_start = ydata - new_y_range * y_frac
+        new_y_end = new_y_start + new_y_range
+        
+        if np.isfinite(ylim_min) and np.isfinite(ylim_max):
+            if new_y_start < ylim_min:
+                new_y_start = ylim_min
+                new_y_end = new_y_start + new_y_range
+            if new_y_end > ylim_max:
+                new_y_end = ylim_max
+                new_y_start = new_y_end - new_y_range
+        
+        xlim = (new_x_start, new_x_end)
+        ylim = (new_y_start, new_y_end)
         
         self.set_current_interval(new_x_range, ax_idx)
         
@@ -321,33 +565,55 @@ class AnnotationPlot(FigureCanvasQTAgg):
             
             # Check bounds
             max_x_range = xlim_max - xlim_min
-            max_y_range = ylim_max - ylim_min
             if zoom_factor > 1.0 and current_x_range >= max_x_range * 0.999:
                 return  # Can't zoom out further
             
             desired_x_range = current_x_range * zoom_factor
             desired_y_range = current_y_range * zoom_factor
             
-            if desired_x_range <= 0.01:
+            # Minimum range check
+            min_x_range = 0.05  # Minimum 50ms
+            if desired_x_range < min_x_range:
                 return
             
-            scale_x = max_x_range / desired_x_range if desired_x_range > 0 else 1.0
-            scale_y = max_y_range / desired_y_range if np.isfinite(max_y_range) and desired_y_range > 0 else 1.0
-            overall_scale = min(1.0, scale_x, scale_y)
+            # Clamp ranges to valid bounds
+            new_x_range = min(desired_x_range, max_x_range)
             
-            new_x_range = desired_x_range * overall_scale
-            new_y_range = desired_y_range * overall_scale
+            if np.isfinite(ylim_min) and np.isfinite(ylim_max):
+                max_y_range = ylim_max - ylim_min
+                new_y_range = min(desired_y_range, max_y_range)
+            else:
+                new_y_range = desired_y_range
             
+            # Calculate center point with bounds checking
             x_center = current_xlim[0] + current_x_range * x_frac
-            new_x_start = np.clip(x_center - new_x_range * x_frac, xlim_min, xlim_max - new_x_range)
+            x_center = np.clip(x_center, xlim_min + new_x_range * 0.5, xlim_max - new_x_range * 0.5)
+            
+            new_x_start = x_center - new_x_range * x_frac
+            new_x_end = new_x_start + new_x_range
+            
+            # Ensure within bounds
+            if new_x_start < xlim_min:
+                new_x_start = xlim_min
+                new_x_end = new_x_start + new_x_range
+            if new_x_end > xlim_max:
+                new_x_end = xlim_max
+                new_x_start = new_x_end - new_x_range
             
             y_center = (current_ylim[0] + current_ylim[1]) / 2.0
             new_y_start = y_center - new_y_range / 2.0
-            if np.isfinite(ylim_min) and np.isfinite(ylim_max):
-                new_y_start = np.clip(new_y_start, ylim_min, ylim_max - new_y_range)
+            new_y_end = new_y_start + new_y_range
             
-            new_xlims.append((new_x_start, new_x_start + new_x_range))
-            new_ylims.append((new_y_start, new_y_start + new_y_range))
+            if np.isfinite(ylim_min) and np.isfinite(ylim_max):
+                if new_y_start < ylim_min:
+                    new_y_start = ylim_min
+                    new_y_end = new_y_start + new_y_range
+                if new_y_end > ylim_max:
+                    new_y_end = ylim_max
+                    new_y_start = new_y_end - new_y_range
+            
+            new_xlims.append((new_x_start, new_x_end))
+            new_ylims.append((new_y_start, new_y_end))
         
         # Apply to all axes
         for ax_idx in range(3):

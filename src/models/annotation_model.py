@@ -52,3 +52,8 @@ class AnnotationModel:
     def set_sync_views(self, enabled):
         """Enable or disable syncing of view movements across all subplots."""
         self.waveform_plot.set_sync_views(enabled)
+    
+    def reset_to_default_view(self):
+        """Reset all plot views to default auto-zoom without replotting."""
+        channel, start, end = self.get_current_event()
+        self.waveform_plot.reset_to_default_view(start, end)

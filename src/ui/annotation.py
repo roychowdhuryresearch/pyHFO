@@ -31,7 +31,12 @@ class Annotation(QtWidgets.QMainWindow):
         safe_connect_signal_slot(self.Accept.clicked, self.update_button_clicked)
         safe_connect_signal_slot(self.SetFreqLimit.clicked, self.update_frequency)
         safe_connect_signal_slot(self.ResetViewButton.clicked, self.reset_view)
-        safe_connect_signal_slot(self.SyncViewsCheckBox.toggled, self.toggle_sync_views)
+        safe_connect_signal_slot(self.ZoomInButton.clicked, self.zoom_in)
+        safe_connect_signal_slot(self.ZoomOutButton.clicked, self.zoom_out)
+        safe_connect_signal_slot(self.PanLeftButton.clicked, self.pan_left)
+        safe_connect_signal_slot(self.PanRightButton.clicked, self.pan_right)
+        safe_connect_signal_slot(self.PanUpButton.clicked, self.pan_up)
+        safe_connect_signal_slot(self.PanDownButton.clicked, self.pan_down)
 
         # init event type selection dropdown box
         self.EventDropdown_Box.clear()
@@ -176,9 +181,35 @@ class Annotation(QtWidgets.QMainWindow):
 
     def reset_view(self):
         """Reset the graph windows to default view."""
-        default_interval = self.get_current_interval()
-        self.annotation_controller.reset_view_to_default(default_interval)
-        self.update_plots()
+        channel, start, end = self.annotation_controller.get_current_event()
+        event_info = self.backend.event_features.get_current_info()
+        start_index = int(event_info["start_index"])
+        end_index = int(event_info["end_index"])
+        self.annotation_controller.model.waveform_plot.reset_to_default_view(start_index, end_index)
+
+    def zoom_in(self):
+        """Zoom in on Y-axis of signal plots."""
+        self.annotation_controller.model.waveform_plot.zoom_by_factor(1.5)
+
+    def zoom_out(self):
+        """Zoom out on Y-axis of signal plots."""
+        self.annotation_controller.model.waveform_plot.zoom_by_factor(0.67)
+
+    def pan_left(self):
+        """Pan all plots to the left."""
+        self.annotation_controller.model.waveform_plot.pan_horizontal(-0.2)
+
+    def pan_right(self):
+        """Pan all plots to the right."""
+        self.annotation_controller.model.waveform_plot.pan_horizontal(0.2)
+
+    def pan_up(self):
+        """Pan signal plots up."""
+        self.annotation_controller.model.waveform_plot.pan_vertical(0.2)
+
+    def pan_down(self):
+        """Pan signal plots down."""
+        self.annotation_controller.model.waveform_plot.pan_vertical(-0.2)
 
     def toggle_sync_views(self, checked):
         """Enable or disable syncing of view movements across all subplots."""

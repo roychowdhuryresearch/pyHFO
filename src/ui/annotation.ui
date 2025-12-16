@@ -87,10 +87,11 @@
             <property name="font">
              <font>
               <family>Arial</family>
+              <pointsize>9</pointsize>
              </font>
             </property>
             <property name="title">
-             <string>Frequency Controls</string>
+             <string>Frequency Range</string>
             </property>
             <layout class="QGridLayout" name="gridLayout">
              <item row="1" column="1">
@@ -153,7 +154,10 @@
              </font>
             </property>
             <property name="text">
-             <string>&lt; Previous</string>
+             <string>◄ Previous</string>
+            </property>
+            <property name="shortcut">
+             <string>Left</string>
             </property>
            </widget>
           </item>
@@ -166,7 +170,10 @@
              </font>
             </property>
             <property name="text">
-             <string>Next &gt;</string>
+             <string>Next ►</string>
+            </property>
+            <property name="shortcut">
+             <string>Right</string>
             </property>
            </widget>
           </item>
@@ -174,38 +181,6 @@
         </item>
         <item row="2" column="0">
          <layout class="QHBoxLayout" name="FFT_layout"/>
-        </item>
-        <item row="4" column="0">
-         <layout class="QHBoxLayout" name="zoom_control_layout">
-          <item>
-           <widget class="QGroupBox" name="zoomGroupBox">
-            <property name="font">
-             <font>
-              <family>Arial</family>
-             </font>
-            </property>
-            <property name="title">
-             <string>View controls</string>
-            </property>
-            <layout class="QGridLayout" name="gridLayout_zoom">
-             <item row="0" column="0">
-              <widget class="QPushButton" name="ResetViewButton">
-               <property name="text">
-                <string>Reset View</string>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="0">
-              <widget class="QCheckBox" name="SyncViewsCheckBox">
-               <property name="text">
-                <string>Sync Views</string>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </widget>
-          </item>
-         </layout>
         </item>
         <item row="5" column="0">
          <widget class="QGroupBox" name="groupBox">
@@ -404,6 +379,9 @@
             <property name="text">
              <string>Accept</string>
             </property>
+            <property name="shortcut">
+             <string>Return</string>
+            </property>
            </widget>
           </item>
          </layout>
@@ -411,7 +389,188 @@
        </layout>
       </item>
       <item row="0" column="0">
-       <layout class="QHBoxLayout" name="VisulaizationVerticalLayout"/>
+       <layout class="QVBoxLayout" name="leftSideLayout">
+        <item>
+         <widget class="QGroupBox" name="viewControlsGroupBox">
+          <property name="title">
+           <string/>
+          </property>
+          <property name="maximumHeight">
+           <number>50</number>
+          </property>
+          <property name="styleSheet">
+           <string notr="true">QGroupBox { border: 1px solid #ccc; border-radius: 4px; margin-top: 0px; padding: 5px; }</string>
+          </property>
+          <layout class="QHBoxLayout" name="viewControlsHLayout">
+           <item>
+            <widget class="QPushButton" name="ResetViewButton">
+             <property name="text">
+              <string>Reset</string>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>50</width>
+               <height>28</height>
+              </size>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>9</pointsize>
+              </font>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="ZoomInButton">
+             <property name="text">
+              <string>➕</string>
+             </property>
+             <property name="toolTip">
+              <string>Zoom in (Y-axis)</string>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>35</width>
+               <height>28</height>
+              </size>
+             </property>
+             <property name="maximumWidth">
+              <number>40</number>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>11</pointsize>
+              </font>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="ZoomOutButton">
+             <property name="text">
+              <string>➖</string>
+             </property>
+             <property name="toolTip">
+              <string>Zoom out (Y-axis)</string>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>35</width>
+               <height>28</height>
+              </size>
+             </property>
+             <property name="maximumWidth">
+              <number>40</number>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>11</pointsize>
+              </font>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="PanLeftButton">
+             <property name="text">
+              <string>⬅</string>
+             </property>
+             <property name="toolTip">
+              <string>Pan left</string>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>30</width>
+               <height>28</height>
+              </size>
+             </property>
+             <property name="maximumWidth">
+              <number>35</number>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+              </font>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="PanRightButton">
+             <property name="text">
+              <string>➡</string>
+             </property>
+             <property name="toolTip">
+              <string>Pan right</string>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>30</width>
+               <height>28</height>
+              </size>
+             </property>
+             <property name="maximumWidth">
+              <number>35</number>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+              </font>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="PanUpButton">
+             <property name="text">
+              <string>⬆</string>
+             </property>
+             <property name="toolTip">
+              <string>Pan up (signal amplitude only)</string>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>30</width>
+               <height>28</height>
+              </size>
+             </property>
+             <property name="maximumWidth">
+              <number>35</number>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+              </font>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="PanDownButton">
+             <property name="text">
+              <string>⬇</string>
+             </property>
+             <property name="toolTip">
+              <string>Pan down (signal amplitude only)</string>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>30</width>
+               <height>28</height>
+              </size>
+             </property>
+             <property name="maximumWidth">
+              <number>35</number>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+              </font>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="VisulaizationVerticalLayout"/>
+        </item>
+       </layout>
       </item>
      </layout>
     </item>

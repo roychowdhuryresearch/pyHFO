@@ -65,3 +65,7 @@ class AnnotationController:
     def set_sync_views(self, enabled):
         """Enable or disable syncing of view movements across all subplots."""
         self.model.set_sync_views(enabled)
+    
+    def reset_to_default_view(self):
+        """Reset all plot views to default auto-zoom without replotting."""
+        self.model.reset_to_default_view()

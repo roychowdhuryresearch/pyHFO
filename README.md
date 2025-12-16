@@ -11,6 +11,11 @@ PyHFO is a multi-window desktop application providing an integrated and user-fri
 If you find our project is useful in your research, please cite:
 
 ```
+Ding, Y., Zhang, Y., Duan, C., Daida, A., Zhang, Y., Kanai, S., Lu, M., Hussain, S., Staba, R. J., Nariai, H., & Roychowdhury, V. (2025). PyHFO 2.0: An open-source platform for deep learning–based clinical high-frequency oscillations analysis. Journal of Neural Engineering, 22(5), 056040. https://doi.org/10.1088/1741-2552/ae10e0
+```
+
+
+```
 Zhang, Y., Liu, L., Ding, Y., Chen, X., Monsoor, T., Daida, A., Oana, S., Hussain, S. A., Sankar, R., Fallah, A., Santana-Gomez, C., Engel, J., Staba, R. J., Speier, W., Zhang, J., Nariai, H., & Roychowdhury, V. (2024). PyHFO: lightweight deep learning-powered end-to-end high-frequency oscillations analysis application. Journal of neural engineering, 10.1088/1741-2552/ad4916. Advance online publication. https://doi.org/10.1088/1741-2552/ad4916
 ```
 
@@ -73,6 +78,8 @@ Department of Electrical and Computer Engineering, University of California, Los
 - [Yuanyi Ding](https://www.linkedin.com/in/yuanyi-ding-4a981a132/)
 - [Xin Chen](https://www.linkedin.com/in/xin-chen-980521/)
 - [Jessica Lin](https://www.linkedin.com/in/jessica4903/)
+- [Mingjian Lu](https://www.linkedin.com/in/mingjian-lu-357182102/)
+- [Lucas Lu](https://www.linkedin.com/in/lucas-lu-93b867278/)
 
 Division of Pediatric Neurology, Department of Pediatrics, UCLA Mattel Children’s Hospital David Geffen School of Medicine
 - [Hiroki Nariai](https://www.uclahealth.org/providers/hiroki-nariai)

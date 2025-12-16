@@ -57,6 +57,13 @@ class ChannelSelectionWindow(QtWidgets.QDialog):
 
     def set_channels(self):
         eeg_data,channels = self.backend.get_eeg_data()
+        
+        # Handle case where no data is loaded
+        if channels is None:
+            QMessageBox.warning(self, "No Data", "No EEG data available. Please load data first.")
+            self.close()
+            return
+            
         channels_indexes_to_plot = self.main_window_model.get_channel_indices_to_plot()
         self.channel_checkboxes = {}
         self.n_channels = len(channels)
