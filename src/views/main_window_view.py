@@ -29,6 +29,25 @@ class MainWindowView(QObject):
 
         self.window.threadpool = QThreadPool()
         self.window.replace_last_line = False
+        
+        # Add biomarker selection to toolbar
+        self._add_biomarker_to_toolbar()
+
+    def _add_biomarker_to_toolbar(self):
+        """Add biomarker selection combo box to the toolbar"""
+        # Create a label for the biomarker selection
+        biomarker_label = QLabel(" Biomarker: ")
+        biomarker_label.setFont(QtGui.QFont('Arial', 11, QtGui.QFont.Bold))
+        
+        # Remove combo box from the hidden widget container and add to toolbar
+        self.window.combo_box_biomarker.setParent(None)
+        
+        # Add label and combo box to the biomarker toolbar
+        self.window.toolBar_biomarker.addWidget(biomarker_label)
+        self.window.toolBar_biomarker.addWidget(self.window.combo_box_biomarker)
+        
+        # Make sure the combo box is visible
+        self.window.combo_box_biomarker.setVisible(True)
 
     def get_biomarker_type(self):
         return self.window.combo_box_biomarker.currentText()
