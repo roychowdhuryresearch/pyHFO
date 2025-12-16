@@ -438,8 +438,18 @@ class MainWindowModel(QObject):
                                                  "\n Number of real Spindles: " + str(num_real))
 
     def save_to_excel(self):
-        # open file dialog
-        fname, _ = QFileDialog.getSaveFileName(self.window, 'Save file', "", ".xlsx files (*.xlsx)")
+        # Generate default filename based on loaded EDF file
+        default_path = os.path.expanduser("~")  # Default to home directory
+        if self.backend and hasattr(self.backend, 'edf_param') and self.backend.edf_param:
+            edf_path = self.backend.edf_param.get("edf_fn", "")
+            if edf_path and os.path.exists(edf_path):
+                # Get directory and basename without extension
+                directory = os.path.dirname(edf_path)
+                base_name = os.path.splitext(os.path.basename(edf_path))[0]
+                default_path = os.path.join(directory, f"{base_name}_results.xlsx")
+        
+        # open file dialog with default path (use non-native dialog to avoid macOS freezing)
+        fname, _ = QFileDialog.getSaveFileName(self.window, 'Save file', default_path, "Excel files (*.xlsx)", options=QFileDialog.DontUseNativeDialog)
         if fname:
             self.backend.export_excel(fname)
 
@@ -448,9 +458,19 @@ class MainWindowModel(QObject):
         return []
 
     def save_to_npz(self):
-        # open file dialog
+        # Generate default filename based on loaded EDF file
+        default_path = os.path.expanduser("~")  # Default to home directory
+        if self.backend and hasattr(self.backend, 'edf_param') and self.backend.edf_param:
+            edf_path = self.backend.edf_param.get("edf_fn", "")
+            if edf_path and os.path.exists(edf_path):
+                # Get directory and basename without extension
+                directory = os.path.dirname(edf_path)
+                base_name = os.path.splitext(os.path.basename(edf_path))[0]
+                default_path = os.path.join(directory, f"{base_name}_detected.npz")
+        
+        # open file dialog with default path (use non-native dialog to avoid macOS freezing)
         # print("saving to npz...",end="")
-        fname, _ = QFileDialog.getSaveFileName(self.window, 'Save file', "", ".npz files (*.npz)")
+        fname, _ = QFileDialog.getSaveFileName(self.window, 'Save file', default_path, "NPZ files (*.npz)", options=QFileDialog.DontUseNativeDialog)
         if fname:
             # print("saving to {fname}...",end="")
             worker = Worker(self._save_to_npz, fname)
@@ -727,6 +747,62 @@ class MainWindowModel(QObject):
         # enable the plot out the 60Hz bandstopped signal
         self.window.Filter60Button.setEnabled(True)
         self.window.bipolar_button.setEnabled(True)
+        
+        # Set default filter and detector parameters, then enable detect button
+        if self.biomarker_type == 'HFO':
+            # First set default filter parameters (required by set_detector)
+            try:
+                from src.param.param_filter import ParamFilter
+                default_filter = ParamFilter()
+                self.backend.set_filter_parameter(default_filter)
+                
+                # Now set default STE detector parameters
+                default_params = ParamSTE(self.backend.sample_freq)
+                detector_params = {"detector_type": "STE", "detector_param": default_params.to_dict()}
+                self.backend.set_detector(ParamDetector.from_dict(detector_params))
+                
+                # Update the overview display with default parameters
+                self.window.ste_epoch_display.setText(str(default_params.epoch_len))
+                self.window.ste_min_window_display.setText(str(default_params.min_window))
+                self.window.ste_rms_window_display.setText(str(default_params.rms_window))
+                self.window.ste_min_gap_time_display.setText(str(default_params.min_gap))
+                self.window.ste_min_oscillations_display.setText(str(default_params.min_osc))
+                self.window.ste_peak_threshold_display.setText(str(default_params.peak_thres))
+                self.window.ste_rms_threshold_display.setText(str(default_params.rms_thres))
+                self.update_detector_tab("STE")
+                # Enable STE detect button so user can detect immediately
+                self.window.ste_detect_button.setEnabled(True)
+                
+                # Set default classifier parameters (needed for classification after detection)
+                # but keep the Detect All button disabled until detection is done
+                self.backend.set_default_cpu_classifier()
+                self.set_classifier_param_display()
+            except Exception as e:
+                print(f"Warning: Could not set default STE parameters: {e}")
+        elif self.biomarker_type == 'Spindle':
+            # First set default filter parameters
+            try:
+                from src.param.param_filter import ParamFilterSpindle
+                default_filter = ParamFilterSpindle()
+                self.backend.set_filter_parameter(default_filter)
+                
+                # Now set default YASA detector parameters
+                default_params = ParamYASA(self.backend.sample_freq)
+                detector_params = {"detector_type": "YASA", "detector_param": default_params.to_dict()}
+                self.backend.set_detector(ParamDetector.from_dict(detector_params))
+                
+                # Update the overview display
+                self.window.yasa_freq_sp_display.setText(str(default_params.freq_sp))
+                self.window.yasa_freq_broad_display.setText(str(default_params.freq_broad))
+                self.window.yasa_duration_display.setText(str(default_params.duration))
+                self.window.yasa_min_distance_display.setText(str(default_params.min_distance))
+                self.window.yasa_thresh_rel_pow_display.setText(str(default_params.rel_pow))
+                self.window.yasa_thresh_corr_display.setText(str(default_params.corr))
+                self.window.yasa_thresh_rms_display.setText(str(default_params.rms))
+                # Enable YASA detect button
+                self.window.yasa_detect_button.setEnabled(True)
+            except Exception as e:
+                print(f"Warning: Could not set default YASA parameters: {e}")
         # print("EDF file loaded")
 
     def toggle_filtered(self):
@@ -856,6 +932,9 @@ class MainWindowModel(QObject):
         self.window.waveform_plot.set_plot_biomarkers(True)
         self.window.detect_all_button.setEnabled(True)
         self.window.annotation_button.setEnabled(True)
+        # Enable save as Excel button after detection is finished
+        # Classification fields (artifact, spike, ehfo) will be empty/zero if not classified yet
+        self.window.save_csv_button.setEnabled(True)
         
         # Auto-save the detection state for future annotation work
         # Comment out the line below if you don't want automatic saving
@@ -1082,6 +1161,8 @@ class MainWindowModel(QObject):
             self.window.ste_peak_threshold_display.setText(peak_thres_raw)
             self.window.ste_rms_threshold_display.setText(rms_thres_raw)
             self.update_detector_tab("STE")
+            # Enable the STE detect button after parameters are saved successfully
+            self.window.ste_detect_button.setEnabled(True)
         except:
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
@@ -1127,6 +1208,8 @@ class MainWindowModel(QObject):
             self.window.mni_baseline_min_time_display.setText(base_min)
 
             self.update_detector_tab("MNI")
+            # Enable the MNI detect button after parameters are saved successfully
+            self.window.mni_detect_button.setEnabled(True)
         except Exception as e:
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
@@ -1165,6 +1248,8 @@ class MainWindowModel(QObject):
             self.window.hil_min_window_display.setText(min_window)
 
             self.update_detector_tab("HIL")
+            # Enable the HIL detect button after parameters are saved successfully
+            self.window.hil_detect_button.setEnabled(True)
 
         except Exception as e:
             msg = QMessageBox()
