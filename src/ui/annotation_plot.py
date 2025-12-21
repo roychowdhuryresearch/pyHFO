@@ -210,12 +210,13 @@ class AnnotationPlot(FigureCanvasQTAgg):
                     if new_y_end > ylim_max:
                         new_y_end = ylim_max
                         new_y_start = new_y_end - new_y_range
+                
+                self.update_view(ax_idx, (new_x_start, new_x_end), (new_y_start, new_y_end), skip_draw=True)
             else:
-                # Keep time-frequency Y-axis (frequency) unchanged
-                new_y_start, new_y_end = current_ylim[0], current_ylim[1]
+                # Keep time-frequency Y-axis (frequency) unchanged when using zoom buttons
+                self.update_view(ax_idx, (new_x_start, new_x_end), None, skip_draw=True)
             
             self.set_current_interval(new_x_range, ax_idx)
-            self.update_view(ax_idx, (new_x_start, new_x_end), (new_y_start, new_y_end), skip_draw=True)
         
         self.draw()
     
@@ -690,9 +691,8 @@ class AnnotationPlot(FigureCanvasQTAgg):
             # Apply x-delta
             new_xlim = (self.drag_start_xlims[ax_idx][0] + data_delta_x, self.drag_start_xlims[ax_idx][1] + data_delta_x)
             
-            # Check bounds
-            if new_xlim[0] < xlim_min or new_xlim[1] > xlim_max:
-                return  # Can't pan further
+            # Clamp to bounds instead of early return
+            new_xlim = self._clamp_limits(new_xlim, xlim_min, xlim_max)
             
             # Y-axis: only sync within same group
             if (active_ax_idx == 2 and ax_idx == 2) or (active_ax_idx != 2 and ax_idx != 2):
