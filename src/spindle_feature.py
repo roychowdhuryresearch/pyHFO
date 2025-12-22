@@ -99,7 +99,10 @@ class SpindleFeature(object):
         return self.channel_names[self.index], self.starts[self.index], self.ends[self.index]
 
     def _get_prediction(self, artifact_prediction, spike_prediction):
-        if artifact_prediction < 1:
+        # -1 means undetected/unclassified, not artifact
+        if artifact_prediction == -1:
+            return "Unpredicted"
+        elif artifact_prediction < 1:
             return "Artifact"
         elif spike_prediction == 1:
             return "Spike"

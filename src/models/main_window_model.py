@@ -555,6 +555,13 @@ class MainWindowModel(QObject):
                 self.backend.event_features.pathological_annotations = checkpoint["pathological_annotations"]
                 self.backend.event_features.physiological_annotations = checkpoint["physiological_annotations"]
                 self.backend.event_features.annotated = checkpoint["annotated"]
+                
+                # Only set artifact_predicted to True if items were actually classified
+                # Check if there are any actual predictions (not all zeros or all -1)
+                artifact_predictions = np.array(self.backend.event_features.artifact_predictions)
+                if len(artifact_predictions) > 0:
+                    has_actual_predictions = np.any((artifact_predictions != 0) & (artifact_predictions != -1))
+                    self.backend.event_features.artifact_predicted = has_actual_predictions and self.backend.classified
             else:  # Spindle
                 from src.spindle_feature import SpindleFeature
                 from src.param.param_detector import ParamDetector

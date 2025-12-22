@@ -112,7 +112,11 @@ class HFO_Feature():
         return self.channel_names[self.index], self.starts[self.index], self.ends[self.index]
     
     def _get_prediction(self, predictions):
-        if predictions.get("Artifact", 1) != 1:
+        artifact_val = predictions.get("Artifact", 1)
+        # -1 means undetected/unclassified, not artifact
+        if artifact_val == -1:
+            return "Unpredicted"
+        if artifact_val != 1:
             return "Artifact"
 
         priority_order = ["spkHFO", "eHFO", "HFO"]
@@ -220,7 +224,23 @@ class HFO_Feature():
         self.num_ehfo = np.sum(ehfo_predictions == 1)
     
     def update_pred(self, artifact_predictions, spike_predictions, ehfo_predictions):
-        self.update_artifact_pred(artifact_predictions)
+        artifact_predictions = np.array(artifact_predictions)
+        # Only set artifact_predicted to True if there are actual predictions
+        # (not all zeros = unclassified, not all -1 = undetected)
+        if len(artifact_predictions) > 0:
+            # Check if there are any actual predictions (values that are not 0 and not -1)
+            # This means at least some items were classified
+            has_actual_predictions = np.any((artifact_predictions != 0) & (artifact_predictions != -1))
+            if has_actual_predictions:
+                self.update_artifact_pred(artifact_predictions)
+            else:
+                # Items are unclassified (all zeros) or undetected (all -1)
+                # Don't set artifact_predicted to True
+                self.artifact_predictions = artifact_predictions
+                self.artifact_predicted = False
+        else:
+            self.artifact_predictions = artifact_predictions
+            self.artifact_predicted = False
         self.update_spike_pred(spike_predictions)
         self.update_ehfo_pred(ehfo_predictions)
 

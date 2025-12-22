@@ -126,8 +126,11 @@ class MainWaveformPlotModel:
 
         for j in range(len(starts)):
             try:
-                if int(artifacts[j])<1:
-                    color = self.color_dict["artifact"]
+                # -1 means undetected, should be green (not artifact)
+                if artifacts[j] == -1:
+                    color = self.color_dict["non_spike"]  # Green
+                elif int(artifacts[j]) < 1:
+                    color = self.color_dict["artifact"]  # Orange
                 elif spk_hfos[j]:
                     color = self.color_dict["spike"]
                 elif e_hfos[j]:
