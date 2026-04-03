@@ -55,6 +55,45 @@ class AnnotationPlot(FigureCanvasQTAgg):
         FigureCanvasQTAgg.setSizePolicy(self, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         FigureCanvasQTAgg.updateGeometry(self)
 
+    def _has_filtered_signal(self) -> bool:
+        data = getattr(self.backend, "filter_data", None)
+        return data is not None and np.size(data) > 0
+
+    def _ensure_filtered_signal(self) -> bool:
+        if self._has_filtered_signal():
+            return True
+
+        # Try to build filtered data lazily for annotation plots.
+        try:
+            if hasattr(self.backend, "filter_eeg_data"):
+                if getattr(self.backend, "param_filter", None) is not None:
+                    self.backend.filter_eeg_data(self.backend.param_filter)
+                else:
+                    self.backend.filter_eeg_data()
+        except Exception:
+            return False
+
+        return self._has_filtered_signal()
+
+    def _get_tf_frequency_range(self, use_filtered_signal: bool, fs: float) -> tuple:
+        nyquist = fs / 2
+        min_freq, max_freq = 1.0, max(1.0, nyquist)
+
+        if use_filtered_signal:
+            param_filter = getattr(self.backend, "param_filter", None)
+            if param_filter is not None:
+                try:
+                    band_min = float(param_filter.fp)
+                    band_max = float(param_filter.fs)
+                    if band_max < band_min:
+                        band_min, band_max = band_max, band_min
+                    min_freq = max(1.0, band_min)
+                    max_freq = min(nyquist, max(min_freq + 1.0, band_max))
+                except (TypeError, ValueError):
+                    pass
+
+        return min_freq, max_freq
+
     def set_current_interval(self, interval, ax_idx):
         self.interval[ax_idx] = interval
 
@@ -120,9 +159,10 @@ class AnnotationPlot(FigureCanvasQTAgg):
             
             # Get current data limits for Y axis
             if ax_idx == 2:
-                # Time-frequency: use adaptive range
-                max_freq = fs / 2
-                default_ylim = (max(10, 1), min(500, max_freq))
+                # Time-frequency: default to active filter band when filtered data is available.
+                use_filtered_signal = self._has_filtered_signal()
+                min_freq, max_freq = self._get_tf_frequency_range(use_filtered_signal, fs)
+                default_ylim = (min_freq, max_freq)
             else:
                 # EEG plots: get current Y data range
                 current_xlim = self.axs[ax_idx].get_xlim()
@@ -319,8 +359,10 @@ class AnnotationPlot(FigureCanvasQTAgg):
         full_start_index = max(0, event_start_index - zoom_max_samples)
         full_end_index = min(total_samples, event_end_index + zoom_max_samples)
         
-        # Get EEG data for the full zoom range
-        if ax_idx == 1:
+        # Axis 1 (filtered trace) and axis 2 (TF) should use filtered data.
+        # If filtered data is missing, try to generate it once.
+        use_filtered_signal = ax_idx in (1, 2) and self._ensure_filtered_signal()
+        if use_filtered_signal:
             eeg_data, channel_names = self.backend.get_eeg_data(full_start_index, full_end_index, filtered=True)
         else:
             eeg_data, channel_names = self.backend.get_eeg_data(full_start_index, full_end_index)
@@ -365,11 +407,8 @@ class AnnotationPlot(FigureCanvasQTAgg):
             )
         
         else:  # ax_idx == 2: Time-Frequency
-            # Use 1 Hz as min freq to avoid division by zero in wavelet transform
-            min_freq = 1
-            max_freq = fs / 2
-            # Adaptive default Y range based on sampling frequency
-            default_ylim = (max(10, min_freq), min(500, max_freq))
+            min_freq, max_freq = self._get_tf_frequency_range(use_filtered_signal, fs)
+            default_ylim = (min_freq, max_freq)
             
             # Compute time-frequency data
             tf_data = calculate_time_frequency(eeg_data_to_display, fs, freq_min=min_freq, freq_max=max_freq)
@@ -389,8 +428,9 @@ class AnnotationPlot(FigureCanvasQTAgg):
             self.axs[ax_idx].set_xticks(np.linspace(default_xlim[0], default_xlim[1], 5))
             self.axs[ax_idx].set_yticks(np.linspace(default_ylim[0], default_ylim[1], 5).astype(int))
             
+            tf_title = "Time Frequency (Filtered)" if use_filtered_signal else "Time Frequency (Raw)"
             self.configure_plot_axes(
-                self.axs[ax_idx], "Time Frequency", 'Frequency (Hz)',
+                self.axs[ax_idx], tf_title, 'Frequency (Hz)',
                 ticker.FuncFormatter(custom_formatter), x_decimals,
                 default_xlim, default_ylim
             )

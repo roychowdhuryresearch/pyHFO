@@ -190,7 +190,7 @@ class SpindleApp(object):
         self.filtered = True
 
     def has_filtered_data(self):
-        return self.filter_data is not None or len(self.filter_data) > 0
+        return self.filter_data is not None and len(self.filter_data) > 0
 
     def filter_60(self, data):
         """filter 60Hz noise"""
