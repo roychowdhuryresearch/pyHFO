@@ -1,3 +1,5 @@
+from PyQt5.QtCore import QTimer
+
 from src.utils.utils_gui import *
 
 
@@ -8,14 +10,18 @@ class MainWindowController:
 
         self.supported_biomarker = {
             'HFO': self.create_hfo_window,
-            # TODO future version
-            # 'Spindle': self.create_spindle_window,
-            # 'Spike': self.create_spike_window,
+            'Spindle': self.create_spindle_window,
+            'Spike': self.create_spike_window,
         }
 
     def init_biomarker_window(self, biomarker_type):
         # To dynamically create frame for different biomarkers, need first init (optimize later)
-        self.view.window.frame_biomarker_layout = QHBoxLayout(self.view.window.frame_biomarker_type)
+        existing_layout = self.view.window.frame_biomarker_type.layout()
+        if existing_layout is None:
+            self.view.window.frame_biomarker_layout = QHBoxLayout(self.view.window.frame_biomarker_type)
+        else:
+            clear_layout(existing_layout)
+            self.view.window.frame_biomarker_layout = existing_layout
         self.supported_biomarker[biomarker_type]()
 
     def init_general_window(self):
@@ -34,13 +40,12 @@ class MainWindowController:
     def init_biomarker_type(self):
         default_biomarker = self.get_biomarker_type()
         self.set_biomarker_type(default_biomarker)
-
-        # TODO future version
-        # safe_connect_signal_slot(self.view.window.combo_box_biomarker.currentIndexChanged, self.switch_biomarker)
+        safe_connect_signal_slot(self.view.window.combo_box_biomarker.currentIndexChanged, self.switch_biomarker)
 
     def switch_biomarker(self):
         selected_biomarker = self.get_biomarker_type()
         self.supported_biomarker[selected_biomarker]()
+        QTimer.singleShot(0, self.model._ensure_current_backend_loaded)
 
     def create_hfo_window(self):
         # set biomarker type
@@ -64,6 +69,7 @@ class MainWindowController:
 
         # init params
         self.model.init_param('HFO')
+        self.model.restore_loaded_backend_ui()
 
     def create_spindle_window(self):
         # set biomarker type
@@ -87,6 +93,14 @@ class MainWindowController:
 
         # init params
         self.model.init_param('Spindle')
+        self.model.restore_loaded_backend_ui()
 
     def create_spike_window(self):
-        print('not implemented yet')
+        self.set_biomarker_type('Spike')
+        self.view.create_stacked_widget_detection_param('Spike')
+        self.view.create_frame_biomarker('Spike')
+        self.view.window.is_data_filtered = False
+        self.view.window.quick_detect_open = False
+        self.model.create_center_waveform_and_mini_plot()
+        self.model.connect_signal_and_slot('Spike')
+        self.model.restore_loaded_backend_ui()

@@ -13,7 +13,6 @@ from src.param.param_filter import ParamFilter
 from src.utils.utils_gui import *
 
 import multiprocessing as mp
-import torch
 
 ROOT_DIR = Path(__file__).parent
 
@@ -25,17 +24,35 @@ class ChannelSelectionWindow(QtWidgets.QDialog):
         self.backend = backend
         self.main_window_model = main_window_model
         self.layout = QGridLayout()
+        self.layout.setContentsMargins(18, 18, 18, 18)
+        self.layout.setHorizontalSpacing(12)
+        self.layout.setVerticalSpacing(12)
         self.setWindowTitle("Channel Selection")
         self.setWindowIcon(QtGui.QIcon(os.path.join(ROOT_DIR, 'images/icon1.png')))
+        self.resize(760, 560)
+        self.setMinimumSize(580, 420)
         self.setLayout(self.layout)
+
+        self.title_label = QtWidgets.QLabel("Choose visible channels")
+        self.title_label.setProperty("dialogTitle", True)
+        self.layout.addWidget(self.title_label, 0, 0, 1, 2)
+
+        self.helper_label = QtWidgets.QLabel("Select the channels to keep in the waveform workspace. The list also shows the peak-to-peak amplitude for quick review.")
+        self.helper_label.setProperty("mutedText", True)
+        self.helper_label.setWordWrap(True)
+        self.layout.addWidget(self.helper_label, 1, 0, 1, 2)
         
         #create the rest of the checkboxes in a scroll area
         self.scroll_area = QtWidgets.QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setWidget(QtWidgets.QWidget())
+        self.scroll_area.widget().setObjectName("DialogScrollContent")
         # self.scroll_area.setFixedHeight(300)
-        self.layout.addWidget(self.scroll_area, 0, 0, 1, 2)
+        self.layout.addWidget(self.scroll_area, 2, 0, 1, 2)
         self.scroll_layout = QGridLayout()
+        self.scroll_layout.setContentsMargins(14, 14, 14, 14)
+        self.scroll_layout.setHorizontalSpacing(12)
+        self.scroll_layout.setVerticalSpacing(10)
         self.scroll_area.widget().setLayout(self.scroll_layout)
         #disable horizontal scroll bar
         self.scroll_area.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
@@ -44,8 +61,9 @@ class ChannelSelectionWindow(QtWidgets.QDialog):
         #add ok and cancel buttons
         self.ok_button = QtWidgets.QPushButton("OK")
         self.cancel_button = QtWidgets.QPushButton("Cancel")
-        self.layout.addWidget(self.ok_button, 1, 0)
-        self.layout.addWidget(self.cancel_button, 1, 1)
+        self.layout.addWidget(self.ok_button, 3, 0)
+        self.layout.addWidget(self.cancel_button, 3, 1)
+        set_accent_button(self.ok_button)
 
         #connect cancel button to close window
         safe_connect_signal_slot(self.cancel_button.clicked, self.close)
@@ -53,14 +71,22 @@ class ChannelSelectionWindow(QtWidgets.QDialog):
         safe_connect_signal_slot(self.ok_button.clicked, self.get_channels_to_show)
 
         self.close_signal = close_signal
-        safe_connect_signal_slot(self.close_signal, self.close_me)
+        if self.close_signal is not None:
+            safe_connect_signal_slot(self.close_signal, self.close_me)
+        apply_subwindow_theme(self)
 
     def set_channels(self):
         eeg_data,channels = self.backend.get_eeg_data()
         
         # Handle case where no data is loaded
         if channels is None:
-            QMessageBox.warning(self, "No Data", "No EEG data available. Please load data first.")
+            build_themed_message_box(
+                self,
+                icon=QMessageBox.Warning,
+                title="No Data",
+                text="No EEG data available.",
+                informative_text="Please load data first.",
+            ).exec_()
             self.close()
             return
             
@@ -79,25 +105,22 @@ class ChannelSelectionWindow(QtWidgets.QDialog):
         self.scroll_layout.addWidget(self.check_box_none, 0, 0)
         self.scroll_layout.addWidget(self.check_box_all, 0, 1)
         for i,channel in enumerate(channels):
-            # print(channel)
-            #add checkbox
-            checkbox = QtWidgets.QCheckBox(f"{channel}")
+            amplitude = round(np.ptp(eeg_data[i]), 3)
+            checkbox = QtWidgets.QCheckBox(f"{channel} | amplitude: {amplitude} uV")
             checkbox.setObjectName(f"channel_{i}")
+            checkbox.setToolTip(f"Peak-to-peak amplitude: {amplitude} uV")
             self.channel_checkboxes[channel]=checkbox
             self.__dict__[f"channel_{i}"] = checkbox
             safe_connect_signal_slot(checkbox.stateChanged, self.channel_clicked)
-            # checkbox.setChecked(True)
-            self.scroll_layout.addWidget(QtWidgets.QCheckBox(f"{channel}, amplitude: {round(np.ptp(eeg_data[i]),3)} uV"),
-                                  i//2 + 1, i % 2)
+            self.scroll_layout.addWidget(checkbox, i//2 + 1, i % 2)
 
         for i in range(self.n_channels):
             if i in channels_indexes_to_plot:
                 self.scroll_layout.itemAtPosition(i//2 +1 ,i%2).widget().setChecked(True)
-                safe_connect_signal_slot(self.scroll_layout.itemAtPosition(i // 2 + 1, i % 2).widget().stateChanged, self.check_channel_state)
+        self.check_channel_state()
    
     def channel_clicked(self):
-        #print("clicked")
-        pass
+        self.check_channel_state()
     
     def select_channels(self, state):
         for i in range(self.n_channels):

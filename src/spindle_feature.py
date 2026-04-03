@@ -35,6 +35,7 @@ class SpindleFeature(object):
         self.index = 0
         self.artifact_predicted = False
         self.spike_predicted = False
+        self._channel_index_cache = None
 
     def __str__(self):
         return "Spindle_Feature: {} Spindles, {} artifacts, {} spikes, {} real Spindles".format(self.num_spindle, self.num_artifact,
@@ -64,6 +65,7 @@ class SpindleFeature(object):
     #     self.artifact_predicted = True
 
     def doctor_annotation(self, annotation: str):
+        self.clear_annotation(self.index)
         if annotation == "Artifact":
             self.artifact_annotations[self.index] = 0
         elif annotation == "Spike":
@@ -73,6 +75,13 @@ class SpindleFeature(object):
             self.spike_annotations[self.index] = 0
             self.artifact_annotations[self.index] = 1
         self.annotated[self.index] = 1
+
+    def clear_annotation(self, index=None):
+        if index is None:
+            index = self.index
+        self.artifact_annotations[index] = 0
+        self.spike_annotations[index] = 0
+        self.annotated[index] = 0
 
     def get_next(self):
         if self.index >= self.num_spindle - 1:
@@ -109,15 +118,65 @@ class SpindleFeature(object):
         else:
             return "Spindle"
 
+    def _get_annotation(self, artifact_annotation, spike_annotation):
+        if artifact_annotation < 1:
+            return "Artifact"
+        if spike_annotation == 1:
+            return "Spike"
+        return "Real"
+
+    def get_annotation(self, index=None):
+        if index is None:
+            index = self.index
+        if len(self.annotated) == 0 or self.annotated[index] == 0:
+            return None
+        return self._get_annotation(self.artifact_annotations[index], self.spike_annotations[index])
+
+    def _find_unannotated_index(self, direction: int = 1):
+        if self.num_spindle == 0:
+            return None
+        if np.all(self.annotated > 0):
+            return None
+        for offset in range(1, self.num_spindle + 1):
+            candidate = (self.index + direction * offset) % self.num_spindle
+            if self.annotated[candidate] == 0:
+                return candidate
+        return None
+
+    def get_next_unannotated(self):
+        next_index = self._find_unannotated_index(direction=1)
+        if next_index is None:
+            return None
+        return self.get_jump(next_index)
+
+    def get_prev_unannotated(self):
+        prev_index = self._find_unannotated_index(direction=-1)
+        if prev_index is None:
+            return None
+        return self.get_jump(prev_index)
+
+    def get_review_progress(self):
+        reviewed = int(np.sum(self.annotated > 0))
+        total = int(self.get_num_biomarker())
+        return {"reviewed": reviewed, "remaining": max(total - reviewed, 0), "total": total}
+
+    def get_annotation_counts(self):
+        return {
+            "Artifact": int(np.sum((self.annotated > 0) & (self.artifact_annotations < 1))),
+            "Spike": int(np.sum(self.spike_annotations > 0)),
+            "Real": int(np.sum((self.annotated > 0) & (self.artifact_annotations > 0) & (self.spike_annotations == 0))),
+        }
+
+    def has_reviewable_events(self):
+        return self.get_num_biomarker() > 0
+
     def get_current_info(self):
-        print("self.artifact_predicted:", self.artifact_predicted)
         channel_name = self.channel_names[self.index]
         start = self.starts[self.index]
         end = self.ends[self.index]
         prediction = self._get_prediction(self.artifact_predictions[self.index],
                                           self.spike_predictions[self.index]) if self.artifact_predicted else None
-        annotation = self._get_prediction(self.artifact_annotations[self.index], self.spike_annotations[self.index]) if \
-        self.annotated[self.index] else None
+        annotation = self.get_annotation(self.index)
         return {"channel_name": channel_name, "start_index": start, "end_index": end, "prediction": prediction,
                 "annotation": annotation}
 
@@ -210,23 +269,34 @@ class SpindleFeature(object):
         return channel_name_g, interval_g, artifact_predictions_g, spike_predictions_g
 
     def get_biomarkers_for_channel(self, channel_name: str, min_start: int = None, max_end: int = None):
-        channel_names = self.channel_names
-        starts = self.starts
-        ends = self.ends
+        channel_indexes = self._build_channel_index_cache().get(channel_name, np.array([], dtype=int))
+        starts = self.starts[channel_indexes]
+        ends = self.ends[channel_indexes]
         artifact_predictions = np.array(self.artifact_predictions)
         spike_predictions = np.array(self.spike_predictions)
-        indexes = channel_names == channel_name
         if min_start is not None and max_end is not None:
-            indexes = indexes & (starts >= min_start) & (ends <= max_end)
-        starts = starts[indexes]
-        ends = ends[indexes]
+            indexes = (starts >= min_start) & (ends <= max_end)
+            starts = starts[indexes]
+            ends = ends[indexes]
+            channel_indexes = channel_indexes[indexes]
         try:
-            artifact_predictions = artifact_predictions[indexes]
-            spike_predictions = spike_predictions[indexes] == 1
-        except:
+            artifact_predictions = artifact_predictions[channel_indexes]
+            spike_predictions = spike_predictions[channel_indexes] == 1
+        except (IndexError, TypeError):
             artifact_predictions = []
             spike_predictions = []
         return starts, ends, artifact_predictions, spike_predictions
+
+    def _build_channel_index_cache(self):
+        if self._channel_index_cache is not None:
+            return self._channel_index_cache
+        cache = {}
+        for idx, channel_name in enumerate(self.channel_names):
+            cache.setdefault(channel_name, []).append(idx)
+        self._channel_index_cache = {
+            channel_name: np.array(indexes, dtype=int) for channel_name, indexes in cache.items()
+        }
+        return self._channel_index_cache
 
     def get_annotation_text(self, index):
         channel_name = self.channel_names[index]

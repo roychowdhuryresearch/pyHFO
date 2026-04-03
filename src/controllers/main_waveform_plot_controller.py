@@ -52,6 +52,7 @@ class MainWaveformPlotController:
         return self.model.first_channel_to_plot
 
     def get_current_eeg_data_to_display(self):
+        self.model.set_render_width_pixels(self.view.get_render_width())
         return self.model.get_all_current_eeg_data_to_display()
     
     def set_current_time_window(self, start_in_time):
@@ -62,6 +63,9 @@ class MainWaveformPlotController:
 
     def get_current_time_window(self):
         return self.model.get_current_time_window()
+
+    def get_total_time(self):
+        return self.model.get_total_time()
     
     def set_plot_biomarkers(self, plot_biomarkers:bool):
         self.model.set_plot_biomarkers(plot_biomarkers)
@@ -82,20 +86,42 @@ class MainWaveformPlotController:
         first_channel_to_plot = self.get_first_channel_to_plot()
         n_channels_to_plot = self.model.n_channels_to_plot
         channels_to_plot = self.model.channels_to_plot
-        start_in_time, end_in_time = self.get_current_start_end()
 
         for disp_i, ch_i in enumerate(range(first_channel_to_plot, first_channel_to_plot+n_channels_to_plot)):
             channel = channels_to_plot[ch_i]
-            (biomarker_starts, biomarker_ends,
-             biomarker_starts_in_time, biomarker_ends_in_time,
-             windows_in_time, colors) = self.model.get_all_biomarkers_for_all_current_channels_and_color(channel)
+            overlay_groups = self.model.get_all_biomarkers_for_all_current_channels_and_color(channel)
 
             if self.model.plot_biomarkers:
-                for i in range(len(biomarker_starts)):
-                    event_start = int(biomarker_starts[i]-start_in_time*self.model.sample_freq)
-                    event_end = int(biomarker_ends[i]-start_in_time*self.model.sample_freq)
-                    self.view.plot_waveform(windows_in_time[i], eeg_data_to_display[ch_i, event_start:event_end]-disp_i*offset_value, colors[i], 2)
-                    self.view.plot_waveform([biomarker_starts_in_time[i], biomarker_ends_in_time[i]], [top_value+0.2,top_value+0.2], colors[i], 10)
+                for overlay_group in overlay_groups:
+                    biomarker_starts = overlay_group["starts"]
+                    biomarker_ends = overlay_group["ends"]
+                    biomarker_starts_in_time = overlay_group["starts_in_time"]
+                    biomarker_ends_in_time = overlay_group["ends_in_time"]
+                    colors = overlay_group["colors"]
+                    line_width = overlay_group["line_width"]
+                    marker_width = overlay_group["marker_width"]
+                    marker_offset = overlay_group["marker_offset"]
+
+                    for i in range(len(biomarker_starts)):
+                        segment_x, segment_y = self.model.get_event_display_segment(
+                            ch_i,
+                            biomarker_starts[i],
+                            biomarker_ends[i],
+                        )
+                        if len(segment_x) == 0 or len(segment_y) == 0:
+                            continue
+                        self.view.plot_waveform(
+                            segment_x,
+                            segment_y - disp_i*offset_value,
+                            colors[i],
+                            line_width,
+                        )
+                        self.view.plot_waveform(
+                            [biomarker_starts_in_time[i], biomarker_ends_in_time[i]],
+                            [top_value+0.2+marker_offset, top_value+0.2+marker_offset],
+                            colors[i],
+                            marker_width,
+                        )
 
 
     def draw_scale_bar(self, eeg_data_to_display, offset_value, y_100_length, y_scale_length):
@@ -114,3 +140,6 @@ class MainWaveformPlotController:
         first_channel_to_plot = self.get_first_channel_to_plot()
         start_in_time, end_in_time = self.get_current_start_end()
         self.view.draw_channel_names(offset_value, n_channels_to_plot, channels_to_plot, first_channel_to_plot, start_in_time, end_in_time)
+
+    def get_left_axis_width(self):
+        return self.view.get_left_axis_width()

@@ -1,0 +1,352 @@
+from __future__ import annotations
+
+from collections import Counter
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any
+from uuid import uuid4
+
+import numpy as np
+
+from src.hfo_feature import HFO_Feature
+from src.param.param_classifier import ParamClassifier
+from src.param.param_detector import ParamDetector
+from src.param.param_filter import ParamFilter, ParamFilterSpindle
+from src.spindle_feature import SpindleFeature
+
+
+def _now_iso() -> str:
+    return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+
+
+def _restore_filter_param(biomarker_type: str, payload: dict | None):
+    if not payload:
+        return None
+    if biomarker_type == "Spindle":
+        return ParamFilterSpindle.from_dict(payload)
+    return ParamFilter.from_dict(payload)
+
+
+def _restore_detector_param(payload: dict | None):
+    if not payload:
+        return None
+    return ParamDetector.from_dict(payload)
+
+
+def _restore_classifier_param(payload: dict | None):
+    if not payload:
+        return None
+    return ParamClassifier.from_dict(payload)
+
+
+def _restore_event_features(biomarker_type: str, payload: dict | None):
+    if not payload:
+        return None
+    if biomarker_type == "Spindle":
+        feature = SpindleFeature.from_dict(payload)
+        feature.artifact_annotations = np.array(payload.get("artifact_annotations", getattr(feature, "artifact_annotations", np.array([]))))
+        feature.spike_annotations = np.array(payload.get("spike_annotations", getattr(feature, "spike_annotations", np.array([]))))
+        feature.annotated = np.array(payload.get("annotated", getattr(feature, "annotated", np.array([]))))
+        return feature
+
+    feature = HFO_Feature.from_dict(payload)
+    feature.artifact_annotations = np.array(payload.get("artifact_annotations", getattr(feature, "artifact_annotations", np.array([]))))
+    feature.pathological_annotations = np.array(payload.get("pathological_annotations", getattr(feature, "pathological_annotations", np.array([]))))
+    feature.physiological_annotations = np.array(payload.get("physiological_annotations", getattr(feature, "physiological_annotations", np.array([]))))
+    feature.annotated = np.array(payload.get("annotated", getattr(feature, "annotated", np.array([]))))
+    return feature
+
+
+def serialize_event_features(biomarker_type: str, event_features):
+    if event_features is None:
+        return None
+    payload = event_features.to_dict()
+    payload["annotated"] = np.array(getattr(event_features, "annotated", np.array([])))
+    if biomarker_type == "Spindle":
+        payload["artifact_annotations"] = np.array(getattr(event_features, "artifact_annotations", np.array([])))
+        payload["spike_annotations"] = np.array(getattr(event_features, "spike_annotations", np.array([])))
+    else:
+        payload["artifact_annotations"] = np.array(getattr(event_features, "artifact_annotations", np.array([])))
+        payload["pathological_annotations"] = np.array(getattr(event_features, "pathological_annotations", np.array([])))
+        payload["physiological_annotations"] = np.array(getattr(event_features, "physiological_annotations", np.array([])))
+    return payload
+
+
+def summarize_event_features(event_features):
+    if event_features is None:
+        return {"num_events": 0, "num_channels": 0, "top_channels": []}
+    channel_names = np.array(getattr(event_features, "channel_names", np.array([])))
+    counter = Counter(channel_names.tolist())
+    top_channels = [
+        {"channel_name": channel_name, "count": count}
+        for channel_name, count in counter.most_common(10)
+    ]
+    return {
+        "num_events": int(len(getattr(event_features, "starts", []))),
+        "num_channels": int(len(counter)),
+        "top_channels": top_channels,
+    }
+
+
+@dataclass
+class DetectionRun:
+    run_id: str
+    biomarker_type: str
+    detector_name: str
+    display_name: str
+    created_at: str
+    selected_channels: list[str] = field(default_factory=list)
+    param_filter: Any = None
+    param_detector: Any = None
+    param_classifier: Any = None
+    event_features: Any = None
+    detector_output: Any = None
+    classified: bool = False
+    summary: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def create(
+        cls,
+        biomarker_type: str,
+        detector_name: str,
+        selected_channels: Any,
+        param_filter: Any = None,
+        param_detector: Any = None,
+        param_classifier: Any = None,
+        event_features: Any = None,
+        detector_output: Any = None,
+        classified: bool = False,
+    ) -> "DetectionRun":
+        stamp = _now_iso()
+        detector_label = detector_name or biomarker_type
+        display_name = f"{detector_label} {stamp.replace('T', ' ').replace('Z', ' UTC')}"
+        channels = list(np.array(selected_channels).tolist()) if selected_channels is not None else []
+        return cls(
+            run_id=str(uuid4()),
+            biomarker_type=biomarker_type,
+            detector_name=detector_name,
+            display_name=display_name,
+            created_at=stamp,
+            selected_channels=channels,
+            param_filter=param_filter,
+            param_detector=param_detector,
+            param_classifier=param_classifier,
+            event_features=event_features,
+            detector_output=detector_output,
+            classified=classified,
+            summary=summarize_event_features(event_features),
+        )
+
+    def refresh_summary(self):
+        self.summary = summarize_event_features(self.event_features)
+
+    def to_dict(self):
+        self.refresh_summary()
+        return {
+            "run_id": self.run_id,
+            "biomarker_type": self.biomarker_type,
+            "detector_name": self.detector_name,
+            "display_name": self.display_name,
+            "created_at": self.created_at,
+            "selected_channels": list(self.selected_channels),
+            "param_filter": self.param_filter.to_dict() if self.param_filter else None,
+            "param_detector": self.param_detector.to_dict() if self.param_detector else None,
+            "param_classifier": self.param_classifier.to_dict() if self.param_classifier else None,
+            "event_features": serialize_event_features(self.biomarker_type, self.event_features),
+            "detector_output": self.detector_output,
+            "classified": self.classified,
+            "summary": dict(self.summary),
+        }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "DetectionRun":
+        biomarker_type = payload["biomarker_type"]
+        run = cls(
+            run_id=payload["run_id"],
+            biomarker_type=biomarker_type,
+            detector_name=payload.get("detector_name", biomarker_type),
+            display_name=payload.get("display_name", payload.get("detector_name", biomarker_type)),
+            created_at=payload.get("created_at", _now_iso()),
+            selected_channels=list(payload.get("selected_channels", [])),
+            param_filter=_restore_filter_param(biomarker_type, payload.get("param_filter")),
+            param_detector=_restore_detector_param(payload.get("param_detector")),
+            param_classifier=_restore_classifier_param(payload.get("param_classifier")),
+            event_features=_restore_event_features(biomarker_type, payload.get("event_features")),
+            detector_output=payload.get("detector_output"),
+            classified=payload.get("classified", False),
+            summary=dict(payload.get("summary", {})),
+        )
+        run.refresh_summary()
+        return run
+
+
+@dataclass
+class AnalysisSession:
+    biomarker_type: str
+    active_run_id: str | None = None
+    accepted_run_id: str | None = None
+    visible_run_ids: list[str] = field(default_factory=list)
+    runs: dict[str, DetectionRun] = field(default_factory=dict)
+
+    def add_run(self, run: DetectionRun):
+        self.runs[run.run_id] = run
+        self.active_run_id = run.run_id
+        if run.run_id not in self.visible_run_ids:
+            self.visible_run_ids.append(run.run_id)
+
+    def get_active_run(self) -> DetectionRun | None:
+        if self.active_run_id is None:
+            return None
+        return self.runs.get(self.active_run_id)
+
+    def activate_run(self, run_id: str):
+        if run_id not in self.runs:
+            raise KeyError(f"Unknown run id: {run_id}")
+        self.active_run_id = run_id
+        # Activating a run should always make its overlay visible in review mode.
+        if run_id not in self.visible_run_ids:
+            self.visible_run_ids.append(run_id)
+
+    def accept_run(self, run_id: str):
+        if run_id not in self.runs:
+            raise KeyError(f"Unknown run id: {run_id}")
+        self.accepted_run_id = run_id
+
+    def get_accepted_run(self) -> DetectionRun | None:
+        if self.accepted_run_id is None:
+            return None
+        return self.runs.get(self.accepted_run_id)
+
+    def get_run(self, run_id: str) -> DetectionRun | None:
+        return self.runs.get(run_id)
+
+    def list_runs(self):
+        return list(self.runs.values())
+
+    def is_run_visible(self, run_id: str) -> bool:
+        return run_id in self.visible_run_ids
+
+    def set_run_visible(self, run_id: str, visible: bool):
+        if run_id not in self.runs:
+            raise KeyError(f"Unknown run id: {run_id}")
+        if visible:
+            if run_id not in self.visible_run_ids:
+                self.visible_run_ids.append(run_id)
+        else:
+            self.visible_run_ids = [visible_id for visible_id in self.visible_run_ids if visible_id != run_id]
+
+    def set_visible_runs(self, run_ids: list[str]):
+        valid_ids = [run_id for run_id in run_ids if run_id in self.runs]
+        self.visible_run_ids = valid_ids
+
+    def get_visible_runs(self):
+        visible = [self.runs[run_id] for run_id in self.visible_run_ids if run_id in self.runs]
+        if visible:
+            return visible
+        active_run = self.get_active_run()
+        return [active_run] if active_run is not None else []
+
+    def get_channel_ranking(self, run_id: str | None = None):
+        run = self.get_run(run_id) if run_id else self.get_active_run()
+        if run is None or run.event_features is None:
+            return []
+        event_features = run.event_features
+        channel_names = np.array(getattr(event_features, "channel_names", np.array([])))
+        if len(channel_names) == 0:
+            return []
+
+        rows = []
+        unique_channels = np.unique(channel_names)
+        artifact_predictions = np.array(getattr(event_features, "artifact_predictions", np.array([])))
+        spike_predictions = np.array(getattr(event_features, "spike_predictions", np.array([])))
+        ehfo_predictions = np.array(getattr(event_features, "ehfo_predictions", np.array([]))) if hasattr(event_features, "ehfo_predictions") else np.array([])
+        annotated = np.array(getattr(event_features, "annotated", np.array([])))
+        artifact_annotations = np.array(getattr(event_features, "artifact_annotations", np.array([])))
+
+        for channel_name in unique_channels:
+            idx = np.where(channel_names == channel_name)[0]
+            row = {
+                "channel_name": channel_name,
+                "total_events": int(len(idx)),
+                "artifact_predicted": int(np.sum(artifact_predictions[idx] < 1)) if len(artifact_predictions) else 0,
+                "accepted_predicted": int(np.sum(artifact_predictions[idx] > 0)) if len(artifact_predictions) else int(len(idx)),
+                "spike_associated": int(np.sum(spike_predictions[idx] == 1)) if len(spike_predictions) else 0,
+                "annotated_events": int(np.sum(annotated[idx] > 0)) if len(annotated) else 0,
+                "artifact_annotated": int(np.sum(artifact_annotations[idx] > 0)) if len(artifact_annotations) else 0,
+            }
+            if len(ehfo_predictions):
+                row["ehfo_predicted"] = int(np.sum(ehfo_predictions[idx] == 1))
+            rows.append(row)
+
+        rows.sort(key=lambda row: (-row["accepted_predicted"], -row["total_events"], row["channel_name"]))
+        return rows
+
+    def compare_runs(self, run_ids: list[str] | None = None):
+        selected_runs = [self.runs[run_id] for run_id in (run_ids or list(self.runs.keys())) if run_id in self.runs]
+        if len(selected_runs) < 2:
+            return {"runs": [], "pairwise_overlap": []}
+
+        run_summaries = []
+        event_sets = {}
+        for run in selected_runs:
+            run.refresh_summary()
+            tuples = set()
+            if run.event_features is not None:
+                for channel_name, start, end in zip(run.event_features.channel_names, run.event_features.starts, run.event_features.ends):
+                    tuples.add((str(channel_name), int(start), int(end)))
+            event_sets[run.run_id] = tuples
+            run_summaries.append({
+                "run_id": run.run_id,
+                "display_name": run.display_name,
+                "detector_name": run.detector_name,
+                "num_events": run.summary.get("num_events", 0),
+                "num_channels": run.summary.get("num_channels", 0),
+            })
+
+        pairwise = []
+        for i, left in enumerate(selected_runs):
+            for right in selected_runs[i + 1:]:
+                left_events = event_sets[left.run_id]
+                right_events = event_sets[right.run_id]
+                overlap = left_events & right_events
+                union = left_events | right_events
+                pairwise.append({
+                    "left_run_id": left.run_id,
+                    "right_run_id": right.run_id,
+                    "left_detector": left.detector_name,
+                    "right_detector": right.detector_name,
+                    "overlap_events": len(overlap),
+                    "union_events": len(union),
+                    "jaccard": (len(overlap) / len(union)) if union else 1.0,
+                    "left_only": len(left_events - right_events),
+                    "right_only": len(right_events - left_events),
+                })
+        return {"runs": run_summaries, "pairwise_overlap": pairwise}
+
+    def to_dict(self):
+        return {
+            "biomarker_type": self.biomarker_type,
+            "active_run_id": self.active_run_id,
+            "accepted_run_id": self.accepted_run_id,
+            "visible_run_ids": list(self.visible_run_ids),
+            "runs": [run.to_dict() for run in self.runs.values()],
+        }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "AnalysisSession":
+        session = cls(
+            biomarker_type=payload["biomarker_type"],
+            active_run_id=payload.get("active_run_id"),
+            accepted_run_id=payload.get("accepted_run_id"),
+            visible_run_ids=list(payload.get("visible_run_ids", [])),
+        )
+        for run_payload in payload.get("runs", []):
+            run = DetectionRun.from_dict(run_payload)
+            session.runs[run.run_id] = run
+        if session.active_run_id not in session.runs and session.runs:
+            session.active_run_id = next(iter(session.runs))
+        if not session.visible_run_ids and session.active_run_id is not None:
+            session.visible_run_ids = [session.active_run_id]
+        else:
+            session.visible_run_ids = [run_id for run_id in session.visible_run_ids if run_id in session.runs]
+        return session

@@ -4,10 +4,9 @@ from src.param.param_classifier import ParamClassifier
 import torch
 from src.model import PreProcessing, NeuralCNN_ehfo
 import src.model
-from transformers import TrainingArguments, ViTForImageClassification
-from transformers import Trainer
 from src.dl_models import *
 from src.hfo_feature import HFO_Feature
+from src.utils.model_metadata import DEFAULT_PREPROCESSING_BY_MODEL, resolve_preprocessing_metadata
 import os
 
 
@@ -19,6 +18,9 @@ class Classifier():
         self.use_spike = param.use_spike
         self.use_ehfo = param.use_ehfo
         self.load_func = torch.load if "default" in self.model_type else torch.load  #torch.hub.load_state_dict_from_url
+        self.model_a = None
+        self.model_s = None
+        self.model_e = None
         
     def update_model_s(self, param:ParamClassifier):
         self.model_type = param.model_type
@@ -75,10 +77,9 @@ class Classifier():
         self.spike_card = param.spike_card
 
         model = NeuralCNNForImageClassification.from_pretrained(param.spike_card)
-
-        preprocessing_param_dict = {'freq_range_hz': [10, 500], 'fs': 2000, 'image_size': 224,
-                                    'random_shift_ms': 50, 'selected_freq_range_hz': [10, 220],
-                                    'selected_window_size_ms': 214.28571429, 'time_range_ms': [0, 1000]}
+        preprocessing_param_dict = resolve_preprocessing_metadata(
+            model.config, fallback=DEFAULT_PREPROCESSING_BY_MODEL["spike"]
+        )
         self.param_spike_preprocessing = load_preprocessing_param(preprocessing_param_dict)
         if self.model_type == "default_cpu":
             param.device = "cpu"
@@ -95,11 +96,9 @@ class Classifier():
         self.artifact_card = param.artifact_card
 
         model = NeuralCNNForImageClassification.from_pretrained(param.artifact_card)
-
-        preprocessing_param_dict = {'freq_range_hz': [10, 500], 'fs': 2000, 'image_size': 224,
-                                    'random_shift_ms': 50, 'selected_freq_range_hz': [10, 220],
-                                    'selected_window_size_ms': 214.28571429, 'time_range_ms': [0, 1000]
-                                    }
+        preprocessing_param_dict = resolve_preprocessing_metadata(
+            model.config, fallback=DEFAULT_PREPROCESSING_BY_MODEL["artifact"]
+        )
         self.param_artifact_preprocessing = load_preprocessing_param(preprocessing_param_dict)
         if "default" in self.model_type:
             model.channel_selection = True
@@ -119,10 +118,9 @@ class Classifier():
         self.ehfo_card = param.ehfo_card
 
         model = NeuralCNNForImageClassification.from_pretrained(param.ehfo_card)
-        preprocessing_param_dict = {'freq_range_hz': [10, 500], 'fs': 2000, 'image_size': 224,
-                                    'random_shift_ms': 0, 'selected_freq_range_hz': [10, 500],
-                                    'selected_window_size_ms': 500, 'time_range_ms': [0, 1000]}
-        # self.param_ehfo_preprocessing = load_preprocessing_param(preprocessing_param_dict)
+        preprocessing_param_dict = resolve_preprocessing_metadata(
+            model.config, fallback=DEFAULT_PREPROCESSING_BY_MODEL["ehfo"]
+        )
 
         if self.model_type == "default_cpu":
             param.device = "cpu"
@@ -135,22 +133,21 @@ class Classifier():
         self.preprocessing_ehfo = PreProcessing.from_dict(preprocessing_param_dict)
 
     def artifact_detection(self, biomarker_features, ignore_region, threshold=0.5):
-        if not self.model_a:
+        if self.model_a is None:
             raise ValueError("Please load artifact model first!")
         return self._classify_artifacts(self.model_a, biomarker_features, ignore_region, threshold=threshold)
 
     def spike_detection(self, biomarker_features):
-        if not self.model_s:
+        if self.model_s is None:
             raise ValueError("Please load spike model first!")
         return self._classify_spikes(self.model_s, biomarker_features)
 
     def ehfo_detection(self, biomarker_features):
-        if not self.model_e:
+        if self.model_e is None:
             raise ValueError("Please load eHFO model first!")
         return self._classify_ehfos(self.model_e, biomarker_features)
 
     def _classify_artifacts(self, model, biomarker_feature, ignore_region, threshold=0.5):
-        model = model.to(self.device)
         features = self.preprocessing_artifact.process_biomarker_feature(biomarker_feature)
         artifact_predictions = np.zeros(features.shape[0]) -1
         starts = biomarker_feature.starts
@@ -166,7 +163,6 @@ class Classifier():
     def _classify_spikes(self, model, biomarker_feature):
         if len(biomarker_feature.artifact_predictions) == 0:
             raise ValueError("Please run artifact classifier first!")
-        model = model.to(self.device)
         features = self.preprocessing_spike.process_biomarker_feature(biomarker_feature)
         spike_predictions = np.zeros(features.shape[0]) -1
         keep_index = np.where(biomarker_feature.artifact_predictions > 0)[0]
@@ -180,7 +176,6 @@ class Classifier():
     def _classify_ehfos(self, model, biomarker_feature):
         if len(biomarker_feature.artifact_predictions) == 0:
             raise ValueError("Please run artifact classifier first!")
-        model = model.to(self.device)
         features = self.preprocessing_ehfo.process_biomarker_feature(biomarker_feature)
         features = features[:, 0, :, :]
         features = np.expand_dims(features, axis=1)  # New shape: (batch, 1, height, width)

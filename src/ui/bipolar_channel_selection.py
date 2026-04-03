@@ -25,6 +25,14 @@ class BipolarChannelSelectionWindow(QtWidgets.QDialog):
         self.main_window = main_window
         self.setWindowTitle("Bipolar Channel Selection")
         self.setWindowIcon(QtGui.QIcon(os.path.join(ROOT_DIR, 'images/icon1.png')))
+        self.resize(760, 240)
+
+        self.label_3.setText("Create a derived channel by subtracting Channel 2 from Channel 1.")
+        self.label_3.setProperty("mutedText", True)
+        self.label_3.setWordWrap(True)
+        self.label_3.setAlignment(QtCore.Qt.AlignCenter)
+        self.ok_button.setText("Create Channel")
+        set_accent_button(self.ok_button)
 
         eeg_data,channel_names = self.backend.get_eeg_data()
 
@@ -33,6 +41,9 @@ class BipolarChannelSelectionWindow(QtWidgets.QDialog):
             if "#-#" not in channel:
                 self.ch_1_dropdown.addItem((channel))
                 self.ch_2_dropdown.addItem((channel))
+        self.ch_1_dropdown.setMinimumWidth(260)
+        self.ch_2_dropdown.setMinimumWidth(260)
+        apply_subwindow_theme(self)
 
         #connect cancel button to close window
         safe_connect_signal_slot(self.cancel_button.clicked, self.close)
@@ -40,7 +51,8 @@ class BipolarChannelSelectionWindow(QtWidgets.QDialog):
         safe_connect_signal_slot(self.ok_button.clicked, self.check_channels)
         self.waveform_plot = waveform_plot
         self.close_signal = close_signal
-        safe_connect_signal_slot(self.close_signal, self.close)
+        if self.close_signal is not None:
+            safe_connect_signal_slot(self.close_signal, self.close)
 
     def check_channels(self):
 
@@ -59,11 +71,13 @@ class BipolarChannelSelectionWindow(QtWidgets.QDialog):
                 self.main_window_model.set_channels_to_plot(self.backend.channel_names, display_all=False)
             self.close()
         else:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setText("Error")
-            msg.setInformativeText('Please select two different channels.')
-            msg.setWindowTitle("Channel Selection Error")
+            msg = build_themed_message_box(
+                self,
+                icon=QMessageBox.Critical,
+                title="Channel Selection Error",
+                text="Choose two different channels.",
+                informative_text="The two dropdowns cannot point to the same source channel.",
+            )
             msg.exec_()
 
         # self.ch_1_dropdown 

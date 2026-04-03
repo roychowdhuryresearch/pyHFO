@@ -40,6 +40,7 @@ class HFO_Feature():
         self.spike_predicted = False
         self.ehfo_predicted = False
         self.raw_spectrums = raw_spectrums
+        self._channel_index_cache = None
 
     def __str__(self):
         return "HFO_Feature: {} HFOs, {} artifacts, {} spkHFOs, {} eHFOs, {} real HFOs".format(
@@ -71,14 +72,7 @@ class HFO_Feature():
     #     self.artifact_predicted = True
     
     def doctor_annotation(self, annotation:str):
-        # if annotation == "Artifact":
-        #     self.artifact_annotations[self.index] = 0
-        # elif annotation == "Spike":
-        #     self.spike_annotations[self.index] = 1
-        #     self.artifact_annotations[self.index] = 1
-        # elif annotation == "Real":
-        #     self.spike_annotations[self.index] = 0
-        #     self.artifact_annotations[self.index] = 1
+        self.clear_annotation(self.index)
         if annotation == "Artifact":
             self.artifact_annotations[self.index] = 1
         elif annotation == "Pathological":
@@ -86,6 +80,14 @@ class HFO_Feature():
         elif annotation == "Physiological":
             self.physiological_annotations[self.index] = 1
         self.annotated[self.index] = 1
+
+    def clear_annotation(self, index=None):
+        if index is None:
+            index = self.index
+        self.artifact_annotations[index] = 0
+        self.pathological_annotations[index] = 0
+        self.physiological_annotations[index] = 0
+        self.annotated[index] = 0
 
     def get_next(self):
         if self.index >= self.num_HFO - 1:
@@ -130,6 +132,56 @@ class HFO_Feature():
             return "Pathological"
         elif physiological_annotation == 1:
             return "Physiological"
+        return None
+
+    def get_annotation(self, index=None):
+        if index is None:
+            index = self.index
+        if len(self.annotated) == 0 or self.annotated[index] == 0:
+            return None
+        return self._get_annotation(
+            self.artifact_annotations[index],
+            self.pathological_annotations[index],
+            self.physiological_annotations[index],
+        )
+
+    def _find_unannotated_index(self, direction: int = 1):
+        if self.num_HFO == 0:
+            return None
+        if np.all(self.annotated > 0):
+            return None
+        for offset in range(1, self.num_HFO + 1):
+            candidate = (self.index + direction * offset) % self.num_HFO
+            if self.annotated[candidate] == 0:
+                return candidate
+        return None
+
+    def get_next_unannotated(self):
+        next_index = self._find_unannotated_index(direction=1)
+        if next_index is None:
+            return None
+        return self.get_jump(next_index)
+
+    def get_prev_unannotated(self):
+        prev_index = self._find_unannotated_index(direction=-1)
+        if prev_index is None:
+            return None
+        return self.get_jump(prev_index)
+
+    def get_review_progress(self):
+        reviewed = int(np.sum(self.annotated > 0))
+        total = int(self.get_num_biomarker())
+        return {"reviewed": reviewed, "remaining": max(total - reviewed, 0), "total": total}
+
+    def get_annotation_counts(self):
+        return {
+            "Artifact": int(np.sum(self.artifact_annotations > 0)),
+            "Pathological": int(np.sum(self.pathological_annotations > 0)),
+            "Physiological": int(np.sum(self.physiological_annotations > 0)),
+        }
+
+    def has_reviewable_events(self):
+        return self.get_num_biomarker() > 0
 
     def get_current_info(self):
         # print("self.artifact_predicted:",self.artifact_predicted)
@@ -140,9 +192,7 @@ class HFO_Feature():
         prediction = self._get_prediction({'Artifact': self.artifact_predictions[self.index],
                                            'spkHFO': self.spike_predictions[self.index],
                                            'eHFO': self.ehfo_predictions[self.index]}) if self.artifact_predicted else None
-        annotation = self._get_annotation(self.artifact_annotations[self.index],
-                                          self.pathological_annotations[self.index],
-                                          self.physiological_annotations[self.index]) if self.annotated[self.index] else None
+        annotation = self.get_annotation(self.index)
         return {"channel_name": channel_name, "start_index": start, "end_index": end, "prediction": prediction, "annotation": annotation}
 
     def get_num_artifact(self):
@@ -263,23 +313,34 @@ class HFO_Feature():
                 spike_predictions_g.append(spike_predictions[channel_index])
         return channel_name_g, interval_g, artifact_predictions_g, spike_predictions_g
 
+    def _build_channel_index_cache(self):
+        if self._channel_index_cache is not None:
+            return self._channel_index_cache
+        cache = {}
+        for idx, channel_name in enumerate(self.channel_names):
+            cache.setdefault(channel_name, []).append(idx)
+        self._channel_index_cache = {
+            channel_name: np.array(indexes, dtype=int) for channel_name, indexes in cache.items()
+        }
+        return self._channel_index_cache
+
     def get_biomarkers_for_channel(self, channel_name:str, min_start:int=None, max_end:int=None):
-        channel_names = self.channel_names
-        starts = self.starts
-        ends = self.ends
+        channel_indexes = self._build_channel_index_cache().get(channel_name, np.array([], dtype=int))
+        starts = self.starts[channel_indexes]
+        ends = self.ends[channel_indexes]
         artifact_predictions = np.array(self.artifact_predictions)
         spike_predictions = np.array(self.spike_predictions)
         ehfo_predictions = np.array(self.ehfo_predictions)
-        indexes = channel_names == channel_name
         if min_start is not None and max_end is not None:
-            indexes = indexes & (starts >= min_start) & (ends <= max_end)
-        starts = starts[indexes]
-        ends = ends[indexes]
+            window_indexes = (starts >= min_start) & (ends <= max_end)
+            starts = starts[window_indexes]
+            ends = ends[window_indexes]
+            channel_indexes = channel_indexes[window_indexes]
         try:
-            artifact_predictions = artifact_predictions[indexes]
-            spike_predictions = spike_predictions[indexes] == 1
-            ehfo_predictions = ehfo_predictions[indexes] == 1
-        except:
+            artifact_predictions = artifact_predictions[channel_indexes]
+            spike_predictions = spike_predictions[channel_indexes] == 1
+            ehfo_predictions = ehfo_predictions[channel_indexes] == 1
+        except (IndexError, TypeError):
             artifact_predictions = []
             spike_predictions = []
             ehfo_predictions = []

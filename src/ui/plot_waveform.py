@@ -73,7 +73,7 @@ class CenterWaveformAndMiniPlotController():
         return self.n_channels_to_plot
 
     def get_total_time(self):
-        return self.main_waveform_plot_controller.model.time[-1]
+        return self.main_waveform_plot_controller.get_total_time()
 
     def get_time_window(self):
         return self.time_window
@@ -136,7 +136,20 @@ class CenterWaveformAndMiniPlotController():
         if first_channel_to_plot is not None:
             self.main_waveform_plot_controller.set_first_channel_to_plot(first_channel_to_plot)
             self.mini_plot_controller.set_first_channel_to_plot(first_channel_to_plot)
+        channels_to_plot = self.main_waveform_plot_controller.model.channels_to_plot
+        available_channels = len(channels_to_plot)
+        if available_channels == 0:
+            self.main_waveform_plot_controller.clear()
+            self.mini_plot_controller.clear()
+            return
+
         first_channel_to_plot = self.main_waveform_plot_controller.get_first_channel_to_plot()
+        first_channel_to_plot = max(0, min(first_channel_to_plot, available_channels - 1))
+        visible_channels = max(1, min(self.main_waveform_plot_controller.model.n_channels_to_plot, available_channels - first_channel_to_plot))
+        self.main_waveform_plot_controller.set_first_channel_to_plot(first_channel_to_plot)
+        self.mini_plot_controller.set_first_channel_to_plot(first_channel_to_plot)
+        self.main_waveform_plot_controller.set_n_channels_to_plot(visible_channels)
+        self.mini_plot_controller.set_n_channels_to_plot(visible_channels)
 
         self.main_waveform_plot_controller.clear()
 
@@ -145,7 +158,7 @@ class CenterWaveformAndMiniPlotController():
             self.mini_plot_controller.init_biomarker_display()
 
         eeg_data_to_display, y_100_length, y_scale_length, offset_value = self.main_waveform_plot_controller.plot_all_current_channels_for_window()
-        top_value = eeg_data_to_display[first_channel_to_plot].max()
+        top_value = eeg_data_to_display[0].max()
         top_value_mini = 0.5
         if self.plot_biomarkers:
             self.main_waveform_plot_controller.plot_all_current_biomarkers_for_window(eeg_data_to_display, offset_value, top_value)
@@ -155,6 +168,9 @@ class CenterWaveformAndMiniPlotController():
 
         self.main_waveform_plot_controller.draw_scale_bar(eeg_data_to_display, offset_value, y_100_length, y_scale_length)
         self.main_waveform_plot_controller.draw_channel_names(offset_value)
+        self.mini_plot_controller.sync_left_axis_width(
+            self.main_waveform_plot_controller.get_left_axis_width()
+        )
 
         self.mini_plot_controller.set_miniplot_title('biomarker', top_value_mini)
         self.mini_plot_controller.set_total_x_y_range(top_value_mini)

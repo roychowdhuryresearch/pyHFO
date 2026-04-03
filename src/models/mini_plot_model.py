@@ -24,7 +24,8 @@ class MiniPlotModel:
         eeg_data, self.channel_names = self.backend.get_eeg_data()
         self.edf_info = self.backend.get_edf_info()
         self.sample_freq = self.edf_info['sfreq']
-        self.time = np.arange(0, eeg_data.shape[1]/self.sample_freq, 1/self.sample_freq)
+        self.n_samples = int(eeg_data.shape[1])
+        self.total_time = max(0.0, (self.n_samples - 1) / self.sample_freq) if self.n_samples else 0.0
 
         self.channel_names = list(self.channel_names)
         self.n_channels = len(self.channel_names)
@@ -69,6 +70,6 @@ class MiniPlotModel:
                 color = self.color_dict["non_spike"]
             colors.append(color)
 
-        starts_in_time = [self.time[int(i)] for i in starts]
-        ends_in_time = [self.time[min(int(i), len(self.time)-1)] for i in ends]
+        starts_in_time = np.asarray(starts, dtype=np.float64) / float(self.sample_freq)
+        ends_in_time = np.asarray(np.minimum(ends, max(self.n_samples - 1, 0)), dtype=np.float64) / float(self.sample_freq)
         return starts_in_time, ends_in_time, colors

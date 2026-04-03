@@ -1,5 +1,5 @@
 from transformers import PretrainedConfig
-from typing import List
+from typing import Any, Dict, List, Optional
 
 class ResnetConfig(PretrainedConfig):
     model_type = "resnet"
@@ -14,6 +14,7 @@ class ResnetConfig(PretrainedConfig):
         padding: int = 3,
         freeze: bool = False,
         channel_selection: bool = True,
+        preprocessing: Optional[Dict[str, Any]] = None,
         **kwargs,
     ):
         self.num_classes = num_classes
@@ -24,4 +25,5 @@ class ResnetConfig(PretrainedConfig):
         self.padding = padding
         self.freeze = freeze
         self.channel_selection = channel_selection
+        self.preprocessing = preprocessing
         super().__init__(**kwargs)

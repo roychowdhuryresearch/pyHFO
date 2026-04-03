@@ -1,5 +1,38 @@
-import numpy as np
+import os
 import re
+from pathlib import Path
+
+import mne
+import numpy as np
+
+
+def load_mne_raw(file_path):
+    suffix = Path(file_path).suffix.lower()
+    if suffix == ".edf":
+        return mne.io.read_raw_edf(file_path, verbose=0)
+    if suffix == ".vhdr":
+        _assert_brainvision_triplet(file_path)
+        return mne.io.read_raw_brainvision(file_path, verbose=0)
+    if suffix == ".eeg":
+        header_path = file_path.replace(".eeg", ".vhdr")
+        _assert_brainvision_triplet(header_path)
+        return mne.io.read_raw_brainvision(header_path, verbose=0)
+    if suffix == ".vmrk":
+        header_path = file_path.replace(".vmrk", ".vhdr")
+        _assert_brainvision_triplet(header_path)
+        return mne.io.read_raw_brainvision(header_path, verbose=0)
+    if suffix == ".fif" or file_path.lower().endswith(".fif.gz"):
+        return mne.io.read_raw_fif(file_path, verbose=0)
+    raise ValueError(f"File type not supported: {suffix}")
+
+
+def _assert_brainvision_triplet(header_path):
+    eeg_path = header_path.replace(".vhdr", ".eeg")
+    vmrk_path = header_path.replace(".vhdr", ".vmrk")
+    if not os.path.exists(eeg_path):
+        raise AssertionError("The .eeg file does not exist, cannot load the data")
+    if not os.path.exists(vmrk_path):
+        raise AssertionError("The .vmrk file does not exist, cannot load the data")
 
 def get_edf_info(raw):
     res = {
@@ -14,13 +47,9 @@ def get_edf_info(raw):
 
 def read_eeg_data(raw):
     raw_channels = raw.info['ch_names']
-    data = []
-
-    for raw_ch in raw_channels:
-        ch_data = raw.get_data(raw_ch) * 1E6
-        data.append(ch_data)
-
-    eeg_data = np.squeeze(data)
+    eeg_data = np.asarray(raw.get_data()) * 1E6
+    if eeg_data.ndim == 1:
+        eeg_data = np.expand_dims(eeg_data, axis=0)
     channel_names = np.array(raw_channels)
     #sort channel_names
     indices, channel_names = sort_channel(channel_names)

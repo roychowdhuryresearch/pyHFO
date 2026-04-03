@@ -1,5 +1,12 @@
 from HFODetector import ste, mni, hil
-import yasa
+try:
+    import yasa
+except ImportError:  # pragma: no cover - optional runtime dependency
+    yasa = None
+
+
+def has_yasa():
+    return yasa is not None
 
 
 def set_STE_detector(args):
@@ -26,5 +33,7 @@ def set_HIL_detector(args):
 
 
 def set_YASA_detector(args):
+    if yasa is None:
+        raise ImportError("YASA is required for spindle detection but is not installed.")
     detector = yasa
     return {'yasa': detector, 'args': args}

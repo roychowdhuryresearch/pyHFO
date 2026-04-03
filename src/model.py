@@ -15,7 +15,7 @@ class NeuralCNN_ehfo(torch.nn.Module):
         In the constructor we instantiate two nn.Linear modules and assign them as
         member variables.
         """
-        self.cnn = models.resnet18(pretrained=True)
+        self.cnn = models.resnet18(weights=ResNet18_Weights.DEFAULT)
         if freeze_layers:
             for param in self.cnn.parameters():
                 param.requires_grad = False
@@ -139,21 +139,6 @@ class PreProcessing():
             'time_window_ms': d['time_range_ms'][1],
         }, index=[0])
         return PreProcessing.from_df_args(data_meta, d)
-    @staticmethod
-    def from_df_args(data_meta, args):
-        if len(data_meta) != 1:
-            AssertionError("Data meta should be a single row")
-        freq_range_hz = [data_meta["freq_min_hz"].values[0], data_meta["freq_max_hz"].values[0]]
-        fs = data_meta["resample"].values[0]
-        event_length = data_meta["time_window_ms"].values[0]
-        image_size = data_meta["image_size"].values[0]
-        selected_window_size_ms = args['selected_window_size_ms']
-        selected_freq_range_hz = args['selected_freq_range_hz']
-        random_shift_ms = args['random_shift_ms']
-        preProcessing = PreProcessing(image_size, fs, freq_range_hz, event_length, selected_window_size_ms,
-                                      selected_freq_range_hz, random_shift_ms)
-        return preProcessing
-
     @staticmethod
     def from_df_args(data_meta, args):
         if len(data_meta) != 1:

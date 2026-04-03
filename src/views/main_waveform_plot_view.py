@@ -20,6 +20,7 @@ class MainWaveformPlotView(QtWidgets.QGraphicsView):
         # Performance optimizations
         plot_widget.setAntialiasing(False)  # Faster rendering
         plot_widget.getPlotItem().setClipToView(True)  # Only render visible data
+        plot_widget.getPlotItem().setDownsampling(auto=True, mode='peak')
 
     def clear(self):
         # Block updates during clear for better performance
@@ -29,6 +30,13 @@ class MainWaveformPlotView(QtWidgets.QGraphicsView):
     def enable_axis_information(self):
         self.plot_widget.getPlotItem().showAxis('bottom')
         self.plot_widget.getPlotItem().showAxis('left')
+        self.plot_widget.setTitle("")
+        bottom_axis = self.plot_widget.getAxis('bottom')
+        bottom_axis.setLabel("")
+        bottom_axis.setStyle(tickTextOffset=4, tickLength=4)
+        bottom_axis.setPen(pg.mkPen("#bcc7d1", width=1))
+        bottom_axis.setTextPen(pg.mkColor("#7b8894"))
+        self.plot_widget.getAxis('left').setStyle(autoExpandTextSpace=True)
     
     def begin_batch_update(self):
         """Begin batching updates for better performance"""
@@ -37,6 +45,9 @@ class MainWaveformPlotView(QtWidgets.QGraphicsView):
     def end_batch_update(self):
         """End batching updates and refresh the view"""
         self.plot_widget.getPlotItem().vb.update()
+
+    def get_render_width(self):
+        return max(self.plot_widget.width(), int(self.plot_widget.getPlotItem().vb.width()))
 
     def plot_waveform(self, x, y, color, width):
         # Optimize plotting with performance settings
@@ -76,3 +87,18 @@ class MainWaveformPlotView(QtWidgets.QGraphicsView):
                                   yRange=(y_min, y_max), 
                                   padding=0, 
                                   update=True)
+
+    def get_left_axis_width(self):
+        axis = self.plot_widget.getAxis('left')
+        width_candidates = [0]
+        if hasattr(axis, "width"):
+            try:
+                width_candidates.append(int(axis.width()))
+            except Exception:
+                pass
+        if hasattr(axis, "size"):
+            try:
+                width_candidates.append(int(axis.size().width()))
+            except Exception:
+                pass
+        return max(width_candidates)

@@ -57,7 +57,7 @@ class MiniPlotController:
         self.view.set_miniplot_title(title, height)
 
     def set_total_x_y_range(self, top_value):
-        time_max = int(self.model.time.shape[0] / self.model.sample_freq)
+        time_max = self.model.total_time
         self.view.set_x_y_range([0, time_max], [top_value-0.25, top_value+0.25])
 
     def update_highlight_window(self, start, end, height):
@@ -65,5 +65,8 @@ class MiniPlotController:
 
     def update_backend(self, new_backend):
         self.model.update_backend(new_backend)
+
+    def sync_left_axis_width(self, axis_width):
+        self.view.sync_left_axis_width(axis_width)
 
     

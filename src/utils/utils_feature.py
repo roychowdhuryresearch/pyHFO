@@ -1,15 +1,30 @@
 import numpy as np
 import  math
+import os
+import sys
 from scipy.interpolate import interp1d
 import scipy.linalg as LA
 import numpy as np 
 from skimage.transform import resize
 from multiprocessing import Process
 from tqdm import tqdm
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 import mne
-import torch
+try:
+    import torch
+except ImportError:  # pragma: no cover - optional runtime dependency
+    torch = None
 import time
+
+
+def _can_use_process_pool():
+    if os.environ.get("PYBRAIN_DISABLE_PROCESS_POOL") == "1":
+        return False
+    main_module = sys.modules.get("__main__")
+    main_file = getattr(main_module, "__file__", None)
+    if not main_file:
+        return False
+    return os.path.exists(main_file)
 def extract_waveforms(data, starts, ends, channel_names, unique_channel_names, sampling_rate, time_range):
     '''
     The extracted waveform will be (n_HFOs, 2 * sampling_rate long) 
@@ -65,23 +80,43 @@ def compute_spectrum(org_sig, ps_SampleRate = 2000, ps_FreqSeg = 512, ps_MinFreq
             final_sig = final_sig[:-1]
         return final_sig
     extend_sig = create_extended_sig(org_sig)
-    extend_sig = torch.from_numpy(extend_sig)
     ps_StDevCycles = 3
-    
-    s_Len = len(extend_sig)
-    s_HalfLen = math.floor(s_Len/2)+1
-    v_WAxis = torch.linspace(0, 2*np.pi, s_Len)[:-1]* ps_SampleRate
-    v_WAxisHalf = v_WAxis[:s_HalfLen].repeat(ps_FreqSeg, 1)
-    v_FreqAxis = torch.linspace(ps_MaxFreqHz, ps_MinFreqHz,steps=ps_FreqSeg)
-    v_WinFFT = torch.zeros(ps_FreqSeg, s_Len)
-    s_StDevSec = (1 / v_FreqAxis) * ps_StDevCycles
-    v_WinFFT[:, :s_HalfLen] = torch.exp(-0.5*torch.pow(v_WAxisHalf - (2 * torch.pi * v_FreqAxis.view(-1, 1)), 2) * (s_StDevSec**2).view(-1, 1))
-    v_WinFFT = v_WinFFT * np.sqrt(s_Len)/ torch.norm(v_WinFFT, dim = -1).view(-1, 1)
-    v_InputSignalFFT = torch.fft.fft(extend_sig)
-    res = torch.fft.ifft(v_InputSignalFFT.view(1,-1)* v_WinFFT)/torch.sqrt(s_StDevSec).view(-1,1)
+
+    if torch is not None:
+        extend_sig_t = torch.from_numpy(extend_sig)
+        s_Len = len(extend_sig_t)
+        s_HalfLen = math.floor(s_Len/2)+1
+        v_WAxis = torch.linspace(0, 2*np.pi, s_Len)[:-1]* ps_SampleRate
+        v_WAxisHalf = v_WAxis[:s_HalfLen].repeat(ps_FreqSeg, 1)
+        v_FreqAxis = torch.linspace(ps_MaxFreqHz, ps_MinFreqHz, steps=ps_FreqSeg)
+        v_WinFFT = torch.zeros(ps_FreqSeg, s_Len)
+        s_StDevSec = (1 / v_FreqAxis) * ps_StDevCycles
+        v_WinFFT[:, :s_HalfLen] = torch.exp(
+            -0.5 * torch.pow(v_WAxisHalf - (2 * torch.pi * v_FreqAxis.view(-1, 1)), 2) * (s_StDevSec**2).view(-1, 1)
+        )
+        v_WinFFT = v_WinFFT * np.sqrt(s_Len) / torch.norm(v_WinFFT, dim=-1).view(-1, 1)
+        v_InputSignalFFT = torch.fft.fft(extend_sig_t)
+        res = torch.fft.ifft(v_InputSignalFFT.view(1, -1) * v_WinFFT) / torch.sqrt(s_StDevSec).view(-1, 1)
+        ii, jj = int(len(org_sig)//2), int(len(org_sig)//2 + len(org_sig))
+        return np.abs(res[:, ii:jj].numpy())
+
+    extend_sig_np = np.asarray(extend_sig, dtype=np.float64)
+    s_Len = len(extend_sig_np)
+    s_HalfLen = math.floor(s_Len / 2) + 1
+    v_WAxis = np.linspace(0, 2 * np.pi, s_Len)[:-1] * ps_SampleRate
+    v_WAxisHalf = np.repeat(v_WAxis[:s_HalfLen][None, :], ps_FreqSeg, axis=0)
+    v_FreqAxis = np.linspace(ps_MaxFreqHz, ps_MinFreqHz, num=ps_FreqSeg)
+    v_WinFFT = np.zeros((ps_FreqSeg, s_Len), dtype=np.float64)
+    s_StDevSec = (1.0 / v_FreqAxis) * ps_StDevCycles
+    freq_term = 2 * np.pi * v_FreqAxis[:, None]
+    v_WinFFT[:, :s_HalfLen] = np.exp(-0.5 * np.power(v_WAxisHalf - freq_term, 2) * (s_StDevSec**2)[:, None])
+    norms = np.linalg.norm(v_WinFFT, axis=-1, keepdims=True)
+    norms[norms == 0] = 1.0
+    v_WinFFT = v_WinFFT * np.sqrt(s_Len) / norms
+    v_InputSignalFFT = np.fft.fft(extend_sig_np)
+    res = np.fft.ifft(v_InputSignalFFT[None, :] * v_WinFFT) / np.sqrt(s_StDevSec)[:, None]
     ii, jj = int(len(org_sig)//2), int(len(org_sig)//2 + len(org_sig))
-    res = np.abs(res[:, ii:jj].numpy())
-    return res
+    return np.abs(res[:, ii:jj])
 
 def construct_coding(raw_signal, length=2000):
     index = np.arange(len(raw_signal))
@@ -111,27 +146,27 @@ def parallel_process(array, function, n_jobs=16, use_kwargs=False, front_num=3):
     #If we set n_jobs to 1, just run a list comprehension. This is useful for benchmarking and debugging.
     if n_jobs==1:
         return front + [function(**a) if use_kwargs else function(a) for a in tqdm(array[front_num:])]
-    #Assemble the workers
-    with ProcessPoolExecutor(max_workers=n_jobs) as pool:
-        #Pass the elements of array into function
-        if use_kwargs:
-            futures = [pool.submit(function, **a) for a in array[front_num:]]
-        else:
-            futures = [pool.submit(function, a) for a in array[front_num:]]
-        kwargs = {
-            'total': len(futures),
-            'unit': 'it',
-            'unit_scale': True,
-            'leave': True
-        }
-        #Print out the progress as tasks complete
-        for f in tqdm(as_completed(futures), **kwargs):
-            pass
-    out = []
-    #Get the results from the futures. 
-    for i, future in enumerate(futures):
-        try:
-            out.append(future.result())
-        except Exception as e:
-            out.append(e)
+    executor_class = ProcessPoolExecutor if _can_use_process_pool() else ThreadPoolExecutor
+    try:
+        with executor_class(max_workers=n_jobs) as pool:
+            if use_kwargs:
+                futures = [pool.submit(function, **a) for a in array[front_num:]]
+            else:
+                futures = [pool.submit(function, a) for a in array[front_num:]]
+            kwargs = {
+                'total': len(futures),
+                'unit': 'it',
+                'unit_scale': True,
+                'leave': True
+            }
+            for _ in tqdm(as_completed(futures), **kwargs):
+                pass
+        out = []
+        for future in futures:
+            try:
+                out.append(future.result())
+            except Exception as e:
+                out.append(e)
+    except Exception:
+        out = [function(**a) if use_kwargs else function(a) for a in tqdm(array[front_num:])]
     return front + out

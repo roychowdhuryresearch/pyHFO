@@ -1,5 +1,3 @@
-import numpy as np
-from src.hfo_app import HFO_App
 from src.ui.annotation_plot import AnnotationPlot, FFTPlot
 
 
@@ -29,14 +27,40 @@ class AnnotationModel:
         channel, start, end = self.backend.event_features.get_jump(index)
         return channel, start, end
 
+    def get_next_unannotated_event(self):
+        return self.backend.event_features.get_next_unannotated()
+
+    def get_prev_unannotated_event(self):
+        return self.backend.event_features.get_prev_unannotated()
+
     def set_doctor_annotation(self, ann):
         self.backend.event_features.doctor_annotation(ann)
+        if hasattr(self.backend, "sync_active_run"):
+            self.backend.sync_active_run()
         # Update the text of the selected item in the dropdown menu
         selected_index = self.backend.event_features.index
         item_text = self.backend.event_features.get_annotation_text(selected_index)
         return selected_index, item_text
 
+    def clear_current_annotation(self):
+        self.backend.event_features.clear_annotation()
+        if hasattr(self.backend, "sync_active_run"):
+            self.backend.sync_active_run()
+        selected_index = self.backend.event_features.index
+        item_text = self.backend.event_features.get_annotation_text(selected_index)
+        return selected_index, item_text
+
+    def get_review_progress(self):
+        return self.backend.event_features.get_review_progress()
+
+    def get_annotation_counts(self):
+        return self.backend.event_features.get_annotation_counts()
+
+    def has_reviewable_events(self):
+        return self.backend.event_features.has_reviewable_events()
+
     def set_current_freq_limit(self, min_freq, max_freq):
+        self.waveform_plot.set_manual_tf_freq_limit(min_freq, max_freq)
         self.fft_plot.set_current_freq_limit(min_freq, max_freq)
 
     def set_current_interval(self, interval):
@@ -57,3 +81,23 @@ class AnnotationModel:
         """Reset all plot views to default auto-zoom without replotting."""
         channel, start, end = self.get_current_event()
         self.waveform_plot.reset_to_default_view(start, end)
+
+    def go_back_view(self):
+        return self.waveform_plot.go_back_view()
+
+    def go_forward_view(self):
+        return self.waveform_plot.go_forward_view()
+
+    def can_go_back(self):
+        return self.waveform_plot.can_go_back()
+
+    def can_go_forward(self):
+        return self.waveform_plot.can_go_forward()
+
+    def set_fft_window(self, time_window):
+        self.waveform_plot.set_selected_fft_window(time_window, emit_signal=False)
+        self.fft_plot.set_selected_time_window(time_window)
+
+    def clear_fft_window(self):
+        self.waveform_plot.clear_selected_fft_window(emit_signal=False)
+        self.fft_plot.clear_selected_time_window()
