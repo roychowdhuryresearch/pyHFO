@@ -3,7 +3,8 @@ import numpy as np
 from src.hfo_feature import HFO_Feature
 from src.param.param_detector import ParamDetector, ParamMNI, ParamSTE
 from src.param.param_filter import ParamFilter
-from src.utils.analysis_session import AnalysisSession, DetectionRun
+from src.spindle_feature import SpindleFeature
+from src.utils.analysis_session import AnalysisSession, DetectionRun, build_run_comparison
 from src.utils.session_store import load_session_checkpoint, save_session_checkpoint
 
 
@@ -20,6 +21,21 @@ def _build_hfo_run(detector_name, intervals, channel_names):
         param_detector=ParamDetector.from_dict({"detector_type": detector_name, "detector_param": detector_param}),
         event_features=HFO_Feature(np.array(channel_names), np.array(intervals), np.array([]), detector_name, 2000),
         detector_output=np.array([intervals], dtype=object),
+        classified=False,
+    )
+
+
+def _build_spindle_run(detector_name, intervals, channel_names):
+    starts = np.array([interval[0] for interval in intervals], dtype=int)
+    ends = np.array([interval[1] for interval in intervals], dtype=int)
+    return DetectionRun.create(
+        biomarker_type="Spindle",
+        detector_name=detector_name,
+        selected_channels=np.array(channel_names),
+        param_filter=ParamFilter(),
+        param_detector=None,
+        event_features=SpindleFeature(np.array(channel_names), starts, ends, np.array([]), detector_name, 2000),
+        detector_output=np.array(intervals, dtype=object),
         classified=False,
     )
 
@@ -127,3 +143,51 @@ def test_decision_summary_prefers_accepted_run_context():
     assert accepted.detector_name == "STE"
     assert ranking[0]["channel_name"] in {"A1", "A2"}
     assert session.accepted_run_id == first.run_id
+
+
+def test_case_run_comparison_supports_cross_biomarker_temporal_overlap():
+    hfo_run = _build_hfo_run("STE", [[100, 160], [320, 360]], ["A1", "B1"])
+    spindle_run = _build_spindle_run("YASA", [[120, 220], [500, 650]], ["A1", "B1"])
+
+    comparison = build_run_comparison([hfo_run, spindle_run])
+
+    assert len(comparison["pairwise_overlap"]) == 1
+    pair = comparison["pairwise_overlap"][0]
+    assert pair["left_label"].startswith("HFO")
+    assert pair["right_label"].startswith("Spindle")
+    assert pair["comparison_mode"] == "temporal_overlap"
+    assert pair["overlap_events"] == 1
+    assert pair["left_only"] == 1
+    assert pair["right_only"] == 1
+
+
+def test_overlap_review_hide_updates_visible_summary_and_round_trip():
+    session = AnalysisSession("HFO")
+    run = _build_hfo_run("STE", [[10, 20], [15, 25], [80, 100]], ["A1", "A2", "B1"])
+
+    summary = run.event_features.apply_cross_channel_overlap_settings(
+        {
+            "action": HFO_Feature.OVERLAP_ACTION_HIDE,
+            "min_overlap_ms": 0.0,
+            "min_channels": 2,
+            "tag_name": "Cross-channel overlap",
+        }
+    )
+    run.refresh_summary()
+    session.add_run(run)
+
+    assert summary["overlap_tagged"] == 1
+    assert summary["overlap_kept"] == 1
+    assert summary["overlap_hidden"] == 1
+    assert run.summary["num_events"] == 2
+    assert set(run.event_features.get_visible_array("channel_names").tolist()) == {"A1", "B1"}
+
+    ranking = session.get_channel_ranking(run.run_id)
+    assert {row["channel_name"] for row in ranking} == {"A1", "B1"}
+    assert ranking[0]["total_events"] == 1
+
+    restored = HFO_Feature.from_dict(run.event_features.to_dict())
+    restored_summary = restored.get_overlap_review_summary()
+    assert restored.get_num_biomarker() == 2
+    assert set(restored.get_visible_array("channel_names").tolist()) == {"A1", "B1"}
+    assert restored_summary["overlap_hidden"] == 1

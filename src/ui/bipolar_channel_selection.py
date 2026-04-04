@@ -25,14 +25,26 @@ class BipolarChannelSelectionWindow(QtWidgets.QDialog):
         self.main_window = main_window
         self.setWindowTitle("Bipolar Channel Selection")
         self.setWindowIcon(QtGui.QIcon(os.path.join(ROOT_DIR, 'images/icon1.png')))
-        self.resize(760, 240)
+        fit_window_to_screen(
+            self,
+            default_width=760,
+            default_height=240,
+            min_width=620,
+            min_height=220,
+            width_ratio=0.68,
+            height_ratio=0.4,
+        )
 
         self.label_3.setText("Create a derived channel by subtracting Channel 2 from Channel 1.")
-        self.label_3.setProperty("mutedText", True)
+        self.label_3.setProperty("helperText", True)
         self.label_3.setWordWrap(True)
-        self.label_3.setAlignment(QtCore.Qt.AlignCenter)
+        self.label_3.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
         self.ok_button.setText("Create Channel")
         set_accent_button(self.ok_button)
+        self.ok_button.setDefault(True)
+        self.ok_button.setAutoDefault(True)
+        self.cancel_button.setDefault(False)
+        self.cancel_button.setAutoDefault(False)
 
         eeg_data,channel_names = self.backend.get_eeg_data()
 
@@ -41,18 +53,96 @@ class BipolarChannelSelectionWindow(QtWidgets.QDialog):
             if "#-#" not in channel:
                 self.ch_1_dropdown.addItem((channel))
                 self.ch_2_dropdown.addItem((channel))
+        if self.ch_2_dropdown.count() > 1:
+            self.ch_2_dropdown.setCurrentIndex(1)
         self.ch_1_dropdown.setMinimumWidth(260)
         self.ch_2_dropdown.setMinimumWidth(260)
+        self._rebuild_dialog_shell()
         apply_subwindow_theme(self)
 
         #connect cancel button to close window
         safe_connect_signal_slot(self.cancel_button.clicked, self.close)
         #conncet ok button to get channels to show
         safe_connect_signal_slot(self.ok_button.clicked, self.check_channels)
+        safe_connect_signal_slot(self.ch_1_dropdown.currentIndexChanged, self._update_action_state)
+        safe_connect_signal_slot(self.ch_2_dropdown.currentIndexChanged, self._update_action_state)
         self.waveform_plot = waveform_plot
         self.close_signal = close_signal
         if self.close_signal is not None:
             safe_connect_signal_slot(self.close_signal, self.close)
+        self._update_action_state()
+
+    def _rebuild_dialog_shell(self):
+        root_layout = self.layout()
+        if root_layout is None:
+            return
+
+        while root_layout.count():
+            root_layout.takeAt(0)
+        root_layout.setContentsMargins(16, 16, 16, 16)
+        root_layout.setHorizontalSpacing(0)
+        root_layout.setVerticalSpacing(12)
+
+        title = QtWidgets.QLabel("Create bipolar channel", self)
+        title.setProperty("dialogTitle", True)
+        root_layout.addWidget(title, 0, 0, 1, 2)
+        root_layout.addWidget(self.label_3, 1, 0, 1, 2)
+
+        form_card = QtWidgets.QFrame(self)
+        form_card.setProperty("surfaceCard", True)
+        form_layout = QtWidgets.QGridLayout(form_card)
+        form_layout.setContentsMargins(14, 14, 14, 14)
+        form_layout.setHorizontalSpacing(12)
+        form_layout.setVerticalSpacing(8)
+
+        self.label.setText("Channel 1")
+        self.label.setProperty("fieldLabel", True)
+        self.label.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        self.label_2.setText("Channel 2")
+        self.label_2.setProperty("fieldLabel", True)
+        self.label_2.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        self.ch_1_dropdown.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+        self.ch_2_dropdown.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+
+        hint = QtWidgets.QLabel("New channel = Channel 1 - Channel 2", form_card)
+        hint.setProperty("helperText", True)
+        hint.setAlignment(QtCore.Qt.AlignCenter)
+        self.selection_status_label = QtWidgets.QLabel("", form_card)
+        self.selection_status_label.setProperty("helperText", True)
+        self.selection_status_label.setAlignment(QtCore.Qt.AlignCenter)
+        self.selection_status_label.setWordWrap(True)
+
+        form_layout.addWidget(self.label, 0, 0)
+        form_layout.addWidget(self.label_2, 0, 1)
+        form_layout.addWidget(self.ch_1_dropdown, 1, 0)
+        form_layout.addWidget(self.ch_2_dropdown, 1, 1)
+        form_layout.addWidget(hint, 2, 0, 1, 2)
+        form_layout.addWidget(self.selection_status_label, 3, 0, 1, 2)
+        root_layout.addWidget(form_card, 2, 0, 1, 2)
+
+        self.ok_button.setMinimumWidth(160)
+        self.cancel_button.setMinimumWidth(120)
+        self.ok_button.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+        self.cancel_button.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+        root_layout.addWidget(self.ok_button, 3, 0)
+        root_layout.addWidget(self.cancel_button, 3, 1)
+
+    def _update_action_state(self, *_args):
+        channel_1 = self.ch_1_dropdown.currentText().strip()
+        channel_2 = self.ch_2_dropdown.currentText().strip()
+        can_create = bool(channel_1 and channel_2 and channel_1 != channel_2)
+        self.ok_button.setEnabled(can_create)
+        if self.ch_1_dropdown.count() < 2:
+            status_text = "At least two source channels are required to create a bipolar pair."
+        elif can_create:
+            status_text = "Ready to create the derived bipolar channel from the selected pair."
+        else:
+            status_text = "Choose two different source channels to enable Create Channel."
+        self.selection_status_label.setText(status_text)
+        if can_create:
+            self.ok_button.setToolTip("Create the derived bipolar channel from the selected pair.")
+        else:
+            self.ok_button.setToolTip("Choose two different source channels to create a bipolar pair.")
 
     def check_channels(self):
 

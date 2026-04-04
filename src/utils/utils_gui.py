@@ -4,9 +4,11 @@ import sys
 import queue
 import traceback
 from queue import Queue
+from pathlib import Path
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
+from src.ui.ui_tokens import resolve_ui_density, resolve_window_size
 
 COLOR_MAP = {'waveform': '#58748a',
              'HFO': '#6d8d74',
@@ -22,6 +24,102 @@ COLOR_MAP = {'waveform': '#58748a',
              'ehfo': '#8d5f67',
              'spkHFO and eHFO': '#8d5f67',
              'eHFO and spkHFO': '#8d5f67'}
+
+CHEVRON_DOWN_ICON = (Path(__file__).resolve().parents[1] / "ui" / "images" / "chevron_down.svg").as_posix()
+CHECKBOX_CHECK_ICON = (Path(__file__).resolve().parents[1] / "ui" / "images" / "checkbox_check.svg").as_posix()
+
+
+def build_checkbox_indeterminate_fill(fill_color, mark_color="#ffffff"):
+    return (
+        "qlineargradient("
+        f"x1:0, y1:0, x2:0, y2:1, "
+        f"stop:0 {fill_color}, "
+        f"stop:0.36 {fill_color}, "
+        f"stop:0.36 {mark_color}, "
+        f"stop:0.64 {mark_color}, "
+        f"stop:0.64 {fill_color}, "
+        f"stop:1 {fill_color})"
+    )
+
+
+def build_checkbox_styles(
+    prefix="",
+    *,
+    size=16,
+    radius=5,
+    spacing=8,
+    label_color="#33495b",
+    label_disabled_color="#94a2af",
+    border_color="#b7c3ce",
+    hover_border_color="#8da0b1",
+    background="#ffffff",
+    hover_background="#f5f8fb",
+    accent="#355c72",
+    accent_hover="#2d4e61",
+    disabled_border="#d7dee5",
+    disabled_background="#f5f7f9",
+    disabled_accent="#b6c1cc",
+):
+    prefix = prefix or ""
+    indeterminate_fill = build_checkbox_indeterminate_fill(accent)
+    indeterminate_hover_fill = build_checkbox_indeterminate_fill(accent_hover)
+    indeterminate_disabled_fill = build_checkbox_indeterminate_fill(disabled_accent)
+    return f"""
+    {prefix}QCheckBox {{
+        color: {label_color};
+        spacing: {spacing}px;
+    }}
+    {prefix}QCheckBox:disabled {{
+        color: {label_disabled_color};
+    }}
+    {prefix}QCheckBox::indicator {{
+        width: {size}px;
+        height: {size}px;
+        border: 1px solid {border_color};
+        border-radius: {radius}px;
+        background: {background};
+    }}
+    {prefix}QCheckBox::indicator:hover {{
+        border-color: {hover_border_color};
+        background: {hover_background};
+    }}
+    {prefix}QCheckBox::indicator:checked,
+    {prefix}QCheckBox::indicator:indeterminate {{
+        border-color: {accent};
+        background: {accent};
+    }}
+    {prefix}QCheckBox::indicator:checked:hover,
+    {prefix}QCheckBox::indicator:indeterminate:hover {{
+        border-color: {accent_hover};
+        background: {accent_hover};
+    }}
+    {prefix}QCheckBox::indicator:checked {{
+        image: url("{CHECKBOX_CHECK_ICON}");
+    }}
+    {prefix}QCheckBox::indicator:indeterminate {{
+        background: {indeterminate_fill};
+        image: none;
+    }}
+    {prefix}QCheckBox::indicator:indeterminate:hover {{
+        background: {indeterminate_hover_fill};
+    }}
+    {prefix}QCheckBox::indicator:disabled {{
+        border-color: {disabled_border};
+        background: {disabled_background};
+    }}
+    {prefix}QCheckBox::indicator:checked:disabled,
+    {prefix}QCheckBox::indicator:indeterminate:disabled {{
+        border-color: {disabled_accent};
+        background: {disabled_accent};
+    }}
+    {prefix}QCheckBox::indicator:checked:disabled {{
+        image: url("{CHECKBOX_CHECK_ICON}");
+    }}
+    {prefix}QCheckBox::indicator:indeterminate:disabled {{
+        background: {indeterminate_disabled_fill};
+        image: none;
+    }}
+    """
 
 
 SUBWINDOW_STYLESHEET = """
@@ -39,6 +137,57 @@ SUBWINDOW_STYLESHEET = """
     QLabel[mutedText="true"] {
         color: #64717d;
     }
+    QLabel[fieldLabel="true"] {
+        color: #4b5563;
+        font-weight: 600;
+    }
+    QLabel[fieldUnit="true"] {
+        color: #7b8792;
+    }
+    QLabel[pageEyebrow="true"] {
+        color: #73808b;
+        font-weight: 700;
+    }
+    QLabel[pageTitle="true"] {
+        color: #243746;
+        font-weight: 700;
+    }
+    QLabel[pageSubtitle="true"] {
+        color: #64717d;
+    }
+    QLabel[sectionTitle="true"] {
+        color: #243746;
+        font-weight: 700;
+    }
+    QLabel[sectionSubtitle="true"], QLabel[helperText="true"] {
+        color: #64717d;
+    }
+    QLabel[metricLabel="true"] {
+        color: #6a7784;
+        font-weight: 600;
+    }
+    QLabel[metricValue="true"], QLabel[statusValue="true"] {
+        color: #1f3448;
+        font-weight: 700;
+    }
+    QLabel[stepBadge="true"] {
+        background: #e7edf2;
+        color: #435565;
+        border-radius: 11px;
+        font-weight: 700;
+        padding: 1px 6px;
+    }
+    QLabel[stepTitle="true"] {
+        color: #34485a;
+        font-weight: 700;
+    }
+    QLabel[stepDescription="true"] {
+        color: #7a8792;
+    }
+    QLabel[toolbarLabel="true"] {
+        color: #60707d;
+        font-weight: 700;
+    }
     QLabel[dataBadge="true"] {
         background: #ffffff;
         border: 1px solid #d8dde3;
@@ -52,6 +201,16 @@ SUBWINDOW_STYLESHEET = """
         border: 1px solid #d8dde3;
         border-radius: 12px;
     }
+    QFrame[surfaceCard="true"], QFrame[metricCard="true"], QFrame[panelCard="true"] {
+        background: #ffffff;
+        border: 1px solid #d8dde3;
+        border-radius: 12px;
+    }
+    QFrame[softCard="true"], QFrame[stepCard="true"] {
+        background: #fafbfc;
+        border: 1px solid #e5e9ee;
+        border-radius: 10px;
+    }
     QGroupBox {
         border: 1px solid #dde3ea;
         border-radius: 12px;
@@ -60,6 +219,9 @@ SUBWINDOW_STYLESHEET = """
         background: #fbfcfd;
         font-weight: 700;
         color: #314657;
+    }
+    QGroupBox[tightGroup="true"] {
+        padding-top: 12px;
     }
     QGroupBox::title {
         subcontrol-origin: margin;
@@ -72,8 +234,8 @@ SUBWINDOW_STYLESHEET = """
         color: #243746;
         border: 1px solid #cfd6dd;
         border-radius: 8px;
-        padding: 6px 12px;
-        min-height: 18px;
+        padding: 4px 10px;
+        min-height: 16px;
     }
     QPushButton:hover, QToolButton:hover, QDialogButtonBox QPushButton:hover {
         background: #eef3f7;
@@ -102,6 +264,11 @@ SUBWINDOW_STYLESHEET = """
         background: #233746;
         border-color: #233746;
     }
+    QPushButton[accentButton="true"]:disabled, QToolButton[accentButton="true"]:disabled, QDialogButtonBox QPushButton[accentButton="true"]:disabled {
+        background: #f4f6f8;
+        color: #96a3af;
+        border-color: #d7dde4;
+    }
     QLineEdit, QSpinBox, QDoubleSpinBox, QTextEdit, QPlainTextEdit, QComboBox {
         background: #ffffff;
         border: 1px solid #cfd6dd;
@@ -114,26 +281,41 @@ SUBWINDOW_STYLESHEET = """
     QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QTextEdit:focus, QPlainTextEdit:focus, QComboBox:focus {
         border-color: #8aa0b2;
     }
-    QComboBox::drop-down {
-        border: none;
-        width: 22px;
+    QLineEdit[readOnlyField="true"], QTextEdit[readOnlyField="true"], QPlainTextEdit[readOnlyField="true"] {
+        background: #f5f7f9;
+        color: #556472;
+        border-color: #d7dde4;
     }
-    QCheckBox, QRadioButton {
+    QTextEdit[consolePanel="true"], QPlainTextEdit[consolePanel="true"] {
+        background: #f7f9fb;
+        color: #334455;
+        border: 1px solid #d4dbe2;
+        border-radius: 9px;
+        font-family: Menlo, Monaco, monospace;
+    }
+""" + build_checkbox_styles(
+    size=16,
+    radius=5,
+    spacing=8,
+    label_color="#33495b",
+    label_disabled_color="#94a2af",
+    border_color="#b7c3ce",
+    hover_border_color="#8da0b1",
+    background="#ffffff",
+    hover_background="#f5f8fb",
+    accent="#355c72",
+    accent_hover="#2d4e61",
+    disabled_border="#d7dee5",
+    disabled_background="#f5f7f9",
+    disabled_accent="#b6c1cc",
+) + """
+    QRadioButton {
         color: #33495b;
         spacing: 8px;
     }
-    QCheckBox::indicator, QRadioButton::indicator {
+    QRadioButton::indicator {
         width: 16px;
         height: 16px;
-    }
-    QCheckBox::indicator {
-        border: 1px solid #b7c3ce;
-        border-radius: 4px;
-        background: #ffffff;
-    }
-    QCheckBox::indicator:checked {
-        border-color: #304657;
-        background: #304657;
     }
     QRadioButton::indicator {
         border: 1px solid #b7c3ce;
@@ -206,13 +388,8 @@ SUBWINDOW_STYLESHEET = """
         color: #243746;
         border-bottom: 1px solid #d8dde3;
     }
-    QMenuBar::item:selected, QMenu::item:selected {
+    QMenuBar::item:selected {
         background: #eef3f7;
-    }
-    QMenu {
-        background: #ffffff;
-        border: 1px solid #d8dde3;
-        color: #243746;
     }
     QScrollBar:vertical {
         width: 12px;
@@ -245,6 +422,96 @@ SUBWINDOW_STYLESHEET = """
         background: transparent;
     }
 """
+
+
+def build_popup_chrome_stylesheet(
+    density,
+    *,
+    prefix="",
+    control_radius=None,
+    popup_radius=None,
+    item_radius=None,
+    drop_width=None,
+    item_height=None,
+    font_size=None,
+    input_padding_right=None,
+    drop_background="#f8fafc",
+):
+    control_radius = max(3, control_radius if control_radius is not None else density.compact_radius)
+    popup_radius = max(control_radius, popup_radius if popup_radius is not None else density.group_radius + 1)
+    item_radius = max(3, item_radius if item_radius is not None else control_radius)
+    drop_width = max(18, drop_width if drop_width is not None else density.compact_input_height)
+    item_height = max(16, item_height if item_height is not None else density.compact_input_height)
+    font_size = max(8, font_size if font_size is not None else density.button_font)
+    input_padding_right = max(drop_width + 8, input_padding_right if input_padding_right is not None else drop_width + 8)
+    prefix = prefix or ""
+
+    return f"""
+        {prefix}QComboBox {{
+            padding-right: {input_padding_right}px;
+        }}
+        {prefix}QComboBox::drop-down {{
+            subcontrol-origin: padding;
+            subcontrol-position: top right;
+            width: {drop_width}px;
+            border: none;
+            border-left: 1px solid #dbe3ea;
+            background: {drop_background};
+            border-top-right-radius: {control_radius}px;
+            border-bottom-right-radius: {control_radius}px;
+        }}
+        {prefix}QComboBox::down-arrow {{
+            image: url("{CHEVRON_DOWN_ICON}");
+            width: 10px;
+            height: 10px;
+        }}
+        {prefix}QComboBox QAbstractItemView {{
+            background: #ffffff;
+            color: #243746;
+            border: 1px solid #d8dde3;
+            border-radius: {popup_radius}px;
+            outline: 0px;
+            padding: 4px;
+            selection-background-color: #e7eef5;
+            selection-color: #243746;
+        }}
+        {prefix}QComboBox QAbstractItemView::item {{
+            min-height: {item_height}px;
+            padding: 2px 8px;
+            border-radius: {item_radius}px;
+            margin: 1px 0px;
+            font-size: {font_size}px;
+        }}
+        {prefix}QMenu {{
+            background: #ffffff;
+            color: #243746;
+            border: 1px solid #d8dde3;
+            border-radius: {popup_radius}px;
+            padding: 4px;
+        }}
+        {prefix}QMenu::item {{
+            padding: 5px 10px;
+            border-radius: {item_radius}px;
+            margin: 1px 0px;
+            font-size: {font_size}px;
+        }}
+        {prefix}QMenu::item:selected {{
+            background: #eef3f7;
+            color: #243746;
+        }}
+        {prefix}QMenu::separator {{
+            height: 1px;
+            background: #e5e9ee;
+            margin: 4px 6px;
+        }}
+        {prefix}QToolButton::menu-indicator {{
+            image: url("{CHEVRON_DOWN_ICON}");
+            width: 10px;
+            height: 10px;
+            subcontrol-origin: padding;
+            subcontrol-position: center right;
+        }}
+    """
 
 
 class WorkerSignals(QObject):
@@ -382,9 +649,37 @@ def clear_layout(layout):
             item = layout.takeAt(0)
             widget = item.widget()
             if widget is not None:
-                widget.deleteLater()  # Safely delete the widget
-            else:
-                layout.removeItem(item)
+                widget.hide()
+                widget.setParent(None)
+                widget.deleteLater()
+                continue
+
+            child_layout = item.layout()
+            if child_layout is not None:
+                clear_layout(child_layout)
+                child_layout.setParent(None)
+                continue
+
+            layout.removeItem(item)
+
+
+def detach_layout(layout):
+    if layout is None:
+        return
+
+    while layout.count():
+        item = layout.takeAt(0)
+        widget = item.widget()
+        if widget is not None:
+            widget.hide()
+            continue
+
+        child_layout = item.layout()
+        if child_layout is not None:
+            detach_layout(child_layout)
+            continue
+
+        layout.removeItem(item)
 
 
 def clear_stacked_widget(stacked_widget):
@@ -422,15 +717,189 @@ def polish_widget_style(widget):
     widget.update()
 
 
+def set_dynamic_property(widget, name, value):
+    if widget is None:
+        return
+    widget.setProperty(name, value)
+    polish_widget_style(widget)
+
+
+def apply_compact_button_heights(root, density=None):
+    if root is None:
+        return
+
+    if density is None:
+        screen = root.screen() if hasattr(root, "screen") else None
+        density = resolve_ui_density(screen)
+
+    button_height = max(18, density.compact_button_height)
+    tool_height = max(16, density.compact_tool_height)
+
+    for button in root.findChildren(QPushButton):
+        if button.property("preserveButtonHeight"):
+            continue
+        current_height = button.minimumHeight()
+        if current_height <= 0 or current_height > button_height:
+            button.setMinimumHeight(button_height)
+
+    for button in root.findChildren(QToolButton):
+        if button.property("preserveButtonHeight"):
+            continue
+        target_height = button_height
+        if (
+            button.property("waveformTool")
+            or button.property("waveformPreset")
+            or button.property("inspectorMenu")
+            or (button.toolButtonStyle() == Qt.ToolButtonIconOnly and not button.text())
+        ):
+            target_height = tool_height
+        current_height = button.minimumHeight()
+        if current_height <= 0 or current_height > target_height:
+            button.setMinimumHeight(target_height)
+
+
+def apply_compact_input_heights(root, density=None):
+    if root is None:
+        return
+
+    if density is None:
+        screen = root.screen() if hasattr(root, "screen") else None
+        density = resolve_ui_density(screen)
+
+    input_height = max(16, density.compact_input_height)
+    seen = set()
+
+    for widget_class in (QLineEdit, QComboBox, QAbstractSpinBox):
+        for widget in root.findChildren(widget_class):
+            widget_id = id(widget)
+            if widget_id in seen or widget.property("preserveInputHeight"):
+                continue
+            seen.add(widget_id)
+            widget.setFixedHeight(input_height)
+
+
 def apply_subwindow_theme(window, extra_stylesheet=""):
     if window is None:
         return
     window.setAttribute(Qt.WA_StyledBackground, True)
     stylesheet = SUBWINDOW_STYLESHEET
+    screen = window.screen() if hasattr(window, "screen") else None
+    density = resolve_ui_density(screen)
+    button_min_height = max(16, density.compact_button_height - 4)
+    popup_stylesheet = build_popup_chrome_stylesheet(
+        density,
+        control_radius=density.compact_radius + 1,
+        popup_radius=density.group_radius + 2,
+        item_radius=density.compact_radius + 1,
+        drop_width=max(20, density.compact_input_height),
+        item_height=density.compact_input_height,
+        font_size=density.button_font,
+    )
+    density_overrides = f"""
+        QLabel {{ font-size: {density.base_font}px; }}
+        QLabel[dialogTitle="true"] {{ font-size: {density.dock_title_font}px; }}
+        QLabel[fieldLabel="true"] {{ font-size: {density.compact_label_font}px; }}
+        QLabel[fieldUnit="true"] {{ font-size: {density.compact_unit_font}px; }}
+        QLabel[pageEyebrow="true"] {{ font-size: {max(9, density.base_font + 1)}px; }}
+        QLabel[pageTitle="true"] {{ font-size: {max(18, density.dock_title_font + 3)}px; }}
+        QLabel[pageSubtitle="true"] {{ font-size: {max(11, density.base_font + 2)}px; }}
+        QLabel[sectionTitle="true"] {{ font-size: {max(12, density.section_title_font + 2)}px; }}
+        QLabel[sectionSubtitle="true"], QLabel[helperText="true"] {{ font-size: {density.base_font}px; }}
+        QLabel[metricLabel="true"] {{ font-size: {density.base_font}px; }}
+        QLabel[metricValue="true"], QLabel[statusValue="true"] {{ font-size: {max(14, density.status_value_font + 3)}px; }}
+        QLabel[stepBadge="true"] {{
+            min-width: {max(18, density.compact_input_height + 2)}px;
+            min-height: {max(18, density.compact_input_height + 2)}px;
+            border-radius: {max(9, (density.compact_input_height + 2) // 2)}px;
+            font-size: {density.base_font}px;
+        }}
+        QLabel[stepTitle="true"] {{ font-size: {max(11, density.base_font + 1)}px; }}
+        QLabel[stepDescription="true"] {{ font-size: {density.base_font}px; }}
+        QLabel[toolbarLabel="true"] {{ font-size: {max(8, density.small_font)}px; }}
+        QLabel[dataBadge="true"] {{
+            border-radius: {density.group_radius + 1}px;
+            padding: 3px 6px;
+            font-size: {density.base_font}px;
+        }}
+        QFrame[surfaceCard="true"], QFrame[metricCard="true"], QFrame[panelCard="true"] {{
+            border-radius: {density.group_radius + 3}px;
+        }}
+        QFrame[softCard="true"], QFrame[stepCard="true"] {{
+            border-radius: {density.group_radius + 1}px;
+        }}
+        QGroupBox {{
+            border-radius: {density.group_radius + 3}px;
+            margin-top: 10px;
+            padding: 10px 10px 8px;
+            font-size: {density.base_font}px;
+        }}
+        QGroupBox::title {{ left: 10px; }}
+        QPushButton, QToolButton, QDialogButtonBox QPushButton {{
+            border-radius: {density.compact_radius + 1}px;
+            padding: 3px 8px;
+            min-height: {button_min_height}px;
+            font-size: {density.button_font}px;
+        }}
+        QLineEdit, QSpinBox, QDoubleSpinBox, QTextEdit, QPlainTextEdit, QComboBox {{
+            border-radius: {density.compact_radius + 1}px;
+            padding: 3px 6px;
+            font-size: {density.button_font}px;
+        }}
+        QTextEdit[consolePanel="true"], QPlainTextEdit[consolePanel="true"] {{
+            border-radius: {density.group_radius + 1}px;
+            font-size: {density.button_font}px;
+        }}
+        QCheckBox, QRadioButton {{ spacing: 6px; font-size: {density.base_font}px; }}
+        QCheckBox::indicator, QRadioButton::indicator {{ width: 14px; height: 14px; }}
+        QListWidget, QTreeWidget, QTableWidget {{
+            border-radius: {density.group_radius + 2}px;
+            font-size: {density.button_font}px;
+        }}
+        QHeaderView::section {{ padding: 3px 5px; font-size: {density.small_font}px; }}
+        QTabBar::tab {{
+            padding: 4px 8px;
+            border-top-left-radius: {density.group_radius + 1}px;
+            border-top-right-radius: {density.group_radius + 1}px;
+            font-size: {density.button_font}px;
+        }}
+        QProgressBar {{
+            border-radius: {density.group_radius + 1}px;
+            font-size: {density.button_font}px;
+        }}
+    """
+    stylesheet = f"{stylesheet}\n{density_overrides}\n{popup_stylesheet}"
     if extra_stylesheet:
         stylesheet = f"{stylesheet}\n{extra_stylesheet}"
     window.setStyleSheet(stylesheet)
+    apply_compact_button_heights(window, density)
+    apply_compact_input_heights(window, density)
     polish_widget_style(window)
+
+
+def fit_window_to_screen(
+    window,
+    *,
+    default_width,
+    default_height,
+    min_width,
+    min_height,
+    width_ratio=0.88,
+    height_ratio=0.86,
+):
+    if window is None:
+        return
+    screen = window.screen() if hasattr(window, "screen") else None
+    width, height = resolve_window_size(
+        default_width=default_width,
+        default_height=default_height,
+        min_width=min_width,
+        min_height=min_height,
+        screen=screen,
+        width_ratio=width_ratio,
+        height_ratio=height_ratio,
+    )
+    window.resize(width, height)
+    window.setMinimumSize(min_width, min_height)
 
 
 def set_accent_button(button, accent=True):

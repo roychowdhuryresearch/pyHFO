@@ -31,6 +31,11 @@ class MainWindow(QMainWindow):
         biomarker = self.main_window_controller.get_biomarker_type()
         self.main_window_controller.init_biomarker_window(biomarker)
 
+    def showEvent(self, event):
+        super().showEvent(event)
+        if hasattr(self, "view"):
+            QTimer.singleShot(0, lambda: apply_compact_input_heights(self, self.view.ui_density))
+
     def closeEvent(self, event):
         self.model.shutdown()
         super().closeEvent(event)

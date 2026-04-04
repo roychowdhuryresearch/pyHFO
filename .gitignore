@@ -7,3 +7,5 @@ states
 *.edf
 *.xlsx
 .vscode
+.codex/
+artifacts/

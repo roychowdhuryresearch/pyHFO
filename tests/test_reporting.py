@@ -66,7 +66,7 @@ def test_export_analysis_report_creates_shareable_bundle(tmp_path):
     assert (assets_dir / "waveform_snapshot.png").exists()
 
     report_html = report_path.read_text(encoding="utf-8")
-    assert "Detector Agreement" in report_html
+    assert "Run Overlap" in report_html
     assert "demo_case.edf" in report_html
     assert "Channel Ranking" in report_html
 
@@ -82,3 +82,51 @@ def test_export_analysis_report_adds_html_suffix_when_missing(tmp_path):
 
     assert report_path.suffix == ".html"
     assert report_path.exists()
+
+
+def test_export_analysis_report_uses_case_level_export_context(tmp_path):
+    backend = _build_backend()
+
+    case_runs = backend.get_run_summaries() + [
+        {
+            "run_id": "spindle-run",
+            "biomarker_type": "Spindle",
+            "display_name": "YASA demo",
+            "detector_name": "YASA",
+            "created_at": "2026-04-04T12:00:00Z",
+            "accepted": False,
+            "visible": True,
+            "num_events": 4,
+            "num_channels": 2,
+        }
+    ]
+    comparison_rows = [
+        {
+            "left_label": "HFO • STE",
+            "right_label": "Spindle • YASA",
+            "overlap_events": 2,
+            "left_only": 1,
+            "right_only": 2,
+            "jaccard": 0.4,
+        }
+    ]
+
+    def _write_case_workbook(path):
+        with open(path, "wb") as handle:
+            handle.write(b"case-workbook")
+
+    report_path = export_analysis_report(
+        tmp_path / "case_report.html",
+        backend,
+        biomarker_label="HFO",
+        run_summaries=case_runs,
+        comparison_rows=comparison_rows,
+        workbook_exporter=_write_case_workbook,
+    )
+
+    report_html = report_path.read_text(encoding="utf-8")
+    metadata = json.loads((tmp_path / "case_report_files" / "metadata.json").read_text(encoding="utf-8"))
+
+    assert "Spindle • YASA" in report_html
+    assert metadata["summary"]["run_count"] == 3
+    assert metadata["summary"]["visible_run_count"] == 3

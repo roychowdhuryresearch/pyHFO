@@ -3,7 +3,24 @@ import numpy as np
 import os
 
 
-def plot_feature(folder, feature, start, end, data, data_filtered, channel_name, biomarker_start, biomarker_end):
+def plot_feature(
+    folder,
+    feature,
+    start,
+    end,
+    data,
+    data_filtered,
+    channel_name,
+    biomarker_start=None,
+    biomarker_end=None,
+    hfo_start=None,
+    hfo_end=None,
+):
+    # Support legacy callers that still pass hfo_start/hfo_end.
+    if biomarker_start is None:
+        biomarker_start = hfo_start
+    if biomarker_end is None:
+        biomarker_end = hfo_end
     channel_data = data
     channel_data_f = data_filtered
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(20, 5))

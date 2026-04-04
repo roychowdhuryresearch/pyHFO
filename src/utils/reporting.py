@@ -10,6 +10,57 @@ import numpy as np
 import pandas as pd
 
 
+def export_clinical_summary_workbook(
+    output_path,
+    *,
+    exported_run,
+    run_summaries=None,
+    ranking_rows=None,
+    comparison_rows=None,
+    active_run=None,
+    accepted_run=None,
+    decision_overrides: dict | None = None,
+):
+    if exported_run is None:
+        raise ValueError("No exported run is available to write the workbook.")
+
+    runs_df = _safe_dataframe(run_summaries)
+    ranking_df = _safe_dataframe(ranking_rows)
+    comparison_df = _safe_dataframe(comparison_rows)
+    events_df = _safe_dataframe(
+        exported_run.event_features.to_df()
+        if getattr(exported_run, "event_features", None) is not None
+        and hasattr(exported_run.event_features, "to_df")
+        else []
+    )
+
+    decision_row = {
+        "active_run_id": getattr(active_run, "run_id", ""),
+        "accepted_run_id": getattr(accepted_run, "run_id", ""),
+        "accepted_detector": getattr(accepted_run, "detector_name", ""),
+        "accepted_display_name": getattr(accepted_run, "display_name", ""),
+        "exported_run_id": getattr(exported_run, "run_id", ""),
+        "exported_detector": getattr(exported_run, "detector_name", ""),
+        "active_detector": getattr(active_run, "detector_name", ""),
+        "active_biomarker": getattr(active_run, "biomarker_type", ""),
+        "accepted_biomarker": getattr(accepted_run, "biomarker_type", ""),
+        "exported_biomarker": getattr(exported_run, "biomarker_type", ""),
+        "exported_display_name": getattr(exported_run, "display_name", ""),
+    }
+    if decision_overrides:
+        decision_row.update(dict(decision_overrides))
+    decision_df = pd.DataFrame([decision_row])
+
+    with pd.ExcelWriter(output_path) as writer:
+        runs_df.to_excel(writer, sheet_name="Runs", index=False)
+        ranking_df.to_excel(writer, sheet_name="Channel Ranking", index=False)
+        comparison_df.to_excel(writer, sheet_name="Run Comparison", index=False)
+        decision_df.to_excel(writer, sheet_name="Decision", index=False)
+        events_df.to_excel(writer, sheet_name="Active Run Events", index=False)
+
+    return output_path
+
+
 def export_analysis_report(
     output_path,
     backend,
@@ -17,6 +68,9 @@ def export_analysis_report(
     biomarker_label: str = "Event",
     app_name: str = "PyBrain",
     snapshot_source_path: str | Path | None = None,
+    run_summaries=None,
+    comparison_rows=None,
+    workbook_exporter=None,
 ):
     html_path = _normalize_report_path(output_path)
     html_path.parent.mkdir(parents=True, exist_ok=True)
@@ -32,17 +86,26 @@ def export_analysis_report(
         raise ValueError("No accepted or active run is available to export.")
 
     recording_info = _build_recording_info(backend)
-    runs_df = _safe_dataframe(getattr(backend, "get_run_summaries", lambda: [])())
+    runs_df = _safe_dataframe(run_summaries if run_summaries is not None else getattr(backend, "get_run_summaries", lambda: [])())
     ranking_df = _safe_dataframe(getattr(backend, "get_channel_ranking", lambda _run_id=None: [])(selected_run.run_id))
-    comparison_payload = getattr(backend, "compare_runs", lambda _run_ids=None: {})(None)
-    comparison_df = _safe_dataframe(comparison_payload.get("pairwise_overlap", []) if isinstance(comparison_payload, dict) else [])
+    if comparison_rows is None:
+        comparison_payload = getattr(backend, "compare_runs", lambda _run_ids=None: {})(None)
+        comparison_df = _safe_dataframe(comparison_payload.get("pairwise_overlap", []) if isinstance(comparison_payload, dict) else [])
+    else:
+        comparison_df = _safe_dataframe(comparison_rows)
     events_df = _safe_dataframe(selected_run.event_features.to_df() if getattr(selected_run, "event_features", None) is not None and hasattr(selected_run.event_features, "to_df") else [])
 
     exported_at = datetime.now().astimezone()
     artifact_links = {}
     export_notes = []
 
-    workbook_relpath = _export_workbook_if_available(backend, assets_dir, selected_run.run_id, export_notes)
+    workbook_relpath = _export_workbook_if_available(
+        backend,
+        assets_dir,
+        selected_run.run_id,
+        export_notes,
+        workbook_exporter=workbook_exporter,
+    )
     if workbook_relpath:
         artifact_links["Clinical workbook"] = workbook_relpath
 
@@ -74,8 +137,12 @@ def export_analysis_report(
         ),
         "artifacts": artifact_links,
         "summary": {
-            "run_count": int(len(getattr(session, "runs", {}))) if session is not None else 0,
-            "visible_run_count": int(len(getattr(session, "visible_run_ids", []))) if session is not None else 0,
+            "run_count": int(len(runs_df.index)),
+            "visible_run_count": (
+                int(runs_df["visible"].fillna(False).astype(bool).sum())
+                if "visible" in runs_df.columns
+                else (int(len(getattr(session, "visible_run_ids", []))) if session is not None else 0)
+            ),
             "top_channel": _json_safe(ranking_df.iloc[0].to_dict()) if not ranking_df.empty else None,
             "event_preview_count": int(len(events_df)),
         },
@@ -151,9 +218,12 @@ def _build_recording_info(backend) -> dict:
     return info
 
 
-def _export_workbook_if_available(backend, assets_dir: Path, run_id: str, export_notes: list[str]) -> str | None:
+def _export_workbook_if_available(backend, assets_dir: Path, run_id: str, export_notes: list[str], workbook_exporter=None) -> str | None:
     workbook_path = assets_dir / "clinical_summary.xlsx"
     try:
+        if callable(workbook_exporter):
+            workbook_exporter(str(workbook_path))
+            return f"{assets_dir.name}/{workbook_path.name}"
         if hasattr(backend, "export_clinical_summary"):
             backend.export_clinical_summary(str(workbook_path), run_id=run_id)
             return f"{assets_dir.name}/{workbook_path.name}"
@@ -585,9 +655,9 @@ def _build_report_html(
       </section>
 
       <section class="panel wide">
-        <h2>Detector Agreement</h2>
-        <p class="section-copy">Pairwise overlap between saved runs in the session.</p>
-        {_render_dataframe(comparison_df, empty_message="At least two runs are required before detector agreement can be computed.", limit=20)}
+        <h2>Run Overlap</h2>
+        <p class="section-copy">Pairwise overlap between saved runs available for this export.</p>
+        {_render_dataframe(comparison_df, empty_message="At least two runs are required before run overlap can be computed.", limit=20)}
       </section>
 
       <section class="panel wide">

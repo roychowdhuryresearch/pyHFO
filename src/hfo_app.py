@@ -9,9 +9,18 @@ from src.utils.utils_feature import *
 from src.utils.utils_filter import construct_filter, filter_data
 from src.utils.utils_detector import set_STE_detector, set_MNI_detector, set_HIL_detector
 from src.utils.utils_io import get_edf_info, read_eeg_data, dump_to_npz, load_mne_raw
+from src.utils.utils_montage import (
+    bipolar_channel_name,
+    get_average_reference_definitions,
+    get_average_reference_metadata,
+    infer_auto_bipolar_montage_metadata,
+    infer_auto_bipolar_montage_entries,
+    source_channel_names,
+)
 from src.utils.utils_plotting import plot_feature
 from src.utils.app_state import build_base_checkpoint, checkpoint_array, checkpoint_get
 from src.utils.analysis_session import AnalysisSession, DetectionRun
+from src.utils.reporting import export_clinical_summary_workbook
 from src.utils.session_store import load_session_checkpoint, save_session_checkpoint
 
 from src.param.param_detector import ParamDetector
@@ -31,6 +40,7 @@ class HFO_App(object):
         self.eeg_data = None
         self.raw = None
         self.channel_names = None
+        self.recording_channel_names = None
         self.event_channel_names = None
         self.sample_freq = 0 # Hz
         self.edf_param = None
@@ -86,6 +96,7 @@ class HFO_App(object):
         self.sample_freq = int(self.edf_param['sfreq'])
         self.edf_param["edf_fn"] = file_path
         self.eeg_data, self.channel_names = read_eeg_data(self.raw)
+        self.recording_channel_names = np.array(self.channel_names).copy()
         self.eeg_data_un60 = self.eeg_data
         self.eeg_data_60 = None
         self.analysis_session = AnalysisSession(self.biomarker_type)
@@ -123,7 +134,7 @@ class HFO_App(object):
     def get_sample_freq(self):
         return self.sample_freq
 
-    def add_bipolar_channel(self, ch_1, ch_2):
+    def add_bipolar_channel(self, ch_1, ch_2, derived_name=None):
 
         def bipolar(data,channels,ch1,ch2):
             return data[channels==ch1]-data[channels==ch2]
@@ -136,16 +147,147 @@ class HFO_App(object):
             bipolar_filtered_60 = bipolar(self.ensure_filter_data_60(), self.channel_names, ch_1, ch_2)
             bipolar_filtered_un60 = bipolar(self.filter_data_un60, self.channel_names, ch_1, ch_2)
 
-        self.channel_names = np.concatenate([[f"{ch_1}#-#{ch_2}"],self.channel_names])
+        derived_label = derived_name or bipolar_channel_name(ch_1, ch_2)
+        self.channel_names = np.concatenate([[derived_label],self.channel_names])
 
         #add filtered/unfiltered 60/un60 signals to different arrays 
         self.eeg_data = np.concatenate([bipolar_signal,self.eeg_data])
         self.eeg_data_un60 = np.concatenate([bipolar_signalun60,self.eeg_data_un60])
         self.eeg_data_60 = np.concatenate([bipolar_signal60, self.ensure_eeg_data_60()])
         if self.filtered == True: 
-            self.filter_data_60 = np.concatenate([self.ensure_filter_data_60(), bipolar_filtered_60])
-            self.filter_data_un60 = np.concatenate([self.filter_data_un60, bipolar_filtered_un60])
+            self.filter_data_60 = np.concatenate([bipolar_filtered_60, self.ensure_filter_data_60()])
+            self.filter_data_un60 = np.concatenate([bipolar_filtered_un60, self.filter_data_un60])
             self.filter_data = self.filter_data_un60.copy()
+
+    def get_auto_bipolar_definitions(self):
+        return infer_auto_bipolar_montage_entries(self.get_recording_channel_names())
+
+    def get_auto_bipolar_metadata(self):
+        return infer_auto_bipolar_montage_metadata(self.get_recording_channel_names())
+
+    def get_average_reference_definitions(self):
+        return get_average_reference_definitions(self.get_recording_channel_names())
+
+    def get_average_reference_metadata(self):
+        return get_average_reference_metadata(self.get_recording_channel_names())
+
+    def get_recording_channel_names(self):
+        if self.recording_channel_names is not None and len(self.recording_channel_names) > 0:
+            return np.array(self.recording_channel_names)
+        if self.channel_names is None:
+            return np.array([])
+        return np.array(source_channel_names(self.channel_names))
+
+    def get_clean_recording_channel_metadata(self):
+        recording_channels = [str(channel) for channel in np.array(self.get_recording_channel_names()).tolist()]
+        if not recording_channels:
+            return {
+                "recording_channels": [],
+                "clean_channels": [],
+                "excluded_channels": [],
+                "bad_channels": [],
+                "flat_channels": [],
+            }
+
+        raw_info = getattr(getattr(self, "raw", None), "info", None)
+        bad_channels = {str(channel) for channel in (raw_info.get("bads", []) if raw_info is not None else [])}
+        channel_index_map = {
+            str(channel_name): index
+            for index, channel_name in enumerate(np.array(self.channel_names if self.channel_names is not None else []).tolist())
+        }
+        flat_channels = []
+        source_data = self.eeg_data_un60 if self.eeg_data_un60 is not None else self.eeg_data
+        for channel_name in recording_channels:
+            channel_index = channel_index_map.get(channel_name)
+            if channel_index is None or source_data is None:
+                continue
+            if np.ptp(np.asarray(source_data[channel_index]).astype(float)) <= 1e-15:
+                flat_channels.append(channel_name)
+
+        excluded_channels = [
+            channel_name
+            for channel_name in recording_channels
+            if channel_name in bad_channels or channel_name in flat_channels
+        ]
+        clean_channels = [channel_name for channel_name in recording_channels if channel_name not in excluded_channels]
+        return {
+            "recording_channels": recording_channels,
+            "clean_channels": clean_channels,
+            "excluded_channels": excluded_channels,
+            "bad_channels": [channel for channel in recording_channels if channel in bad_channels],
+            "flat_channels": [channel for channel in recording_channels if channel in flat_channels],
+        }
+
+    def get_auto_bipolar_pairs(self):
+        return [(channel_1, channel_2) for _derived_name, channel_1, channel_2 in self.get_auto_bipolar_definitions()]
+
+    def ensure_auto_bipolar_channels(self):
+        derived_channel_names = []
+        existing = {str(channel) for channel in np.array(self.channel_names if self.channel_names is not None else []).tolist()}
+        for derived_name, channel_1, channel_2 in self.get_auto_bipolar_definitions():
+            derived_channel_names.append(derived_name)
+            if derived_name not in existing:
+                self.add_bipolar_channel(channel_1, channel_2, derived_name=derived_name)
+                existing.add(derived_name)
+        return np.array(derived_channel_names)
+
+    def ensure_average_reference_channels(self):
+        definitions = self.get_average_reference_definitions()
+        derived_channel_names = [str(derived_name) for derived_name, _source_channel in definitions]
+        if not definitions:
+            return np.array([])
+
+        existing = {str(channel) for channel in np.array(self.channel_names if self.channel_names is not None else []).tolist()}
+        pending = [(str(derived_name), str(source_channel)) for derived_name, source_channel in definitions if str(derived_name) not in existing]
+        if not pending:
+            return np.array(derived_channel_names)
+
+        source_channels = [str(channel) for channel in np.array(self.get_recording_channel_names()).tolist()]
+        channel_index_map = {
+            str(channel_name): index
+            for index, channel_name in enumerate(np.array(self.channel_names if self.channel_names is not None else []).tolist())
+        }
+        source_indices = [channel_index_map[channel_name] for channel_name in source_channels if channel_name in channel_index_map]
+        if len(source_indices) < 2:
+            return np.array([])
+
+        avg_signal = np.mean(self.eeg_data[source_indices], axis=0, keepdims=True)
+        avg_signal_un60 = np.mean(self.eeg_data_un60[source_indices], axis=0, keepdims=True)
+        avg_signal_60 = np.mean(self.ensure_eeg_data_60()[source_indices], axis=0, keepdims=True)
+        if self.filtered:
+            avg_filtered_60 = np.mean(self.ensure_filter_data_60()[source_indices], axis=0, keepdims=True)
+            avg_filtered_un60 = np.mean(self.filter_data_un60[source_indices], axis=0, keepdims=True)
+
+        derived_raw = []
+        derived_un60 = []
+        derived_60 = []
+        derived_filtered_60 = []
+        derived_filtered_un60 = []
+        derived_labels = []
+        for derived_name, source_channel in pending:
+            source_index = channel_index_map.get(source_channel)
+            if source_index is None:
+                continue
+            derived_labels.append(derived_name)
+            derived_raw.append(self.eeg_data[source_index:source_index + 1] - avg_signal)
+            derived_un60.append(self.eeg_data_un60[source_index:source_index + 1] - avg_signal_un60)
+            derived_60.append(self.ensure_eeg_data_60()[source_index:source_index + 1] - avg_signal_60)
+            if self.filtered:
+                derived_filtered_60.append(self.ensure_filter_data_60()[source_index:source_index + 1] - avg_filtered_60)
+                derived_filtered_un60.append(self.filter_data_un60[source_index:source_index + 1] - avg_filtered_un60)
+
+        if not derived_labels:
+            return np.array(derived_channel_names)
+
+        self.channel_names = np.concatenate([np.array(derived_labels, dtype=object), self.channel_names])
+        self.eeg_data = np.concatenate([np.concatenate(derived_raw, axis=0), self.eeg_data], axis=0)
+        self.eeg_data_un60 = np.concatenate([np.concatenate(derived_un60, axis=0), self.eeg_data_un60], axis=0)
+        self.eeg_data_60 = np.concatenate([np.concatenate(derived_60, axis=0), self.ensure_eeg_data_60()], axis=0)
+        if self.filtered:
+            self.filter_data_60 = np.concatenate([np.concatenate(derived_filtered_60, axis=0), self.ensure_filter_data_60()], axis=0)
+            self.filter_data_un60 = np.concatenate([np.concatenate(derived_filtered_un60, axis=0), self.filter_data_un60], axis=0)
+            self.filter_data = self.filter_data_un60.copy()
+        return np.array(derived_channel_names)
 
     '''
         Filter API
@@ -336,6 +478,21 @@ class HFO_App(object):
         self.set_spike_classifier(param)
         self.set_ehfo_classifier(param)
 
+    def _load_classifier_source(self, param: ParamClassifier, local_path, huggingface_card, local_loader, hub_loader):
+        last_error = None
+        for source_kind, _source_value in param.iter_model_sources(local_path, huggingface_card):
+            try:
+                if source_kind == "huggingface":
+                    hub_loader(param)
+                else:
+                    local_loader(param)
+                return True
+            except Exception as exc:
+                last_error = exc
+        if last_error is not None:
+            raise last_error
+        return False
+
 
     def set_artifact_classifier(self, param:ParamClassifier):
         '''
@@ -346,10 +503,13 @@ class HFO_App(object):
         self.param_classifier = param
         classifier = self._ensure_classifier(param)
 
-        if param.artifact_card:
-            classifier.update_model_artifact(param)
-        elif param.artifact_path:
-            classifier.update_model_a(param)
+        self._load_classifier_source(
+            param,
+            param.artifact_path,
+            param.artifact_card,
+            classifier.update_model_a,
+            classifier.update_model_artifact,
+        )
 
     def set_spike_classifier(self, param:ParamClassifier):
         '''
@@ -362,10 +522,13 @@ class HFO_App(object):
         if not param.use_spike:
             return
 
-        if param.spike_card:
-            classifier.update_model_spkhfo(param)
-        elif param.spike_path:
-            classifier.update_model_s(param)
+        self._load_classifier_source(
+            param,
+            param.spike_path,
+            param.spike_card,
+            classifier.update_model_s,
+            classifier.update_model_spkhfo,
+        )
 
     def set_ehfo_classifier(self, param: ParamClassifier):
         '''
@@ -378,10 +541,13 @@ class HFO_App(object):
         if not param.use_ehfo:
             return
 
-        if param.ehfo_card:
-            classifier.update_model_ehfo(param)
-        elif param.ehfo_path:
-            classifier.update_model_e(param)
+        self._load_classifier_source(
+            param,
+            param.ehfo_path,
+            param.ehfo_card,
+            classifier.update_model_e,
+            classifier.update_model_ehfo,
+        )
 
     def set_default_cpu_classifier(self):
         '''
@@ -396,8 +562,10 @@ class HFO_App(object):
         self.param_classifier = ParamClassifier(artifact_path=artifact_path, spike_path=spike_path, ehfo_path=ehfo_path,
                                                 artifact_card=artifact_card, spike_card=spike_card, ehfo_card=ehfo_card,
                                                 use_spike=True, use_ehfo=True,
-                                                device="cpu", batch_size=32, model_type="default_cpu")
+                                                device="cpu", batch_size=32, model_type="default_cpu",
+                                                source_preference="huggingface")
         self.classifier = None
+        self.set_classifier(self.param_classifier)
 
     def set_default_gpu_classifier(self):
         '''
@@ -412,8 +580,10 @@ class HFO_App(object):
         self.param_classifier = ParamClassifier(artifact_path=artifact_path, spike_path=spike_path, ehfo_path=ehfo_path,
                                                 artifact_card=artifact_card, spike_card=spike_card, ehfo_card=ehfo_card,
                                                 use_spike=True, use_ehfo=True,
-                                                device="cuda:0", batch_size=32, model_type="default_gpu")
+                                                device="cuda:0", batch_size=32, model_type="default_gpu",
+                                                source_preference="huggingface")
         self.classifier = None
+        self.set_classifier(self.param_classifier)
 
 
     def classify_artifacts(self, ignore_region = [1, 1], threshold=0.5):
@@ -514,6 +684,18 @@ class HFO_App(object):
         run.selected_channels = list(np.array(self.event_channel_names if self.event_channel_names is not None else self.channel_names).tolist())
         run.refresh_summary()
 
+    def apply_cross_channel_overlap_review(self, settings):
+        if self.event_features is None or not hasattr(self.event_features, "apply_cross_channel_overlap_settings"):
+            return None
+        summary = self.event_features.apply_cross_channel_overlap_settings(settings)
+        self.sync_active_run()
+        return summary
+
+    def get_cross_channel_overlap_review_settings(self):
+        if self.event_features is None or not hasattr(self.event_features, "get_overlap_review_settings"):
+            return HFO_Feature.default_overlap_review_settings()
+        return self.event_features.get_overlap_review_settings()
+
     def activate_run(self, run_id):
         self.analysis_session.activate_run(run_id)
         run = self.analysis_session.get_active_run()
@@ -580,28 +762,20 @@ class HFO_App(object):
         run = self.analysis_session.get_run(run_id) if run_id else (self.analysis_session.get_accepted_run() or self.analysis_session.get_active_run())
         if run is None:
             return None
-        ranking = pd.DataFrame(self.get_channel_ranking(run.run_id))
-        comparison = pd.DataFrame(self.compare_runs().get("pairwise_overlap", []))
-        runs = pd.DataFrame(self.get_run_summaries())
         accepted = self.analysis_session.get_accepted_run()
-        accepted_meta = pd.DataFrame([{
-            "active_run_id": self.analysis_session.active_run_id,
-            "accepted_run_id": self.analysis_session.accepted_run_id,
-            "accepted_detector": accepted.detector_name if accepted else "",
-            "accepted_display_name": accepted.display_name if accepted else "",
-            "exported_run_id": run.run_id,
-            "exported_detector": run.detector_name,
-        }])
-
-        with pd.ExcelWriter(path) as writer:
-            runs.to_excel(writer, sheet_name="Runs", index=False)
-            ranking.to_excel(writer, sheet_name="Channel Ranking", index=False)
-            comparison.to_excel(writer, sheet_name="Run Comparison", index=False)
-            accepted_meta.to_excel(writer, sheet_name="Decision", index=False)
-            if run.event_features is not None:
-                run.event_features.to_df().to_excel(writer, sheet_name="Active Run Events", index=False)
+        return export_clinical_summary_workbook(
+            path,
+            exported_run=run,
+            run_summaries=self.get_run_summaries(),
+            ranking_rows=self.get_channel_ranking(run.run_id),
+            comparison_rows=self.compare_runs().get("pairwise_overlap", []),
+            active_run=self.analysis_session.get_active_run(),
+            accepted_run=accepted,
+            decision_overrides={"comparison_scope": "session"},
+        )
 
     def to_checkpoint(self):
+        self.sync_active_run()
         checkpoint = build_base_checkpoint(self, self.biomarker_type)
         checkpoint["analysis_session"] = self.analysis_session.to_dict()
         checkpoint.update({
@@ -627,6 +801,11 @@ class HFO_App(object):
         self.edf_param = checkpoint_get(checkpoint, "edf_param")
         self.sample_freq = checkpoint_get(checkpoint, "sample_freq", 0)
         self.channel_names = checkpoint_array(checkpoint, "channel_names")
+        self.recording_channel_names = checkpoint_array(
+            checkpoint,
+            "recording_channel_names",
+            np.array(source_channel_names(self.channel_names)),
+        )
         self.classified = checkpoint_get(checkpoint, "classified", False)
         self.filtered = checkpoint_get(checkpoint, "filtered", False)
         self.detected = checkpoint_get(checkpoint, "detected", False)
@@ -660,9 +839,11 @@ class HFO_App(object):
             event_dict = checkpoint_get(checkpoint, "event_features")
             if event_dict:
                 self.event_features = HFO_Feature.from_dict(event_dict)
-                self.event_features.artifact_predictions = checkpoint_array(checkpoint, "artifact_predictions", np.array([]))
-                self.event_features.spike_predictions = checkpoint_array(checkpoint, "spike_predictions", np.array([]))
-                self.event_features.ehfo_predictions = checkpoint_array(checkpoint, "ehfo_predictions", np.array([]))
+                self.event_features.update_pred(
+                    checkpoint_array(checkpoint, "artifact_predictions", np.array([])),
+                    checkpoint_array(checkpoint, "spike_predictions", np.array([])),
+                    checkpoint_array(checkpoint, "ehfo_predictions", np.array([])),
+                )
                 self.event_features.artifact_annotations = checkpoint_array(checkpoint, "artifact_annotations", np.array([]))
                 self.event_features.pathological_annotations = checkpoint_array(checkpoint, "pathological_annotations", np.array([]))
                 self.event_features.physiological_annotations = checkpoint_array(checkpoint, "physiological_annotations", np.array([]))
@@ -695,7 +876,10 @@ class HFO_App(object):
             return channel_data, channel_data_f, biomarker_start, biomarker_end
         
         def extract_waveform(data, data_filtered, starts, ends, channel_names, unique_channel_names):
-            biomarker_waveform_l, biomarker_waveform_f_l, biomarker_start_l , biomarker_end_l = np.zeros((len(starts), 2000)), np.zeros((len(starts), 2000)), [], []
+            window_len = int(self.sample_freq)
+            biomarker_waveform_l = np.zeros((len(starts), window_len))
+            biomarker_waveform_f_l = np.zeros((len(starts), window_len))
+            biomarker_start_l, biomarker_end_l = [], []
             for i in tqdm(range(len(starts))):
                 channel_name = channel_names[i]
                 start = starts[i]

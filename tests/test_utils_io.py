@@ -1,6 +1,7 @@
 import numpy as np
 
 from src.utils.utils_io import get_edf_info, load_mne_raw, read_eeg_data, sort_channel
+from src.utils.utils_montage import infer_auto_bipolar_channel_names, infer_auto_bipolar_pairs
 
 
 class FakeRaw:
@@ -21,6 +22,16 @@ class FakeRaw:
 def test_sort_channel_orders_numeric_suffixes():
     _, ordered = sort_channel(np.array(["B10Ref", "A2Ref", "A1Ref"]))
     assert ordered.tolist() == ["A1Ref", "A2Ref", "B10Ref"]
+
+
+def test_infer_auto_bipolar_pairs_uses_adjacent_numbered_contacts():
+    pairs = infer_auto_bipolar_pairs(["B10Ref", "A2Ref", "A1Ref", "POL ST11", "POL ST12", "X1#-#X2"])
+    assert pairs == [("A1Ref", "A2Ref"), ("POL ST11", "POL ST12")]
+
+
+def test_infer_auto_bipolar_channel_names_formats_derived_labels():
+    channel_names = infer_auto_bipolar_channel_names(["EEG IO1-Ref", "EEG IO2-Ref", "EEG SO1-Ref"])
+    assert channel_names == ["EEG IO1-Ref#-#EEG IO2-Ref"]
 
 
 def test_read_eeg_data_reads_in_bulk_and_scales_to_microvolts():

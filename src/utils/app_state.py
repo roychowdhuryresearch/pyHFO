@@ -37,6 +37,7 @@ def build_base_checkpoint(app, biomarker_type):
         "edf_param": app.edf_param,
         "sample_freq": app.sample_freq,
         "channel_names": app.channel_names,
+        "recording_channel_names": getattr(app, "recording_channel_names", None),
         "param_filter": app.param_filter.to_dict() if app.param_filter else None,
         "classified": app.classified,
         "filtered": app.filtered,

@@ -155,6 +155,68 @@ class SpindleFeature(object):
             return None
         return self.get_jump(prev_index)
 
+    def get_prediction_scope_options(self):
+        options = ["All"]
+        if not self.artifact_predicted:
+            return options
+        options.extend(["Artifact", "Non-artifact"])
+        if self.spike_predicted and len(self.spike_predictions) == self.num_spindle:
+            options.append("Spike")
+        return options
+
+    def _matches_prediction_scope(self, index, scope):
+        if scope in (None, "", "All"):
+            return True
+        if not self.artifact_predicted or index < 0 or index >= self.num_spindle:
+            return False
+
+        artifact_prediction = self.artifact_predictions[index]
+        if scope == "Artifact":
+            return artifact_prediction < 1
+        if scope == "Non-artifact":
+            return artifact_prediction > 0
+        if artifact_prediction < 1:
+            return False
+        if scope == "Spike":
+            return len(self.spike_predictions) > index and self.spike_predictions[index] == 1
+        return False
+
+    def get_matching_indexes(self, scope="All", unannotated_only=False):
+        if self.num_spindle == 0:
+            return np.array([], dtype=int)
+        indexes = [
+            idx
+            for idx in range(self.num_spindle)
+            if self._matches_prediction_scope(idx, scope)
+            and (not unannotated_only or self.annotated[idx] == 0)
+        ]
+        return np.array(indexes, dtype=int)
+
+    def _find_matching_index(self, scope="All", direction: int = 1, unannotated_only=False):
+        if self.num_spindle == 0:
+            return None
+        matches = self.get_matching_indexes(scope, unannotated_only=unannotated_only)
+        if len(matches) == 0:
+            return None
+        match_set = set(matches.tolist())
+        for offset in range(1, self.num_spindle + 1):
+            candidate = (self.index + direction * offset) % self.num_spindle
+            if candidate in match_set:
+                return candidate
+        return None
+
+    def get_next_matching(self, scope="All", unannotated_only=False):
+        next_index = self._find_matching_index(scope, direction=1, unannotated_only=unannotated_only)
+        if next_index is None:
+            return None
+        return self.get_jump(next_index)
+
+    def get_prev_matching(self, scope="All", unannotated_only=False):
+        prev_index = self._find_matching_index(scope, direction=-1, unannotated_only=unannotated_only)
+        if prev_index is None:
+            return None
+        return self.get_jump(prev_index)
+
     def get_review_progress(self):
         reviewed = int(np.sum(self.annotated > 0))
         total = int(self.get_num_biomarker())
@@ -228,8 +290,17 @@ class SpindleFeature(object):
         feature_size = data["feature_size"]
         freq_range = data["freq_range"]
         time_range = data["time_range"]
-        biomarker_feature = SpindleFeature(channel_names, np.array([starts, ends]).T, feature, detector_type, sample_freq, freq_range,
-                                  time_range, feature_size)
+        biomarker_feature = SpindleFeature(
+            channel_names,
+            starts,
+            ends,
+            feature,
+            detector_type,
+            sample_freq,
+            freq_range,
+            time_range,
+            feature_size,
+        )
         biomarker_feature.update_pred(artifact_predictions, spike_predictions)
 
         return biomarker_feature
@@ -275,7 +346,7 @@ class SpindleFeature(object):
         artifact_predictions = np.array(self.artifact_predictions)
         spike_predictions = np.array(self.spike_predictions)
         if min_start is not None and max_end is not None:
-            indexes = (starts >= min_start) & (ends <= max_end)
+            indexes = (starts < max_end) & (ends > min_start)
             starts = starts[indexes]
             ends = ends[indexes]
             channel_indexes = channel_indexes[indexes]

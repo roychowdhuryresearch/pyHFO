@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import Counter
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -44,12 +44,19 @@ def _restore_event_features(biomarker_type: str, payload: dict | None):
         return None
     if biomarker_type == "Spindle":
         feature = SpindleFeature.from_dict(payload)
+        artifact_predictions = np.array(payload.get("artifact_predictions", getattr(feature, "artifact_predictions", np.array([]))))
+        spike_predictions = np.array(payload.get("spike_predictions", getattr(feature, "spike_predictions", np.array([]))))
+        feature.update_pred(artifact_predictions, spike_predictions)
         feature.artifact_annotations = np.array(payload.get("artifact_annotations", getattr(feature, "artifact_annotations", np.array([]))))
         feature.spike_annotations = np.array(payload.get("spike_annotations", getattr(feature, "spike_annotations", np.array([]))))
         feature.annotated = np.array(payload.get("annotated", getattr(feature, "annotated", np.array([]))))
         return feature
 
     feature = HFO_Feature.from_dict(payload)
+    artifact_predictions = np.array(payload.get("artifact_predictions", getattr(feature, "artifact_predictions", np.array([]))))
+    spike_predictions = np.array(payload.get("spike_predictions", getattr(feature, "spike_predictions", np.array([]))))
+    ehfo_predictions = np.array(payload.get("ehfo_predictions", getattr(feature, "ehfo_predictions", np.array([]))))
+    feature.update_pred(artifact_predictions, spike_predictions, ehfo_predictions)
     feature.artifact_annotations = np.array(payload.get("artifact_annotations", getattr(feature, "artifact_annotations", np.array([]))))
     feature.pathological_annotations = np.array(payload.get("pathological_annotations", getattr(feature, "pathological_annotations", np.array([]))))
     feature.physiological_annotations = np.array(payload.get("physiological_annotations", getattr(feature, "physiological_annotations", np.array([]))))
@@ -72,20 +79,187 @@ def serialize_event_features(biomarker_type: str, event_features):
     return payload
 
 
+def _feature_array(event_features, attr_name):
+    if event_features is None:
+        return np.array([])
+    if hasattr(event_features, "get_visible_array"):
+        try:
+            return np.array(event_features.get_visible_array(attr_name))
+        except Exception:
+            pass
+    return np.array(getattr(event_features, attr_name, np.array([])))
+
+
+def _feature_event_tuples(event_features):
+    if event_features is None:
+        return set()
+    if hasattr(event_features, "iter_visible_events"):
+        try:
+            return {
+                (str(channel_name), int(start), int(end))
+                for channel_name, start, end in event_features.iter_visible_events()
+            }
+        except Exception:
+            pass
+    channel_names = np.array(getattr(event_features, "channel_names", np.array([])))
+    starts = np.array(getattr(event_features, "starts", np.array([])))
+    ends = np.array(getattr(event_features, "ends", np.array([])))
+    return {
+        (str(channel_name), int(start), int(end))
+        for channel_name, start, end in zip(channel_names, starts, ends)
+    }
+
+
+def _feature_event_rows(event_features):
+    if event_features is None:
+        return []
+    channel_names = _feature_array(event_features, "channel_names")
+    starts = _feature_array(event_features, "starts")
+    ends = _feature_array(event_features, "ends")
+    if len(channel_names) == 0 or len(starts) == 0 or len(ends) == 0:
+        return []
+
+    try:
+        sample_freq = float(getattr(event_features, "sample_freq", 0) or 0)
+    except (TypeError, ValueError):
+        sample_freq = 0.0
+    if sample_freq <= 0:
+        sample_freq = 1.0
+
+    rows = []
+    for channel_name, start, end in zip(channel_names, starts, ends):
+        start_index = int(start)
+        end_index = int(end)
+        if end_index <= start_index:
+            end_index = start_index + 1
+        rows.append(
+            {
+                "channel_name": str(channel_name),
+                "start_index": start_index,
+                "end_index": end_index,
+                "start_seconds": float(start_index) / sample_freq,
+                "end_seconds": float(end_index) / sample_freq,
+            }
+        )
+    return rows
+
+
+def _events_temporally_overlap(left_event: dict[str, Any], right_event: dict[str, Any]) -> bool:
+    return (
+        min(left_event["end_seconds"], right_event["end_seconds"])
+        > max(left_event["start_seconds"], right_event["start_seconds"])
+    )
+
+
+def _count_temporal_overlap_matches(left_rows, right_rows):
+    if not left_rows or not right_rows:
+        return 0, 0
+
+    left_by_channel = defaultdict(list)
+    right_by_channel = defaultdict(list)
+    for row in left_rows:
+        left_by_channel[row["channel_name"]].append(row)
+    for row in right_rows:
+        right_by_channel[row["channel_name"]].append(row)
+
+    shared_channels = 0
+    match_count = 0
+    for channel_name in sorted(set(left_by_channel) & set(right_by_channel)):
+        shared_channels += 1
+        left_channel_rows = sorted(
+            left_by_channel[channel_name],
+            key=lambda row: (row["end_seconds"], row["start_seconds"]),
+        )
+        right_channel_rows = sorted(
+            enumerate(right_by_channel[channel_name]),
+            key=lambda item: (item[1]["end_seconds"], item[1]["start_seconds"]),
+        )
+        used_right_indexes = set()
+        for left_event in left_channel_rows:
+            for right_index, right_event in right_channel_rows:
+                if right_index in used_right_indexes:
+                    continue
+                if right_event["end_seconds"] <= left_event["start_seconds"]:
+                    continue
+                if not _events_temporally_overlap(left_event, right_event):
+                    continue
+                used_right_indexes.add(right_index)
+                match_count += 1
+                break
+    return match_count, shared_channels
+
+
 def summarize_event_features(event_features):
     if event_features is None:
         return {"num_events": 0, "num_channels": 0, "top_channels": []}
-    channel_names = np.array(getattr(event_features, "channel_names", np.array([])))
+    channel_names = _feature_array(event_features, "channel_names")
+    starts = _feature_array(event_features, "starts")
     counter = Counter(channel_names.tolist())
     top_channels = [
         {"channel_name": channel_name, "count": count}
         for channel_name, count in counter.most_common(10)
     ]
-    return {
+    summary = {
         "num_events": int(len(getattr(event_features, "starts", []))),
         "num_channels": int(len(counter)),
         "top_channels": top_channels,
     }
+    summary["num_events"] = int(len(starts))
+    if hasattr(event_features, "get_overlap_review_summary"):
+        try:
+            summary.update(event_features.get_overlap_review_summary())
+        except Exception:
+            pass
+    return summary
+
+
+def build_run_comparison(selected_runs: list["DetectionRun"]):
+    if len(selected_runs) < 2:
+        return {"runs": [], "pairwise_overlap": []}
+
+    run_summaries = []
+    event_rows_by_run = {}
+    for run in selected_runs:
+        run.refresh_summary()
+        event_rows_by_run[run.run_id] = _feature_event_rows(run.event_features)
+        run_summaries.append(
+            {
+                "run_id": run.run_id,
+                "display_name": run.display_name,
+                "detector_name": run.detector_name,
+                "biomarker_type": run.biomarker_type,
+                "num_events": run.summary.get("num_events", 0),
+                "num_channels": run.summary.get("num_channels", 0),
+            }
+        )
+
+    pairwise = []
+    for i, left in enumerate(selected_runs):
+        for right in selected_runs[i + 1:]:
+            left_events = event_rows_by_run[left.run_id]
+            right_events = event_rows_by_run[right.run_id]
+            overlap_count, shared_channels = _count_temporal_overlap_matches(left_events, right_events)
+            union_count = max(0, len(left_events) + len(right_events) - overlap_count)
+            pairwise.append(
+                {
+                    "left_run_id": left.run_id,
+                    "right_run_id": right.run_id,
+                    "left_detector": left.detector_name,
+                    "right_detector": right.detector_name,
+                    "left_biomarker": left.biomarker_type,
+                    "right_biomarker": right.biomarker_type,
+                    "left_label": f"{left.biomarker_type} • {left.detector_name}",
+                    "right_label": f"{right.biomarker_type} • {right.detector_name}",
+                    "comparison_mode": "temporal_overlap",
+                    "shared_channels": shared_channels,
+                    "overlap_events": overlap_count,
+                    "union_events": union_count,
+                    "jaccard": (overlap_count / union_count) if union_count else 1.0,
+                    "left_only": max(0, len(left_events) - overlap_count),
+                    "right_only": max(0, len(right_events) - overlap_count),
+                }
+            )
+    return {"runs": run_summaries, "pairwise_overlap": pairwise}
 
 
 @dataclass
@@ -251,17 +425,17 @@ class AnalysisSession:
         if run is None or run.event_features is None:
             return []
         event_features = run.event_features
-        channel_names = np.array(getattr(event_features, "channel_names", np.array([])))
+        channel_names = _feature_array(event_features, "channel_names")
         if len(channel_names) == 0:
             return []
 
         rows = []
         unique_channels = np.unique(channel_names)
-        artifact_predictions = np.array(getattr(event_features, "artifact_predictions", np.array([])))
-        spike_predictions = np.array(getattr(event_features, "spike_predictions", np.array([])))
-        ehfo_predictions = np.array(getattr(event_features, "ehfo_predictions", np.array([]))) if hasattr(event_features, "ehfo_predictions") else np.array([])
-        annotated = np.array(getattr(event_features, "annotated", np.array([])))
-        artifact_annotations = np.array(getattr(event_features, "artifact_annotations", np.array([])))
+        artifact_predictions = _feature_array(event_features, "artifact_predictions")
+        spike_predictions = _feature_array(event_features, "spike_predictions")
+        ehfo_predictions = _feature_array(event_features, "ehfo_predictions") if hasattr(event_features, "ehfo_predictions") else np.array([])
+        annotated = _feature_array(event_features, "annotated")
+        artifact_annotations = _feature_array(event_features, "artifact_annotations")
 
         for channel_name in unique_channels:
             idx = np.where(channel_names == channel_name)[0]
@@ -283,45 +457,7 @@ class AnalysisSession:
 
     def compare_runs(self, run_ids: list[str] | None = None):
         selected_runs = [self.runs[run_id] for run_id in (run_ids or list(self.runs.keys())) if run_id in self.runs]
-        if len(selected_runs) < 2:
-            return {"runs": [], "pairwise_overlap": []}
-
-        run_summaries = []
-        event_sets = {}
-        for run in selected_runs:
-            run.refresh_summary()
-            tuples = set()
-            if run.event_features is not None:
-                for channel_name, start, end in zip(run.event_features.channel_names, run.event_features.starts, run.event_features.ends):
-                    tuples.add((str(channel_name), int(start), int(end)))
-            event_sets[run.run_id] = tuples
-            run_summaries.append({
-                "run_id": run.run_id,
-                "display_name": run.display_name,
-                "detector_name": run.detector_name,
-                "num_events": run.summary.get("num_events", 0),
-                "num_channels": run.summary.get("num_channels", 0),
-            })
-
-        pairwise = []
-        for i, left in enumerate(selected_runs):
-            for right in selected_runs[i + 1:]:
-                left_events = event_sets[left.run_id]
-                right_events = event_sets[right.run_id]
-                overlap = left_events & right_events
-                union = left_events | right_events
-                pairwise.append({
-                    "left_run_id": left.run_id,
-                    "right_run_id": right.run_id,
-                    "left_detector": left.detector_name,
-                    "right_detector": right.detector_name,
-                    "overlap_events": len(overlap),
-                    "union_events": len(union),
-                    "jaccard": (len(overlap) / len(union)) if union else 1.0,
-                    "left_only": len(left_events - right_events),
-                    "right_only": len(right_events - left_events),
-                })
-        return {"runs": run_summaries, "pairwise_overlap": pairwise}
+        return build_run_comparison(selected_runs)
 
     def to_dict(self):
         return {

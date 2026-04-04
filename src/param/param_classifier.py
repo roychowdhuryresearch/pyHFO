@@ -1,7 +1,11 @@
+import os
+
+
 class ParamClassifier():
     def __init__(self, artifact_path=None, spike_path=None, ehfo_path=None,
                  artifact_card=None, spike_card=None, ehfo_card=None,
-                 use_spike=True, use_ehfo=True, device="cpu", batch_size=32, model_type="default_cpu"):
+                 use_spike=True, use_ehfo=True, device="cpu", batch_size=32,
+                 model_type="default_cpu", source_preference="auto"):
         self.artifact_path = artifact_path
         self.spike_path = spike_path
         self.ehfo_path = ehfo_path
@@ -13,12 +17,44 @@ class ParamClassifier():
         self.device = device
         self.batch_size = batch_size
         self.model_type = model_type
+        self.source_preference = source_preference or "auto"
+
+    def iter_model_sources(self, local_path=None, huggingface_card=None):
+        preference = (self.source_preference or "auto").lower()
+        has_local = bool(local_path) and os.path.exists(local_path)
+        has_huggingface = bool(huggingface_card)
+
+        if preference == "huggingface":
+            if has_huggingface:
+                yield "huggingface", huggingface_card
+            if has_local:
+                yield "local", local_path
+        elif preference == "local":
+            if has_local:
+                yield "local", local_path
+            if has_huggingface:
+                yield "huggingface", huggingface_card
+        else:
+            if has_local:
+                yield "local", local_path
+            if has_huggingface:
+                yield "huggingface", huggingface_card
+
+    def preferred_model_source(self, local_path=None, huggingface_card=None):
+        for source_kind, source_value in self.iter_model_sources(local_path, huggingface_card):
+            return source_kind, source_value
+        if huggingface_card:
+            return "huggingface", huggingface_card
+        if local_path:
+            return "local", local_path
+        return None, ""
 
     def to_dict(self):
         return {'artifact_path': self.artifact_path, 'spike_path': self.spike_path, 'ehfo_path': self.ehfo_path,
                 'artifact_card': self.artifact_card, 'spike_card': self.spike_card, 'ehfo_card': self.ehfo_card,
                 'use_spike': self.use_spike, 'use_ehfo': self.use_ehfo, 'device': self.device,
-                'batch_size': self.batch_size, 'model_type': self.model_type}
+                'batch_size': self.batch_size, 'model_type': self.model_type,
+                'source_preference': self.source_preference}
 
     @staticmethod
     def from_dict(param_dict):
@@ -33,7 +69,8 @@ class ParamClassifier():
             use_ehfo=param_dict['use_ehfo'],
             device=param_dict['device'],
             batch_size=param_dict['batch_size'],
-            model_type=param_dict['model_type']
+            model_type=param_dict['model_type'],
+            source_preference=param_dict.get('source_preference', 'auto'),
         )
 
 

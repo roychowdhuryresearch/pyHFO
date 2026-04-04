@@ -29,8 +29,15 @@ class ChannelSelectionWindow(QtWidgets.QDialog):
         self.layout.setVerticalSpacing(12)
         self.setWindowTitle("Channel Selection")
         self.setWindowIcon(QtGui.QIcon(os.path.join(ROOT_DIR, 'images/icon1.png')))
-        self.resize(760, 560)
-        self.setMinimumSize(580, 420)
+        fit_window_to_screen(
+            self,
+            default_width=760,
+            default_height=560,
+            min_width=580,
+            min_height=420,
+            width_ratio=0.72,
+            height_ratio=0.74,
+        )
         self.setLayout(self.layout)
 
         self.title_label = QtWidgets.QLabel("Choose visible channels")
@@ -64,6 +71,10 @@ class ChannelSelectionWindow(QtWidgets.QDialog):
         self.layout.addWidget(self.ok_button, 3, 0)
         self.layout.addWidget(self.cancel_button, 3, 1)
         set_accent_button(self.ok_button)
+        self.ok_button.setDefault(True)
+        self.ok_button.setAutoDefault(True)
+        self.cancel_button.setDefault(False)
+        self.cancel_button.setAutoDefault(False)
 
         #connect cancel button to close window
         safe_connect_signal_slot(self.cancel_button.clicked, self.close)
@@ -98,6 +109,8 @@ class ChannelSelectionWindow(QtWidgets.QDialog):
         # add select none and select all buttons
         self.check_box_none = QtWidgets.QCheckBox('Select None')
         self.check_box_all = QtWidgets.QCheckBox('Select All')
+        self.check_box_none.setTristate(True)
+        self.check_box_all.setTristate(True)
         self.check_box_none.setCheckState(Qt.Unchecked)
         self.check_box_all.setCheckState(Qt.Checked)
         safe_connect_signal_slot(self.check_box_none.stateChanged, lambda: self.select_channels(False))
@@ -131,10 +144,18 @@ class ChannelSelectionWindow(QtWidgets.QDialog):
 
     def check_channel_state(self):
         states = [self.scroll_layout.itemAtPosition(1+i//2, i % 2).widget().isChecked() for i in range(self.n_channels)]
+        checked_count = sum(1 for state in states if state)
         self.check_box_none.blockSignals(True)
         self.check_box_all.blockSignals(True)
-        self.check_box_none.setCheckState(Qt.Unchecked if not any(states) else Qt.PartiallyChecked)
-        self.check_box_all.setCheckState(Qt.Checked if all(states) else Qt.PartiallyChecked)
+        if checked_count == 0:
+            self.check_box_none.setCheckState(Qt.Checked)
+            self.check_box_all.setCheckState(Qt.Unchecked)
+        elif checked_count == self.n_channels:
+            self.check_box_none.setCheckState(Qt.Unchecked)
+            self.check_box_all.setCheckState(Qt.Checked)
+        else:
+            self.check_box_none.setCheckState(Qt.PartiallyChecked)
+            self.check_box_all.setCheckState(Qt.PartiallyChecked)
         self.check_box_none.blockSignals(False)
         self.check_box_all.blockSignals(False)
 

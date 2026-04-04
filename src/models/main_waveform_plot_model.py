@@ -11,6 +11,7 @@ class MainWaveformPlotModel:
 
     def __init__(self, backend: HFO_App):
         self.backend = backend
+        self.overlay_run_provider = None
         # self.color_dict={"artifact":(245,130,48), #orange
         #                  "spike":(240,30,250), #pink
         #                  "non_spike":(60,180,75), #green
@@ -30,8 +31,10 @@ class MainWaveformPlotModel:
         self._overlay_cache = {}
         self._current_display_time = np.array([])
         self._current_full_window_data = None
+        self._current_raw_window_data = None
         self._current_full_window_start_idx = 0
         self._current_full_window_key = None
+        self._current_offset_value = 0.0
         self.render_width_px = 1200
     
     def update_backend(self, new_backend):
@@ -40,8 +43,14 @@ class MainWaveformPlotModel:
         self._overlay_cache = {}
         self._current_display_time = np.array([])
         self._current_full_window_data = None
+        self._current_raw_window_data = None
         self._current_full_window_start_idx = 0
         self._current_full_window_key = None
+        self._current_offset_value = 0.0
+
+    def set_overlay_run_provider(self, provider):
+        self.overlay_run_provider = provider
+        self._overlay_cache = {}
 
     def init_eeg_data(self):
         eeg_data, self.channel_names = self.backend.get_eeg_data()
@@ -61,14 +70,17 @@ class MainWaveformPlotModel:
         self._overlay_cache = {}
         self._current_display_time = np.array([])
         self._current_full_window_data = None
+        self._current_raw_window_data = None
         self._current_full_window_start_idx = 0
         self._current_full_window_key = None
+        self._current_offset_value = 0.0
 
     def set_time_window(self, time_window:int):
         self.time_window = time_window
         self._display_cache = {}
         self._overlay_cache = {}
         self._current_full_window_data = None
+        self._current_raw_window_data = None
         self._current_full_window_key = None
 
     def set_plot_biomarkers(self, plot_biomarkers:bool):
@@ -94,6 +106,7 @@ class MainWaveformPlotModel:
         self._display_cache = {}
         self._overlay_cache = {}
         self._current_full_window_data = None
+        self._current_raw_window_data = None
         self._current_full_window_key = None
 
     def set_channels_to_plot(self, channels_to_plot:list):
@@ -102,6 +115,7 @@ class MainWaveformPlotModel:
         self._display_cache = {}
         self._overlay_cache = {}
         self._current_full_window_data = None
+        self._current_raw_window_data = None
         self._current_full_window_key = None
 
     def set_channel_indices_to_plot(self,channel_indices_to_plot:list):
@@ -110,6 +124,7 @@ class MainWaveformPlotModel:
         self._display_cache = {}
         self._overlay_cache = {}
         self._current_full_window_data = None
+        self._current_raw_window_data = None
         self._current_full_window_key = None
 
     def update_channel_names(self, new_channel_names):
@@ -117,18 +132,21 @@ class MainWaveformPlotModel:
         self._display_cache = {}
         self._overlay_cache = {}
         self._current_full_window_data = None
+        self._current_raw_window_data = None
         self._current_full_window_key = None
 
     def set_waveform_filter(self, filtered):
         self.filtered = filtered
         self._display_cache = {}
         self._current_full_window_data = None
+        self._current_raw_window_data = None
         self._current_full_window_key = None
     
     def set_normalize_vertical(self, normalize_vertical:bool):
         self.normalize_vertical = normalize_vertical
         self._display_cache = {}
         self._current_full_window_data = None
+        self._current_raw_window_data = None
         self._current_full_window_key = None
         
     def get_waveform_color(self):
@@ -136,6 +154,37 @@ class MainWaveformPlotModel:
 
     def get_total_time(self):
         return self.total_time
+
+    def get_measurement_point(self, channel_name, time_value):
+        if self._current_full_window_data is None or self._current_raw_window_data is None:
+            self.get_all_current_eeg_data_to_display()
+        if self._current_full_window_data is None or self._current_raw_window_data is None:
+            return None
+        channel_name = str(channel_name or "")
+        if channel_name not in self.channels_to_plot:
+            return None
+        channel_index = self.channels_to_plot.index(channel_name)
+        if channel_index >= self._current_full_window_data.shape[0]:
+            return None
+        if self._current_full_window_data.shape[1] == 0:
+            return None
+
+        sample_index = int(round(float(time_value) * float(self.sample_freq)))
+        start_idx = int(self._current_full_window_start_idx)
+        end_idx = start_idx + int(self._current_full_window_data.shape[1]) - 1
+        sample_index = max(start_idx, min(sample_index, end_idx))
+        relative_index = sample_index - start_idx
+        return {
+            "channel_name": channel_name,
+            "channel_index": channel_index,
+            "sample_index": sample_index,
+            "time_seconds": float(sample_index) / float(self.sample_freq),
+            "display_value": float(self._current_full_window_data[channel_index, relative_index]),
+            "raw_value_uv": float(self._current_raw_window_data[channel_index, relative_index]),
+            "filtered": bool(self.filtered),
+            "normalized_view": bool(self.normalize_vertical),
+            "offset_value": float(self._current_offset_value),
+        }
 
     def set_render_width_pixels(self, width_px):
         width_px = int(width_px or 0)
@@ -157,11 +206,16 @@ class MainWaveformPlotModel:
     def get_event_display_segment(self, channel_index, event_start_idx, event_end_idx):
         if self._current_full_window_data is None:
             return np.array([]), np.array([])
-        start_rel = max(0, int(event_start_idx) - self._current_full_window_start_idx)
-        end_rel = min(self._current_full_window_data.shape[1], int(event_end_idx) - self._current_full_window_start_idx)
+        visible_start_idx = max(int(event_start_idx), int(self._current_full_window_start_idx))
+        visible_end_idx = min(
+            int(event_end_idx),
+            int(self._current_full_window_start_idx) + int(self._current_full_window_data.shape[1]),
+        )
+        start_rel = max(0, visible_start_idx - self._current_full_window_start_idx)
+        end_rel = min(self._current_full_window_data.shape[1], visible_end_idx - self._current_full_window_start_idx)
         if end_rel <= start_rel:
             return np.array([]), np.array([])
-        time_axis = self._build_time_axis(np.arange(int(event_start_idx), int(event_end_idx), dtype=np.int64))
+        time_axis = self._build_time_axis(np.arange(visible_start_idx, visible_end_idx, dtype=np.int64))
         signal = self._current_full_window_data[channel_index, start_rel:end_rel]
         return time_axis, signal
 
@@ -221,18 +275,23 @@ class MainWaveformPlotModel:
         cached = self._display_cache.get(cache_key)
         if cached is not None:
             self._current_display_time = cached[0]
+            self._current_offset_value = float(cached[4])
             if self._current_full_window_key != cache_key:
                 full_window_data, _ = self.backend.get_eeg_data(start_idx, end_idx, self.filtered)
-                self._current_full_window_data = self._normalize_window(full_window_data[self.channel_indices_to_plot, :])
+                raw_window_data = full_window_data[self.channel_indices_to_plot, :]
+                self._current_raw_window_data = raw_window_data
+                self._current_full_window_data = self._normalize_window(raw_window_data.copy())
                 self._current_full_window_start_idx = start_idx
                 self._current_full_window_key = cache_key
             return cached[1:]
 
         eeg_data_to_display, _ = self.backend.get_eeg_data(start_idx, end_idx, self.filtered)
         eeg_data_to_display = eeg_data_to_display[self.channel_indices_to_plot,:]
-        eeg_data_to_display = self._normalize_window(eeg_data_to_display)
+        raw_window_data = eeg_data_to_display.copy()
+        eeg_data_to_display = self._normalize_window(eeg_data_to_display.copy())
 
         self._current_full_window_data = eeg_data_to_display.copy()
+        self._current_raw_window_data = raw_window_data
         self._current_full_window_start_idx = start_idx
         self._current_full_window_key = cache_key
 
@@ -252,6 +311,7 @@ class MainWaveformPlotModel:
             y_100_length = 100  # 100 microvolts
             offset_value = 6
             y_scale_length = y_100_length / self.stds
+        self._current_offset_value = float(offset_value)
 
         payload = (time_to_display, eeg_data_to_display, y_100_length, y_scale_length, offset_value)
         if len(self._display_cache) > 12:
@@ -280,6 +340,7 @@ class MainWaveformPlotModel:
         start_idx, end_idx = self._current_sample_bounds()
         cache_key = (
             id(event_features),
+            getattr(event_features, "view_state_token", 0),
             channel_in_name,
             start_idx,
             end_idx,
@@ -290,11 +351,18 @@ class MainWaveformPlotModel:
         cached = self._overlay_cache.get(cache_key)
         if cached is not None:
             return cached
-        starts, ends, artifacts, spk_hfos, e_hfos = event_features.get_biomarkers_for_channel(
+        biomarker_payload = event_features.get_biomarkers_for_channel(
             channel_in_name,
             start_idx,
             end_idx,
         )
+        if len(biomarker_payload) == 5:
+            starts, ends, artifacts, spk_hfos, e_hfos = biomarker_payload
+        elif len(biomarker_payload) == 4:
+            starts, ends, artifacts, spk_hfos = biomarker_payload
+            e_hfos = np.zeros(len(starts), dtype=bool)
+        else:
+            return None
         colors = []
 
         for j in range(len(starts)):
@@ -319,8 +387,18 @@ class MainWaveformPlotModel:
         return payload
 
     def get_all_biomarkers_for_all_current_channels_and_color(self, channel_in_name):
+        visible_runs = []
+        if callable(self.overlay_run_provider):
+            try:
+                visible_runs = list(self.overlay_run_provider() or [])
+            except Exception:
+                visible_runs = []
+
         session = getattr(self.backend, "analysis_session", None)
-        if session is None or not hasattr(session, "get_visible_runs"):
+        if not visible_runs and session is not None and hasattr(session, "get_visible_runs"):
+            visible_runs = session.get_visible_runs()
+
+        if not visible_runs:
             group = self._build_overlay_group(
                 getattr(self.backend, "event_features", None),
                 channel_in_name,
@@ -330,8 +408,7 @@ class MainWaveformPlotModel:
             )
             return [group] if group is not None else []
 
-        visible_runs = session.get_visible_runs()
-        active_run_id = getattr(session, "active_run_id", None)
+        active_run_id = getattr(session, "active_run_id", None) if session is not None else None
         overlay_groups = []
         for order_index, run in enumerate(visible_runs):
             is_active = run.run_id == active_run_id

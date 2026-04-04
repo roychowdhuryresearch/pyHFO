@@ -1,4 +1,7 @@
 import numpy as np
+from contextlib import contextmanager
+import logging
+
 from src.utils.utils_inference import *
 from src.param.param_classifier import ParamClassifier
 import torch
@@ -7,7 +10,17 @@ import src.model
 from src.dl_models import *
 from src.hfo_feature import HFO_Feature
 from src.utils.model_metadata import DEFAULT_PREPROCESSING_BY_MODEL, resolve_preprocessing_metadata
-import os
+
+
+@contextmanager
+def _silence_hf_public_download_notice():
+    logger = logging.getLogger("huggingface_hub.utils._http")
+    previous_level = logger.level
+    logger.setLevel(logging.ERROR)
+    try:
+        yield
+    finally:
+        logger.setLevel(previous_level)
 
 
 class Classifier():
@@ -76,7 +89,8 @@ class Classifier():
         self.model_type = param.model_type
         self.spike_card = param.spike_card
 
-        model = NeuralCNNForImageClassification.from_pretrained(param.spike_card)
+        with _silence_hf_public_download_notice():
+            model = NeuralCNNForImageClassification.from_pretrained(param.spike_card)
         preprocessing_param_dict = resolve_preprocessing_metadata(
             model.config, fallback=DEFAULT_PREPROCESSING_BY_MODEL["spike"]
         )
@@ -95,7 +109,8 @@ class Classifier():
         self.model_type = param.model_type
         self.artifact_card = param.artifact_card
 
-        model = NeuralCNNForImageClassification.from_pretrained(param.artifact_card)
+        with _silence_hf_public_download_notice():
+            model = NeuralCNNForImageClassification.from_pretrained(param.artifact_card)
         preprocessing_param_dict = resolve_preprocessing_metadata(
             model.config, fallback=DEFAULT_PREPROCESSING_BY_MODEL["artifact"]
         )
@@ -117,7 +132,8 @@ class Classifier():
         self.model_type = param.model_type
         self.ehfo_card = param.ehfo_card
 
-        model = NeuralCNNForImageClassification.from_pretrained(param.ehfo_card)
+        with _silence_hf_public_download_notice():
+            model = NeuralCNNForImageClassification.from_pretrained(param.ehfo_card)
         preprocessing_param_dict = resolve_preprocessing_metadata(
             model.config, fallback=DEFAULT_PREPROCESSING_BY_MODEL["ehfo"]
         )

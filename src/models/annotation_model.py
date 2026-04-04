@@ -38,7 +38,10 @@ class AnnotationModel:
         if hasattr(self.backend, "sync_active_run"):
             self.backend.sync_active_run()
         # Update the text of the selected item in the dropdown menu
-        selected_index = self.backend.event_features.index
+        if hasattr(self.backend.event_features, "get_current_visible_position"):
+            selected_index = self.backend.event_features.get_current_visible_position()
+        else:
+            selected_index = self.backend.event_features.index
         item_text = self.backend.event_features.get_annotation_text(selected_index)
         return selected_index, item_text
 
@@ -46,7 +49,10 @@ class AnnotationModel:
         self.backend.event_features.clear_annotation()
         if hasattr(self.backend, "sync_active_run"):
             self.backend.sync_active_run()
-        selected_index = self.backend.event_features.index
+        if hasattr(self.backend.event_features, "get_current_visible_position"):
+            selected_index = self.backend.event_features.get_current_visible_position()
+        else:
+            selected_index = self.backend.event_features.index
         item_text = self.backend.event_features.get_annotation_text(selected_index)
         return selected_index, item_text
 

@@ -37,7 +37,7 @@ class ParamFilterSpindle:
     def from_dict(param_filter):
         if not 'sample_freq' in param_filter:
             param_filter['sample_freq'] = None
-        return ParamFilter(
+        return ParamFilterSpindle(
             fp = param_filter['fp'],
             fs = param_filter['fs'],
             rp = param_filter['rp'],

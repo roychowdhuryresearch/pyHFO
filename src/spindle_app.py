@@ -9,13 +9,22 @@ from src.utils.utils_feature import *
 from src.utils.utils_filter import construct_filter, filter_data
 from src.utils.utils_detector import set_YASA_detector
 from src.utils.utils_io import get_edf_info, read_eeg_data, dump_to_npz, load_mne_raw
+from src.utils.utils_montage import (
+    bipolar_channel_name,
+    get_average_reference_definitions,
+    get_average_reference_metadata,
+    infer_auto_bipolar_montage_metadata,
+    infer_auto_bipolar_montage_entries,
+    source_channel_names,
+)
 from src.utils.utils_plotting import plot_feature
 from src.utils.app_state import build_base_checkpoint, checkpoint_array, checkpoint_get
 from src.utils.analysis_session import AnalysisSession, DetectionRun
+from src.utils.reporting import export_clinical_summary_workbook
 from src.utils.session_store import load_session_checkpoint, save_session_checkpoint
 
 from src.param.param_detector import ParamDetector
-from src.param.param_filter import ParamFilter
+from src.param.param_filter import ParamFilter, ParamFilterSpindle
 from src.param.param_classifier import ParamClassifier
 
 import os
@@ -32,6 +41,7 @@ class SpindleApp(object):
         self.eeg_data = None
         self.raw = None
         self.channel_names = None
+        self.recording_channel_names = None
         self.event_channel_names = None
         self.sample_freq = 0  # Hz
         self.edf_param = None
@@ -87,6 +97,7 @@ class SpindleApp(object):
         self.sample_freq = int(self.edf_param['sfreq'])
         self.edf_param["edf_fn"] = file_path
         self.eeg_data, self.channel_names = read_eeg_data(self.raw)
+        self.recording_channel_names = np.array(self.channel_names).copy()
         self.eeg_data_un60 = self.eeg_data
         self.eeg_data_60 = None
         self.analysis_session = AnalysisSession(self.biomarker_type)
@@ -117,7 +128,7 @@ class SpindleApp(object):
     def get_sample_freq(self):
         return self.sample_freq
 
-    def add_bipolar_channel(self, ch_1, ch_2):
+    def add_bipolar_channel(self, ch_1, ch_2, derived_name=None):
 
         def bipolar(data, channels, ch1, ch2):
             return data[channels == ch1] - data[channels == ch2]
@@ -130,16 +141,147 @@ class SpindleApp(object):
             bipolar_filtered_60 = bipolar(self.ensure_filter_data_60(), self.channel_names, ch_1, ch_2)
             bipolar_filtered_un60 = bipolar(self.filter_data_un60, self.channel_names, ch_1, ch_2)
 
-        self.channel_names = np.concatenate([[f"{ch_1}#-#{ch_2}"], self.channel_names])
+        derived_label = derived_name or bipolar_channel_name(ch_1, ch_2)
+        self.channel_names = np.concatenate([[derived_label], self.channel_names])
 
         # add filtered/unfiltered 60/un60 signals to different arrays
         self.eeg_data = np.concatenate([bipolar_signal, self.eeg_data])
         self.eeg_data_un60 = np.concatenate([bipolar_signalun60, self.eeg_data_un60])
         self.eeg_data_60 = np.concatenate([bipolar_signal60, self.ensure_eeg_data_60()])
         if self.filtered == True:
-            self.filter_data_60 = np.concatenate([self.ensure_filter_data_60(), bipolar_filtered_60])
-            self.filter_data_un60 = np.concatenate([self.filter_data_un60, bipolar_filtered_un60])
+            self.filter_data_60 = np.concatenate([bipolar_filtered_60, self.ensure_filter_data_60()])
+            self.filter_data_un60 = np.concatenate([bipolar_filtered_un60, self.filter_data_un60])
             self.filter_data = self.filter_data_un60.copy()
+
+    def get_auto_bipolar_definitions(self):
+        return infer_auto_bipolar_montage_entries(self.get_recording_channel_names())
+
+    def get_auto_bipolar_metadata(self):
+        return infer_auto_bipolar_montage_metadata(self.get_recording_channel_names())
+
+    def get_average_reference_definitions(self):
+        return get_average_reference_definitions(self.get_recording_channel_names())
+
+    def get_average_reference_metadata(self):
+        return get_average_reference_metadata(self.get_recording_channel_names())
+
+    def get_recording_channel_names(self):
+        if self.recording_channel_names is not None and len(self.recording_channel_names) > 0:
+            return np.array(self.recording_channel_names)
+        if self.channel_names is None:
+            return np.array([])
+        return np.array(source_channel_names(self.channel_names))
+
+    def get_clean_recording_channel_metadata(self):
+        recording_channels = [str(channel) for channel in np.array(self.get_recording_channel_names()).tolist()]
+        if not recording_channels:
+            return {
+                "recording_channels": [],
+                "clean_channels": [],
+                "excluded_channels": [],
+                "bad_channels": [],
+                "flat_channels": [],
+            }
+
+        raw_info = getattr(getattr(self, "raw", None), "info", None)
+        bad_channels = {str(channel) for channel in (raw_info.get("bads", []) if raw_info is not None else [])}
+        channel_index_map = {
+            str(channel_name): index
+            for index, channel_name in enumerate(np.array(self.channel_names if self.channel_names is not None else []).tolist())
+        }
+        flat_channels = []
+        source_data = self.eeg_data_un60 if self.eeg_data_un60 is not None else self.eeg_data
+        for channel_name in recording_channels:
+            channel_index = channel_index_map.get(channel_name)
+            if channel_index is None or source_data is None:
+                continue
+            if np.ptp(np.asarray(source_data[channel_index]).astype(float)) <= 1e-15:
+                flat_channels.append(channel_name)
+
+        excluded_channels = [
+            channel_name
+            for channel_name in recording_channels
+            if channel_name in bad_channels or channel_name in flat_channels
+        ]
+        clean_channels = [channel_name for channel_name in recording_channels if channel_name not in excluded_channels]
+        return {
+            "recording_channels": recording_channels,
+            "clean_channels": clean_channels,
+            "excluded_channels": excluded_channels,
+            "bad_channels": [channel for channel in recording_channels if channel in bad_channels],
+            "flat_channels": [channel for channel in recording_channels if channel in flat_channels],
+        }
+
+    def get_auto_bipolar_pairs(self):
+        return [(channel_1, channel_2) for _derived_name, channel_1, channel_2 in self.get_auto_bipolar_definitions()]
+
+    def ensure_auto_bipolar_channels(self):
+        derived_channel_names = []
+        existing = {str(channel) for channel in np.array(self.channel_names if self.channel_names is not None else []).tolist()}
+        for derived_name, channel_1, channel_2 in self.get_auto_bipolar_definitions():
+            derived_channel_names.append(derived_name)
+            if derived_name not in existing:
+                self.add_bipolar_channel(channel_1, channel_2, derived_name=derived_name)
+                existing.add(derived_name)
+        return np.array(derived_channel_names)
+
+    def ensure_average_reference_channels(self):
+        definitions = self.get_average_reference_definitions()
+        derived_channel_names = [str(derived_name) for derived_name, _source_channel in definitions]
+        if not definitions:
+            return np.array([])
+
+        existing = {str(channel) for channel in np.array(self.channel_names if self.channel_names is not None else []).tolist()}
+        pending = [(str(derived_name), str(source_channel)) for derived_name, source_channel in definitions if str(derived_name) not in existing]
+        if not pending:
+            return np.array(derived_channel_names)
+
+        source_channels = [str(channel) for channel in np.array(self.get_recording_channel_names()).tolist()]
+        channel_index_map = {
+            str(channel_name): index
+            for index, channel_name in enumerate(np.array(self.channel_names if self.channel_names is not None else []).tolist())
+        }
+        source_indices = [channel_index_map[channel_name] for channel_name in source_channels if channel_name in channel_index_map]
+        if len(source_indices) < 2:
+            return np.array([])
+
+        avg_signal = np.mean(self.eeg_data[source_indices], axis=0, keepdims=True)
+        avg_signal_un60 = np.mean(self.eeg_data_un60[source_indices], axis=0, keepdims=True)
+        avg_signal_60 = np.mean(self.ensure_eeg_data_60()[source_indices], axis=0, keepdims=True)
+        if self.filtered:
+            avg_filtered_60 = np.mean(self.ensure_filter_data_60()[source_indices], axis=0, keepdims=True)
+            avg_filtered_un60 = np.mean(self.filter_data_un60[source_indices], axis=0, keepdims=True)
+
+        derived_raw = []
+        derived_un60 = []
+        derived_60 = []
+        derived_filtered_60 = []
+        derived_filtered_un60 = []
+        derived_labels = []
+        for derived_name, source_channel in pending:
+            source_index = channel_index_map.get(source_channel)
+            if source_index is None:
+                continue
+            derived_labels.append(derived_name)
+            derived_raw.append(self.eeg_data[source_index:source_index + 1] - avg_signal)
+            derived_un60.append(self.eeg_data_un60[source_index:source_index + 1] - avg_signal_un60)
+            derived_60.append(self.ensure_eeg_data_60()[source_index:source_index + 1] - avg_signal_60)
+            if self.filtered:
+                derived_filtered_60.append(self.ensure_filter_data_60()[source_index:source_index + 1] - avg_filtered_60)
+                derived_filtered_un60.append(self.filter_data_un60[source_index:source_index + 1] - avg_filtered_un60)
+
+        if not derived_labels:
+            return np.array(derived_channel_names)
+
+        self.channel_names = np.concatenate([np.array(derived_labels, dtype=object), self.channel_names])
+        self.eeg_data = np.concatenate([np.concatenate(derived_raw, axis=0), self.eeg_data], axis=0)
+        self.eeg_data_un60 = np.concatenate([np.concatenate(derived_un60, axis=0), self.eeg_data_un60], axis=0)
+        self.eeg_data_60 = np.concatenate([np.concatenate(derived_60, axis=0), self.ensure_eeg_data_60()], axis=0)
+        if self.filtered:
+            self.filter_data_60 = np.concatenate([np.concatenate(derived_filtered_60, axis=0), self.ensure_filter_data_60()], axis=0)
+            self.filter_data_un60 = np.concatenate([np.concatenate(derived_filtered_un60, axis=0), self.filter_data_un60], axis=0)
+            self.filter_data = self.filter_data_un60.copy()
+        return np.array(derived_channel_names)
 
     '''
         Filter API
@@ -312,11 +454,18 @@ class SpindleApp(object):
             (len(ret), win_size, win_size))
         for i in range(len(ret)):
             channel_names[i], starts[i], ends[i], time_frequncy_img[i], amplitude_coding_plot[i], _ = ret[i]
-        interval = np.concatenate([starts[:, None], ends[:, None]], axis=1)
         feature = np.concatenate([time_frequncy_img[:, None, :, :], amplitude_coding_plot[:, None, :, :]], axis=1)
-        self.event_features = SpindleFeature(channel_names, interval, feature, sample_freq=self.sample_freq,
-                                          detector_type=self.param_detector.detector_type, feature_size=win_size,
-                                          freq_range=freq_range, time_range=time_range)
+        self.event_features = SpindleFeature(
+            channel_names,
+            starts,
+            ends,
+            feature,
+            sample_freq=self.sample_freq,
+            detector_type=self.param_detector.detector_type,
+            feature_size=win_size,
+            freq_range=freq_range,
+            time_range=time_range,
+        )
 
     '''
         Classifier APIs
@@ -348,6 +497,21 @@ class SpindleApp(object):
         self.set_artifact_classifier(param)
         self.set_spike_classifier(param)
 
+    def _load_classifier_source(self, param: ParamClassifier, local_path, huggingface_card, local_loader, hub_loader):
+        last_error = None
+        for source_kind, _source_value in param.iter_model_sources(local_path, huggingface_card):
+            try:
+                if source_kind == "huggingface":
+                    hub_loader(param)
+                else:
+                    local_loader(param)
+                return True
+            except Exception as exc:
+                last_error = exc
+        if last_error is not None:
+            raise last_error
+        return False
+
     def set_artifact_classifier(self, param: ParamClassifier):
         '''
         This is the function should be linked to the confirm button in the set artifact window
@@ -356,7 +520,13 @@ class SpindleApp(object):
 
         self.param_classifier = param
         classifier = self._ensure_classifier(param)
-        classifier.update_model_a(param)
+        self._load_classifier_source(
+            param,
+            param.artifact_path,
+            param.artifact_card,
+            classifier.update_model_a,
+            classifier.update_model_artifact,
+        )
 
     def set_spike_classifier(self, param: ParamClassifier):
         '''
@@ -365,7 +535,13 @@ class SpindleApp(object):
         '''
         self.param_classifier = param
         classifier = self._ensure_classifier(param)
-        classifier.update_model_s(param)
+        self._load_classifier_source(
+            param,
+            param.spike_path,
+            param.spike_card,
+            classifier.update_model_s,
+            classifier.update_model_spkhfo,
+        )
 
     def set_default_cpu_classifier(self):
         '''
@@ -373,9 +549,14 @@ class SpindleApp(object):
         '''
         artifact_path = os.path.join(Path(os.path.dirname(__file__)).parent, "ckpt", "model_a.tar")
         spike_path = os.path.join(Path(os.path.dirname(__file__)).parent, "ckpt", "model_s.tar")
-        self.param_classifier = ParamClassifier(artifact_path=artifact_path, spike_path=spike_path, use_spike=True,
-                                                device="cpu", batch_size=32, model_type="default_cpu")
+        artifact_card = 'roychowdhuryresearch/HFO-artifact'
+        spike_card = 'roychowdhuryresearch/HFO-spkHFO'
+        self.param_classifier = ParamClassifier(artifact_path=artifact_path, spike_path=spike_path,
+                                                artifact_card=artifact_card, spike_card=spike_card, use_spike=True,
+                                                device="cpu", batch_size=32, model_type="default_cpu",
+                                                source_preference="huggingface")
         self.classifier = None
+        self.set_classifier(self.param_classifier)
 
     def set_default_gpu_classifier(self):
         '''
@@ -383,9 +564,14 @@ class SpindleApp(object):
         '''
         artifact_path = os.path.join(Path(os.path.dirname(__file__)).parent, "ckpt", "model_a.tar")
         spike_path = os.path.join(Path(os.path.dirname(__file__)).parent, "ckpt", "model_s.tar")
-        self.param_classifier = ParamClassifier(artifact_path=artifact_path, spike_path=spike_path, use_spike=True,
-                                                device="cuda:0", batch_size=32, model_type="default_gpu")
+        artifact_card = 'roychowdhuryresearch/HFO-artifact'
+        spike_card = 'roychowdhuryresearch/HFO-spkHFO'
+        self.param_classifier = ParamClassifier(artifact_path=artifact_path, spike_path=spike_path,
+                                                artifact_card=artifact_card, spike_card=spike_card, use_spike=True,
+                                                device="cuda:0", batch_size=32, model_type="default_gpu",
+                                                source_preference="huggingface")
         self.classifier = None
+        self.set_classifier(self.param_classifier)
 
     def classify_artifacts(self, ignore_region=[1, 1], threshold=0.5):
         if not self.event_features.has_feature():
@@ -435,6 +621,7 @@ class SpindleApp(object):
         '''
         export all the data from app to a tar file
         '''
+        self.sync_active_run()
         checkpoint = build_base_checkpoint(self, self.biomarker_type)
         checkpoint["analysis_session"] = self.analysis_session.to_dict()
         checkpoint.update({
@@ -556,26 +743,17 @@ class SpindleApp(object):
         run = self.analysis_session.get_run(run_id) if run_id else (self.analysis_session.get_accepted_run() or self.analysis_session.get_active_run())
         if run is None:
             return None
-        ranking = pd.DataFrame(self.get_channel_ranking(run.run_id))
-        comparison = pd.DataFrame(self.compare_runs().get("pairwise_overlap", []))
-        runs = pd.DataFrame(self.get_run_summaries())
         accepted = self.analysis_session.get_accepted_run()
-        accepted_meta = pd.DataFrame([{
-            "active_run_id": self.analysis_session.active_run_id,
-            "accepted_run_id": self.analysis_session.accepted_run_id,
-            "accepted_detector": accepted.detector_name if accepted else "",
-            "accepted_display_name": accepted.display_name if accepted else "",
-            "exported_run_id": run.run_id,
-            "exported_detector": run.detector_name,
-        }])
-
-        with pd.ExcelWriter(path) as writer:
-            runs.to_excel(writer, sheet_name="Runs", index=False)
-            ranking.to_excel(writer, sheet_name="Channel Ranking", index=False)
-            comparison.to_excel(writer, sheet_name="Run Comparison", index=False)
-            accepted_meta.to_excel(writer, sheet_name="Decision", index=False)
-            if run.event_features is not None:
-                run.event_features.to_df().to_excel(writer, sheet_name="Active Run Events", index=False)
+        return export_clinical_summary_workbook(
+            path,
+            exported_run=run,
+            run_summaries=self.get_run_summaries(),
+            ranking_rows=self.get_channel_ranking(run.run_id),
+            comparison_rows=self.compare_runs().get("pairwise_overlap", []),
+            active_run=self.analysis_session.get_active_run(),
+            accepted_run=accepted,
+            decision_overrides={"comparison_scope": "session"},
+        )
 
     def load_checkpoint(self, checkpoint):
         self.n_jobs = checkpoint_get(checkpoint, "n_jobs", self.n_jobs)
@@ -585,13 +763,18 @@ class SpindleApp(object):
         self.edf_param = checkpoint_get(checkpoint, "edf_param")
         self.sample_freq = checkpoint_get(checkpoint, "sample_freq", 0)
         self.channel_names = checkpoint_array(checkpoint, "channel_names")
+        self.recording_channel_names = checkpoint_array(
+            checkpoint,
+            "recording_channel_names",
+            np.array(source_channel_names(self.channel_names)),
+        )
         self.classified = checkpoint_get(checkpoint, "classified", False)
         self.filtered = checkpoint_get(checkpoint, "filtered", False)
         self.detected = checkpoint_get(checkpoint, "detected", False)
         if self.filtered:
             filter_dict = checkpoint_get(checkpoint, "param_filter")
             if filter_dict:
-                self.param_filter = ParamFilter.from_dict(filter_dict)
+                self.param_filter = ParamFilterSpindle.from_dict(filter_dict)
             self.filter_data = checkpoint_array(checkpoint, "filter_data")
             self.filter_data_un60 = checkpoint_array(checkpoint, "filter_data_un60", self.filter_data)
             self.filter_data_60 = checkpoint_array(checkpoint, "filter_data_60", None)
@@ -616,8 +799,10 @@ class SpindleApp(object):
             feature_dict = checkpoint_get(checkpoint, "Spindle_features")
             if feature_dict:
                 self.event_features = SpindleFeature.from_dict(feature_dict)
-                self.event_features.artifact_predictions = checkpoint_array(checkpoint, "artifact_predictions", np.array([]))
-                self.event_features.spike_predictions = checkpoint_array(checkpoint, "spike_predictions", np.array([]))
+                self.event_features.update_pred(
+                    checkpoint_array(checkpoint, "artifact_predictions", np.array([])),
+                    checkpoint_array(checkpoint, "spike_predictions", np.array([])),
+                )
                 self.event_features.artifact_annotations = checkpoint_array(checkpoint, "artifact_annotations", np.array([]))
                 self.event_features.spike_annotations = checkpoint_array(checkpoint, "spike_annotations", np.array([]))
                 self.event_features.annotated = checkpoint_array(checkpoint, "annotated", np.array([]))
@@ -650,8 +835,10 @@ class SpindleApp(object):
             return channel_data, channel_data_f, hfo_start, hfo_end
 
         def extract_waveform(data, data_filtered, starts, ends, channel_names, unique_channel_names):
-            hfo_waveform_l, hfo_waveform_f_l, hfo_start_l, hfo_end_l = np.zeros((len(starts), 2000)), np.zeros(
-                (len(starts), 2000)), [], []
+            window_len = int(self.sample_freq)
+            hfo_waveform_l = np.zeros((len(starts), window_len))
+            hfo_waveform_f_l = np.zeros((len(starts), window_len))
+            hfo_start_l, hfo_end_l = [], []
             for i in tqdm(range(len(starts))):
                 channel_name = channel_names[i]
                 start = starts[i]

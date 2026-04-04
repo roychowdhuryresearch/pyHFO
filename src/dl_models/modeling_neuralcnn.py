@@ -11,8 +11,17 @@ from typing import Dict, List, Optional, Set, Tuple, Union
 from torch.nn import BCELoss, BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 
+def _build_resnet18_backbone():
+    cnn = models.resnet18(weights=None)
+    first_param = next(cnn.parameters(), None)
+    if first_param is not None and not first_param.is_meta:
+        cnn.load_state_dict(ResNet18_Weights.DEFAULT.get_state_dict(progress=False))
+    return cnn
+
+
 class NeuralCNNModel(PreTrainedModel):
     config_class = ResnetConfig
+    all_tied_weights_keys = {}
 
     # def __init__(self, in_channels, outputs, freeze = False, channel_selection = True):
     def __init__(self, config):
@@ -28,7 +37,7 @@ class NeuralCNNModel(PreTrainedModel):
         self.kernel_size = config.kernel_size
         self.stride = config.stride
         self.padding = config.padding
-        self.cnn = models.resnet18(weights=ResNet18_Weights.DEFAULT)
+        self.cnn = _build_resnet18_backbone()
         if self.input_channels != 3:
             self.cnn.conv1 = nn.Conv2d(self.input_channels, self.hidden_size, self.kernel_size, self.stride,
                                        self.padding, bias=False)
@@ -66,6 +75,7 @@ class NeuralCNNModel(PreTrainedModel):
 
 class NeuralCNNForImageClassification(PreTrainedModel):
     config_class = ResnetConfig
+    all_tied_weights_keys = {}
 
     # def __init__(self, in_channels, outputs, freeze = False, channel_selection = True):
     def __init__(self, config):
@@ -81,7 +91,7 @@ class NeuralCNNForImageClassification(PreTrainedModel):
         self.kernel_size = config.kernel_size
         self.stride = config.stride
         self.padding = config.padding
-        self.cnn = models.resnet18(weights=ResNet18_Weights.DEFAULT)
+        self.cnn = _build_resnet18_backbone()
         if self.input_channels != 3:
             self.cnn.conv1 = nn.Conv2d(self.input_channels, self.hidden_size, self.kernel_size, self.stride,
                                        self.padding, bias=False)

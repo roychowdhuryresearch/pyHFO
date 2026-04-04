@@ -1,9 +1,11 @@
 import json
 import os
 import shutil
+from datetime import date, datetime, time
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 
 from src.utils.utils_io import dump_to_npz
 
@@ -22,6 +24,27 @@ def _encode_value(value, arrays_dir, key_path, array_index):
         target = arrays_dir / array_name
         np.save(target, value, allow_pickle=True)
         return {"__array__": array_name}, array_index
+    if isinstance(value, pd.DataFrame):
+        encoded_frame, array_index = _encode_value(value.to_dict(orient="split"), arrays_dir, key_path + ["dataframe"], array_index)
+        return {"__dataframe__": encoded_frame}, array_index
+    if isinstance(value, pd.Series):
+        encoded_series, array_index = _encode_value(
+            {
+                "name": value.name,
+                "index": value.index.tolist(),
+                "data": value.tolist(),
+            },
+            arrays_dir,
+            key_path + ["series"],
+            array_index,
+        )
+        return {"__series__": encoded_series}, array_index
+    if isinstance(value, datetime):
+        return {"__datetime__": value.isoformat()}, array_index
+    if isinstance(value, date):
+        return {"__date__": value.isoformat()}, array_index
+    if isinstance(value, time):
+        return {"__time__": value.isoformat()}, array_index
     if isinstance(value, np.generic):
         return value.item(), array_index
     if isinstance(value, dict):
@@ -44,6 +67,18 @@ def _encode_value(value, arrays_dir, key_path, array_index):
 def _decode_value(value, arrays_dir):
     if isinstance(value, dict) and "__array__" in value:
         return np.load(arrays_dir / value["__array__"], allow_pickle=True)
+    if isinstance(value, dict) and "__dataframe__" in value:
+        payload = _decode_value(value["__dataframe__"], arrays_dir)
+        return pd.DataFrame(data=payload["data"], columns=payload["columns"], index=payload["index"])
+    if isinstance(value, dict) and "__series__" in value:
+        payload = _decode_value(value["__series__"], arrays_dir)
+        return pd.Series(payload["data"], index=payload["index"], name=payload["name"])
+    if isinstance(value, dict) and "__datetime__" in value:
+        return datetime.fromisoformat(value["__datetime__"])
+    if isinstance(value, dict) and "__date__" in value:
+        return date.fromisoformat(value["__date__"])
+    if isinstance(value, dict) and "__time__" in value:
+        return time.fromisoformat(value["__time__"])
     if isinstance(value, dict):
         return {key: _decode_value(item, arrays_dir) for key, item in value.items()}
     if isinstance(value, list):

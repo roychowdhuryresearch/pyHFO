@@ -907,7 +907,7 @@
                           </font>
                          </property>
                          <property name="text">
-                          <string>Filter the Signal</string>
+                          <string>OK</string>
                          </property>
                         </widget>
                        </item>
@@ -1031,7 +1031,6 @@
                         <font>
                          <family>Arial</family>
                          <pointsize>11</pointsize>
-                         <underline>true</underline>
                         </font>
                        </property>
                        <property name="text">
@@ -1741,7 +1740,6 @@
                  <font>
                   <family>Arial</family>
                   <pointsize>11</pointsize>
-                  <underline>true</underline>
                  </font>
                 </property>
                 <property name="text">
@@ -1941,7 +1939,6 @@
    <addaction name="actionOpen_EDF_toolbar"/>
    <addaction name="actionLoad_Detection_toolbar"/>
    <addaction name="actionQuick_Detection_toolbar"/>
-   <addaction name="separator"/>
   </widget>
   <widget class="QToolBar" name="toolBar_biomarker">
    <property name="windowTitle">

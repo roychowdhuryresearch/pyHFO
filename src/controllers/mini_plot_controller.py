@@ -66,6 +66,9 @@ class MiniPlotController:
     def update_backend(self, new_backend):
         self.model.update_backend(new_backend)
 
+    def set_overlay_run_provider(self, provider):
+        self.model.set_overlay_run_provider(provider)
+
     def sync_left_axis_width(self, axis_width):
         self.view.sync_left_axis_width(axis_width)
 

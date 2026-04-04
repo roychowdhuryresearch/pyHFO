@@ -17,9 +17,13 @@ sys.path.append(os.path.dirname(curr_dir))
 
 
 class CenterWaveformAndMiniPlotController():
-    def __init__(self, main_waveform_plot_widget: pg.PlotWidget, mini_plot_widget: pg.PlotWidget, backend: HFO_App):
+    def __init__(self, main_waveform_plot_widget: pg.PlotWidget, mini_plot_widget: pg.PlotWidget, backend: HFO_App, channel_gutter_widget: pg.PlotWidget = None):
         self.mini_plot_controller = MiniPlotController(mini_plot_widget, backend)
-        self.main_waveform_plot_controller = MainWaveformPlotController(main_waveform_plot_widget, backend)
+        self.main_waveform_plot_controller = MainWaveformPlotController(
+            main_waveform_plot_widget,
+            backend,
+            channel_gutter_widget=channel_gutter_widget,
+        )
 
         # clear everything if exit
         self.main_waveform_plot_controller.clear()
@@ -55,6 +59,10 @@ class CenterWaveformAndMiniPlotController():
         self.main_waveform_plot_controller.update_backend(new_backend)
         if init_eeg_data:
             self.init_eeg_data()
+
+    def set_overlay_run_provider(self, provider):
+        self.mini_plot_controller.set_overlay_run_provider(provider)
+        self.main_waveform_plot_controller.set_overlay_run_provider(provider)
 
     def init_eeg_data(self):
         self.mini_plot_controller.clear()
@@ -114,6 +122,18 @@ class CenterWaveformAndMiniPlotController():
         self.mini_plot_controller.update_channel_names(new_channel_names)
         self.main_waveform_plot_controller.update_channel_names(new_channel_names)
 
+    def set_channel_presentation(self, presentation_by_channel):
+        self.main_waveform_plot_controller.set_channel_presentation(presentation_by_channel)
+
+    def clear_channel_presentation(self):
+        self.main_waveform_plot_controller.clear_channel_presentation()
+
+    def set_trackpad_sensitivity(self, profile_name):
+        self.main_waveform_plot_controller.set_trackpad_sensitivity(profile_name)
+
+    def get_trackpad_sensitivity(self):
+        return self.main_waveform_plot_controller.get_trackpad_sensitivity()
+
     def set_channels_to_plot(self,channels_to_plot:list):
         self.main_waveform_plot_controller.set_channels_to_plot(channels_to_plot)
         self.mini_plot_controller.set_channels_to_plot(channels_to_plot)
@@ -121,6 +141,45 @@ class CenterWaveformAndMiniPlotController():
     def set_channel_indices_to_plot(self,channel_indices_to_plot:list):
         self.main_waveform_plot_controller.set_channel_indices_to_plot(channel_indices_to_plot)
         self.mini_plot_controller.set_channel_indices_to_plot(channel_indices_to_plot)
+
+    def set_cursor_enabled(self, enabled: bool):
+        self.main_waveform_plot_controller.set_cursor_enabled(enabled)
+
+    def is_cursor_enabled(self):
+        return self.main_waveform_plot_controller.is_cursor_enabled()
+
+    def set_measurement_enabled(self, enabled: bool):
+        self.main_waveform_plot_controller.set_measurement_enabled(enabled)
+
+    def is_measurement_enabled(self):
+        return self.main_waveform_plot_controller.is_measurement_enabled()
+
+    def set_measurement(self, points, summary_text=""):
+        self.main_waveform_plot_controller.set_measurement(points, summary_text=summary_text)
+
+    def clear_measurement(self):
+        self.main_waveform_plot_controller.clear_measurement()
+
+    def get_measurement_point(self, channel_name, time_value):
+        return self.main_waveform_plot_controller.get_measurement_point(channel_name, time_value)
+
+    def get_highlighted_channel(self):
+        return self.main_waveform_plot_controller.get_highlighted_channel()
+
+    def connect_channel_selection(self, handler):
+        self.main_waveform_plot_controller.connect_channel_gutter_selection(handler)
+
+    def connect_measurement_selection(self, handler):
+        self.main_waveform_plot_controller.connect_measurement_selection(handler)
+
+    def connect_wheel_time_scroll(self, handler):
+        self.main_waveform_plot_controller.connect_wheel_time_scroll(handler)
+
+    def connect_wheel_channel_scroll(self, handler):
+        self.main_waveform_plot_controller.connect_wheel_channel_scroll(handler)
+
+    def connect_time_zoom(self, handler):
+        self.main_waveform_plot_controller.connect_time_zoom(handler)
     
     def plot(self, start_in_time:float = None, first_channel_to_plot:int = None, empty=False, update_biomarker=False):
 
@@ -166,11 +225,12 @@ class CenterWaveformAndMiniPlotController():
         if self.plot_biomarkers and update_biomarker:
             self.mini_plot_controller.plot_all_current_biomarkers_for_all_channels(top_value_mini)
 
-        self.main_waveform_plot_controller.draw_scale_bar(eeg_data_to_display, offset_value, y_100_length, y_scale_length)
         self.main_waveform_plot_controller.draw_channel_names(offset_value)
-        self.mini_plot_controller.sync_left_axis_width(
-            self.main_waveform_plot_controller.get_left_axis_width()
-        )
+        self.main_waveform_plot_controller.draw_scale_bar(eeg_data_to_display, offset_value, y_100_length, y_scale_length)
+        if not self.main_waveform_plot_controller.uses_channel_gutter():
+            self.mini_plot_controller.sync_left_axis_width(
+                self.main_waveform_plot_controller.get_left_axis_width()
+            )
 
         self.mini_plot_controller.set_miniplot_title('biomarker', top_value_mini)
         self.mini_plot_controller.set_total_x_y_range(top_value_mini)
