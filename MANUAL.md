@@ -7,6 +7,37 @@ This manual is for day-to-day PyHFO use. It is written as an operator guide rath
 3. How do I run HFO or spindle workflows safely?
 4. What files does PyHFO save and export?
 
+## Document Map
+
+If you are using this manual during real work, the most useful sections are:
+
+- Section 5 if you are new to the application and want a basic screen tour.
+- Section 10 if you want the normal HFO workflow.
+- Section 11 if you are doing spindle review.
+- Section 13 if you want the Quick Detection workflow.
+- Section 14 if you are annotating events.
+- Section 15 if you are saving or restoring a case.
+- Section 16 if you are exporting reports and workbooks.
+- Section 17 if you are working with more than one run in the same case.
+- Section 20 if something is not working as expected.
+
+## Operator Checklist
+
+For a routine case, PyHFO is safest when you follow this order:
+
+1. Open the recording.
+2. Confirm sampling frequency, channel count, and duration.
+3. Confirm the biomarker mode.
+4. Save a session after the first meaningful processing step.
+5. Export only after you know which run is the accepted run.
+
+If you are training someone new, teach them these habits first:
+
+- never annotate before checking the biomarker mode
+- never move a `.pybrain` file without its `.pybrain.data` folder
+- never send a report HTML file without its `*_report_files` folder
+- never assume the active run and accepted run are the same
+
 ## 1. What PyHFO Is
 
 PyHFO is a desktop EEG review application for:
@@ -30,6 +61,21 @@ PyHFO can open:
 - `FIF` recordings: `.fif`
 - compressed FIF recordings: `.fif.gz`
 
+### Format-specific notes
+
+Use these rules when choosing files:
+
+- For `EDF`, pick the `.edf` file directly.
+- For BrainVision, open the `.vhdr` file. PyHFO expects the matching `.eeg` and `.vmrk` files to be present beside it.
+- For `FIF`, open the `.fif` file directly.
+- For compressed FIF, open the `.fif.gz` file directly.
+
+If a BrainVision case fails to load, check these first:
+
+- the `.vhdr`, `.eeg`, and `.vmrk` files all exist
+- the filenames still match each other
+- they were not separated into different folders
+
 ### Session files
 
 PyHFO can save and load:
@@ -52,6 +98,28 @@ PyHFO can export:
 - HTML report: `.html`
 - waveform snapshot: `.png`
 - report asset folder: `*_report_files/`
+
+### Disk layout examples
+
+Typical saved session:
+
+```text
+case01.pybrain
+case01.pybrain.data/
+```
+
+Typical report export:
+
+```text
+case01_report.html
+case01_report_files/
+```
+
+Typical workbook export:
+
+```text
+case01_clinical_summary.xlsx
+```
 
 ## 3. Biomarker Modes
 
@@ -150,6 +218,38 @@ After loading a recording, the main workspace exposes:
 - annotation
 - export actions
 
+## 5A. First-Time Startup Scenarios
+
+There are three normal ways to begin.
+
+### Scenario A: new case
+
+Use this when you have a new EEG recording and no prior PyHFO session.
+
+1. Click `Open File`.
+2. Load the recording.
+3. Confirm the metadata panel is correct.
+4. Choose the biomarker mode.
+5. Continue with filtering and detection.
+
+### Scenario B: continuing an unfinished case
+
+Use this when you already saved a PyHFO session.
+
+1. Click `Load Detection`.
+2. Choose the `.pybrain` file or legacy `.npz`.
+3. Wait for waveform initialization to finish.
+4. Confirm the correct biomarker mode and run state were restored.
+
+### Scenario C: fast one-off HFO pass
+
+Use this when you only want a single detector run and exports, not the full multi-run workspace.
+
+1. Click `Quick Detection`.
+2. Load the recording inside the Quick Detection dialog.
+3. Select a detector.
+4. Run and export.
+
 ## 6. Main Window Anatomy
 
 This section explains the main workspace by screen area.
@@ -227,6 +327,23 @@ What these do:
 - `Update Plot`: refresh the current waveform display after control changes.
 - `N Jobs`: set the worker count for supported processing steps.
 
+### 6.5A Navigation and review helpers that may appear
+
+Depending on the workspace state and the current build, PyHFO can also expose:
+
+- `Go to time`
+- snapshot export buttons
+- `Open Review`
+- next-pending-event buttons
+- run-statistics shortcuts
+- accepted-run status badges
+
+These are context-sensitive. If they are disabled, it usually means:
+
+- no recording is loaded yet
+- no events exist yet
+- no active run exists yet
+
 ### 6.6 Overview tab
 
 The `Overview` tab is where most normal operation happens.
@@ -247,11 +364,13 @@ It contains:
 - `Save As npz`
 - `Save As Excel`
 - `Annotation`
+- `Accept Run` or related run-accept controls in run-management areas
 
 Important historical note:
 
 - The button label still says `Save As npz`.
 - In the current main workspace the default save format is actually `.pybrain`, with `.npz` still available as a legacy option in the save dialog.
+- Workbook export may auto-mark the active run as accepted if no accepted run exists yet.
 
 ### 6.8 Detector tab
 
@@ -281,6 +400,11 @@ The text output area in the main window reports workflow progress and errors. Us
 - a detector appears disabled
 - loading takes longer than expected
 
+Good operator habit:
+
+- read the log before retrying a failed run
+- if a feature is grayed out, the log usually explains whether the issue is missing data, missing dependencies, or missing run state
+
 ## 7. Filter Parameters
 
 The standard filter section exposes four important values:
@@ -308,6 +432,15 @@ Typical defaults in spindle mode are based on:
 - `Fs = 30`
 
 If you are following a lab protocol, use the protocol values. If not, start from the PyHFO defaults rather than inventing new values.
+
+### Filter sanity check before you run detection
+
+Before you click filter or detect, check:
+
+- `Fp` is below `Fs`
+- the values are compatible with the recording sampling frequency
+- you are using HFO-oriented defaults in `HFO` mode and spindle-oriented defaults in `Spindle` mode
+- you did not accidentally carry spindle settings into HFO mode, or vice versa
 
 ## 8. Detector Parameters
 
@@ -366,6 +499,16 @@ Practical reading:
 - `base_*`: baseline estimation controls
 
 If you are not already following a validated MNI parameter set, keep the defaults and only change one field at a time.
+
+### Detector parameter change strategy
+
+If you are exploring detector behavior:
+
+1. Duplicate the case logic by running a second detector or a second parameter set.
+2. Change only one parameter group at a time.
+3. Compare the resulting runs before deciding which run to accept.
+
+Do not change five parameters at once and then try to reason backward from the output.
 
 ### 8.3 HIL
 
@@ -460,6 +603,22 @@ The classifier workflow includes:
 
 Artifact classification is the base requirement when classifier mode is enabled. spkHFO and eHFO are optional add-ons.
 
+### Classifier setup checklist
+
+Before running classifiers, confirm:
+
+- artifact model is configured
+- spkHFO is configured if `Use spk-HFO` is enabled
+- eHFO is configured if `Use eHFO` is enabled
+- the device entry is valid
+- batch size is sensible for the machine you are on
+
+If you are unsure:
+
+- use CPU
+- use the default hosted model buttons
+- keep batch size moderate
+
 ## 10. Standard HFO Workflow
 
 This is the recommended full-workspace workflow.
@@ -500,6 +659,13 @@ Recommendation:
 - for a fresh case, start with one detector first
 - only add comparison runs after you have confirmed the case loaded correctly
 
+What to watch after a first run:
+
+- whether event counts are obviously zero when you expected many events
+- whether the event channels make neurophysiologic sense
+- whether the waveform overlay looks too dense or too sparse
+- whether you accidentally ran the wrong biomarker mode
+
 ### Step 6. Review the run
 
 After detection:
@@ -525,6 +691,13 @@ If you need classifier output:
 5. Save classifier settings.
 6. Run classification on the active run.
 
+After classification, check:
+
+- whether the run summary changed as expected
+- whether artifact-heavy channels now look cleaner in review
+- whether the annotation button is still available
+- whether the model source you intended is the one that actually ran
+
 ### Step 8. Open the annotation window
 
 1. Click `Annotation`.
@@ -534,6 +707,8 @@ If you need classifier output:
 ### Step 9. Accept the run you want to export
 
 If multiple runs exist, choose the one you want to treat as the accepted export run. PyHFO uses the accepted run as the preferred downstream export target.
+
+Do not skip this step in multi-run cases. If you compare `STE`, `MNI`, and `HIL`, the accepted run is the one you are declaring as the preferred export candidate.
 
 ### Step 10. Save the session and export outputs
 
@@ -561,6 +736,13 @@ Important:
 
 - if `YASA` is unavailable, spindle detection will not run
 - the app can still open the case and UI, but the spindle detector path stays disabled
+
+Recommended spindle review pattern:
+
+1. detect
+2. inspect the event count
+3. review the top channels first
+4. annotate a small sample before committing to a full export
 
 ## 12. Spike Workflow
 
@@ -608,6 +790,18 @@ Quick Detection includes:
 7. Choose export formats.
 8. Click `Run Detection`.
 
+When Quick Detection is the right choice:
+
+- you do not need multi-run comparison
+- you do not need the full case workspace
+- you want outputs next to the source file quickly
+
+When Quick Detection is the wrong choice:
+
+- you plan to compare more than one detector in the same session
+- you expect detailed event curation before export
+- you want the richer main-workspace session format
+
 ### 13.3 Quick Detection exports
 
 Quick Detection can export:
@@ -641,6 +835,14 @@ case01_mni.xlsx
 
 If a file already exists, PyHFO appends a numeric suffix instead of overwriting it.
 
+Examples with collisions:
+
+```text
+case01_ste.xlsx
+case01_ste_2.xlsx
+case01_ste_3.xlsx
+```
+
 ## 14. Annotation Window
 
 The annotation window is the main detailed review tool.
@@ -664,6 +866,12 @@ The annotation window includes:
 - frequency range controls
 - waveform and FFT panels
 - snapshot export
+
+You can think of the annotation window as three jobs combined in one place:
+
+- inspect the waveform
+- decide the label
+- move efficiently through a queue of events
 
 ### 14.2 Annotation labels
 
@@ -697,6 +905,13 @@ Use:
 - `Prediction Scope` to jump among events matching the selected prediction group
 - `Unannotated only` to focus the match navigation on unlabeled events
 
+Recommended annotation strategy for large cases:
+
+1. Use `Next Pending` to move quickly through unreviewed events.
+2. If one prediction bucket needs verification, use `Prediction Scope`.
+3. Turn on `Unannotated only` when you want to avoid revisiting already-reviewed events.
+4. Use `Clear Label` only when you intentionally want to remove a review decision.
+
 ### 14.5 Visualization controls
 
 The annotation status bar exposes interaction hints:
@@ -714,6 +929,16 @@ Open annotation when:
 - you need event-by-event decisions
 - you want to confirm classifier output
 - you want to move from automatic detection to final curated labels
+
+### 14.7 Suggested annotation quality-control pattern
+
+For high-value cases:
+
+1. Review the first 20 to 50 events from the active run.
+2. Check whether the label mix is plausible.
+3. If the run looks poor, go back and change detector or classifier settings.
+4. If the run looks good, continue annotation.
+5. Save the session before closing the review window.
 
 ## 15. Saving Sessions
 
@@ -756,6 +981,14 @@ PyHFO restores:
 - filter and detector configuration
 - classification state when available
 - event review readiness
+
+After loading a saved session, always confirm:
+
+- the restored biomarker mode is correct
+- the correct recording path was restored
+- the waveform view is initialized
+- the expected run is active
+- the accepted run status still makes sense
 
 ### 15.4 Recommended session strategy
 
@@ -808,6 +1041,17 @@ That folder may contain:
 
 Do not separate the HTML file from its `*_report_files` folder.
 
+### 16.2A What is inside the report bundle
+
+When data is available, the report bundle may contain:
+
+- `clinical_summary.xlsx`: workbook version of the exported run summary
+- `events.csv`: event-level CSV
+- `waveform_snapshot.png`: captured waveform image
+- `metadata.json`: machine-readable export metadata
+
+This means the report export is not just a webpage. It is a small export package.
+
 ### 16.3 Event CSV
 
 The event CSV is generated inside the report asset folder when event-level data exists.
@@ -834,6 +1078,64 @@ Practical meaning:
 - the accepted run is the run you are choosing as the preferred export target
 
 If you compare multiple detector runs, make sure the accepted run is the one you truly want in the final workbook and report.
+
+## 17A. Multi-Run Comparison Workflow
+
+This is the safest way to compare detectors in the same case.
+
+### Step 1. Create the first run
+
+Run one detector with your baseline settings.
+
+### Step 2. Review the first run briefly
+
+Do not annotate the whole case yet. First check:
+
+- event count
+- top channels
+- whether the waveform view matches expectations
+
+### Step 3. Create the second run
+
+Run another detector or a modified parameter set.
+
+### Step 4. Open run statistics
+
+Use the run statistics or run management views to compare:
+
+- run counts
+- pairwise overlap
+- top channels
+- active versus accepted run state
+
+### Step 5. Make one run active
+
+Select the run you want to inspect closely.
+
+### Step 6. Accept the preferred run
+
+Use the accept-run action once you know which run should drive export.
+
+### Step 7. Export only after acceptance is correct
+
+This is important because downstream exports prefer the accepted run.
+
+## 17B. Run Statistics and decision logic
+
+When run statistics are available, use them for:
+
+- seeing which runs exist in the case
+- checking overlap between runs
+- checking which run is active
+- checking which run is accepted
+
+If two runs are similar:
+
+- annotate a sample from each before deciding
+
+If one run is clearly better:
+
+- accept it and proceed to export
 
 ## 18. Recommended Operator Sequence
 
@@ -862,9 +1164,24 @@ For a new case:
 - keep default classifier settings unless you have a reason to change them
 - save a session before trying alternative runs
 
+### Use Go To Time when available
+
+If the `Go to time` field is visible in your current build:
+
+- use it to jump directly to a time point in seconds
+- use it when the recording is long and scrolling is inefficient
+
 ### Save often during annotation
 
 Annotation work is the most manual part of the workflow. Save after meaningful progress.
+
+### Use snapshots for communication
+
+If you need to discuss a suspicious event with someone else:
+
+- export a waveform snapshot
+- save the session
+- export the report bundle if a shareable summary is useful
 
 ### Keep exported report bundles intact
 
@@ -910,6 +1227,7 @@ Common causes:
 - no detector selected
 - no export format selected
 - classifier enabled without required model path
+- invalid filter or detector field values
 
 ### Classifier download fails
 
@@ -942,6 +1260,62 @@ Suggestions:
 - shorten the displayed time window
 - avoid running too many comparison runs at once
 - close other memory-heavy applications
+
+### Export produced files but you cannot find them
+
+Check:
+
+- the source recording folder for Quick Detection outputs
+- the original recording directory for default workbook and report paths
+- the chosen path from the save dialog if you changed it manually
+
+## 20A. File examples
+
+### Example: full workspace save + export
+
+```text
+patient001.edf
+patient001.pybrain
+patient001.pybrain.data/
+patient001_clinical_summary.xlsx
+patient001_report.html
+patient001_report_files/
+```
+
+### Example: Quick Detection outputs
+
+```text
+patient001.edf
+patient001_ste.xlsx
+patient001_ste.npz
+```
+
+### Example: report bundle contents
+
+```text
+patient001_report.html
+patient001_report_files/
+  clinical_summary.xlsx
+  events.csv
+  metadata.json
+  waveform_snapshot.png
+```
+
+## 20B. Training a new operator
+
+If you are teaching PyHFO to someone else, have them practice in this order:
+
+1. open a recording
+2. change the biomarker mode
+3. change the number of displayed channels
+4. run one detector
+5. open annotation
+6. label ten events
+7. save a session
+8. export a workbook
+9. export a report
+
+That sequence covers almost everything that matters in routine use.
 
 ## 21. Version Scope
 
