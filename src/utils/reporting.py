@@ -591,7 +591,7 @@ def _build_report_html(
     <section class="hero">
       <div class="eyebrow">{html.escape(app_name)} export package</div>
       <h1>{html.escape(biomarker_label)} report for {html.escape(recording_name)}</h1>
-      <p class="hero-copy">This report packages the currently selected analysis run with the key recording metadata, detector configuration, channel prioritization, detector agreement, and shareable analysis artifacts.</p>
+      <p class="hero-copy">This report packages the currently selected analysis run with the key EEG signal metadata, detector configuration, channel prioritization, detector agreement, and shareable analysis artifacts.</p>
       <div class="meta-row">
         <div class="meta-pill">Selected run: {html.escape(getattr(selected_run, "display_name", getattr(selected_run, "detector_name", "--")))}</div>
         <div class="meta-pill">Active run: {html.escape(getattr(active_run, "detector_name", "--")) if active_run is not None else "--"}</div>
@@ -605,9 +605,9 @@ def _build_report_html(
 
     <section class="grid">
       <section class="panel">
-        <h2>Recording</h2>
+        <h2>EEG Signal</h2>
         <p class="section-copy">Source file and acquisition context for this export.</p>
-        {_render_kv_table(_flatten_mapping(recording_info), empty_message="Recording metadata is unavailable.")}
+        {_render_kv_table(_flatten_mapping(recording_info), empty_message="EEG signal metadata is unavailable.")}
       </section>
 
       <section class="panel">

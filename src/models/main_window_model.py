@@ -254,7 +254,7 @@ class MainWindowModel(QObject):
         rs = self._parse_float_input(self.window.rs_input.text(), "Filter attenuation", positive=True)
         stop_band_limit = self._filter_stop_band_limit()
         if stop_band_limit > 0 and fs > stop_band_limit:
-            raise ValueError(f"Filter stop band must stay below {stop_band_limit:.2f} Hz for this recording.")
+            raise ValueError(f"Filter stop band must stay below {stop_band_limit:.2f} Hz for this EEG signal.")
         if fp >= fs:
             raise ValueError("Filter pass band must be lower than the stop band.")
         return self._filter_param_class().from_dict(
@@ -847,7 +847,7 @@ class MainWindowModel(QObject):
             return {
                 "title": "Montage Details",
                 "text": "No auto bipolar montage is available yet.",
-                "informative_text": "Load a recording to inspect the available montage pairs.",
+                "informative_text": "Load an EEG file to inspect the available montage pairs.",
                 "detailed_text": "",
             }
 
@@ -1084,7 +1084,7 @@ class MainWindowModel(QObject):
         if not has_recording:
             return {
                 "text": "Source --",
-                "tooltip": "Load a recording to inspect waveform source modes.",
+                "tooltip": "Load an EEG file to inspect waveform source modes.",
             }
 
         if self._channel_subset_within(auto_bipolar_channels, current_channels=current_channels):
@@ -1119,7 +1119,7 @@ class MainWindowModel(QObject):
         if not has_recording:
             return {
                 "text": "Scope --",
-                "tooltip": "Load a recording to inspect waveform channel scopes.",
+                "tooltip": "Load an EEG file to inspect waveform channel scopes.",
             }
 
         highlighted_channel = str(highlighted_channel or "").strip()
@@ -1183,7 +1183,7 @@ class MainWindowModel(QObject):
         if not has_recording:
             return {
                 "text": "Tool --",
-                "tooltip": "Load a recording to inspect waveform tools.",
+                "tooltip": "Load an EEG file to inspect waveform tools.",
             }
         plot = getattr(self.window, "waveform_plot", None)
         if plot is not None and hasattr(plot, "is_measurement_enabled") and plot.is_measurement_enabled():
@@ -2670,7 +2670,7 @@ class MainWindowModel(QObject):
             self.show_all_channels()
             return
         if not hasattr(self.backend, "ensure_average_reference_channels"):
-            self.message_handler("Average reference view is unavailable for this recording backend")
+            self.message_handler("Average reference view is unavailable for this EEG backend")
             self.update_waveform_toolbar_state()
             return
         average_reference_metadata = self._get_average_reference_metadata()
@@ -2698,7 +2698,7 @@ class MainWindowModel(QObject):
             self.show_all_channels()
             return
         if not hasattr(self.backend, "ensure_auto_bipolar_channels"):
-            self.message_handler("Auto bipolar view is unavailable for this recording backend")
+            self.message_handler("Auto bipolar view is unavailable for this EEG backend")
             self.update_waveform_toolbar_state()
             return
         auto_bipolar_metadata = self._get_auto_bipolar_metadata()
@@ -3225,10 +3225,10 @@ class MainWindowModel(QObject):
         workflow_name = self.get_biomarker_display_name()
         if self.backend is None:
             self.window.run_summary_label.setText(f"No {workflow_name.lower()} runs yet.")
-            self.window.run_summary_label.setToolTip("Load a recording, then create a run to review.")
+            self.window.run_summary_label.setToolTip("Load an EEG file, then create a run to review.")
             if hasattr(self.window, "analysis_summary_label"):
                 self.window.analysis_summary_label.setText("No saved runs yet")
-                self.window.analysis_summary_label.setToolTip("Load a recording, then create a run to review.")
+                self.window.analysis_summary_label.setToolTip("Load an EEG file, then create a run to review.")
             self.window.switch_run_button.setEnabled(False)
             self.window.accept_run_button.setEnabled(False)
             self.window.compare_runs_button.setEnabled(False)
@@ -3577,7 +3577,7 @@ class MainWindowModel(QObject):
                 return
             self.window.active_run_name_label.setText("No active run")
             self.window.active_run_meta_label.setText("Load a case to begin")
-            self.window.active_run_meta_label.setToolTip("Load a recording, then create or activate a run.")
+            self.window.active_run_meta_label.setToolTip("Load an EEG file, then create or activate a run.")
             self.window.active_run_status_label.setText("--")
             self.window.active_run_status_label.setToolTip("")
             self.window.active_detector_label.setText("Detector --")
@@ -3910,7 +3910,7 @@ class MainWindowModel(QObject):
             )
             return False
         if self.backend is None or getattr(self.backend, "eeg_data", None) is None:
-            QMessageBox.information(self.window, "No Recording", "Load a recording before preparing detector settings.")
+            QMessageBox.information(self.window, "No EEG File", "Load an EEG file before preparing detector settings.")
             return False
 
         detector_name = self._selected_detector_name()
@@ -3973,7 +3973,7 @@ class MainWindowModel(QObject):
             )
             return False
         if self.backend is None or getattr(self.backend, "eeg_data", None) is None:
-            QMessageBox.information(self.window, "No Recording", "Load a recording before preparing classifier settings.")
+            QMessageBox.information(self.window, "No EEG File", "Load an EEG file before preparing classifier settings.")
             return False
         combo = getattr(self.window, "classifier_mode_combo", None)
         mode = combo.currentText() if combo is not None and combo.count() > 0 else "Hugging Face CPU"
@@ -4262,7 +4262,7 @@ class MainWindowModel(QObject):
         if channel_name not in target_channels:
             recording_channels = self._recording_waveform_channel_names()
             if channel_name not in recording_channels:
-                self.message_handler(f"Channel {channel_name} is unavailable in the current recording")
+                self.message_handler(f"Channel {channel_name} is unavailable in the current EEG signal")
                 return False
             target_channels = list(recording_channels)
             restored_source_scope = target_channels != current_channels
@@ -4678,7 +4678,7 @@ class MainWindowModel(QObject):
         )
         matched_channels = self._ordered_channel_subset(available_channels, ordered_channels)
         if not matched_channels:
-            self.message_handler("The active run does not expose event channels that match the current recording")
+            self.message_handler("The active run does not expose event channels that match the current EEG signal")
             self.update_waveform_toolbar_state()
             return
         self.set_channels_to_plot(matched_channels, display_all=False)
@@ -5012,7 +5012,7 @@ class MainWindowModel(QObject):
             self._set_workflow_message("Loading saved session...")
             self._connect_worker(worker, "Load session", result_handler=self.load_from_npz_finished)
         else:
-            self._set_workflow_message("Open a recording to begin")
+            self._set_workflow_message("Open an EEG file to begin")
         # print(self.hfo_app.get_edf_info())
 
     def load_from_npz_finished(self):
@@ -5084,7 +5084,7 @@ class MainWindowModel(QObject):
         self._reset_waveform_measurement_state()
 
         edf_info = self.backend.get_edf_info()
-        edf_name = os.path.basename(str(edf_info.get("edf_fn", "No recording loaded")))
+        edf_name = os.path.basename(str(edf_info.get("edf_fn", "No EEG file loaded")))
         self._refresh_recording_metadata_ui([
             edf_name,
             str(edf_info["sfreq"]),
@@ -5352,7 +5352,7 @@ class MainWindowModel(QObject):
         # enable the plot out the 60Hz bandstopped signal
         self.window.Filter60Button.setEnabled(True)
         self.window.bipolar_button.setEnabled(True)
-        self._set_workflow_message("Recording loaded")
+        self._set_workflow_message("EEG file loaded")
         self._sync_workspace_state()
         self._apply_backend_defaults_if_needed()
         if getattr(self.backend, "param_filter", None) is not None:
@@ -5453,21 +5453,21 @@ class MainWindowModel(QObject):
         self.update_waveform_toolbar_state()
 
     def open_file(self):
-        self.message_handler("Opening recording browser...")
-        self._set_workflow_message("Choose a recording to load")
+        self.message_handler("Opening EEG file browser...")
+        self._set_workflow_message("Choose an EEG file to load")
         fname = self._run_open_dialog(
-            "Open Recording",
-            "Recordings Files (*.edf *.eeg *.vhdr *.vmrk *.fif *.fif.gz)",
+            "Open EEG File",
+            "EEG Files (*.edf *.eeg *.vhdr *.vmrk *.fif *.fif.gz)",
         )
         if fname:
             self.case_backends = {}
             self.current_recording_path = fname
             self.reinitialize()
             worker = Worker(self.read_edf, fname)
-            self._set_workflow_message("Loading recording...")
-            self._connect_worker(worker, "Load recording", result_handler=self.update_edf_info)
+            self._set_workflow_message("Loading EEG file...")
+            self._connect_worker(worker, "Load EEG file", result_handler=self.update_edf_info)
         else:
-            self._set_workflow_message("Open a recording to begin")
+            self._set_workflow_message("Open an EEG file to begin")
 
     def filtering_complete(self):
         self._end_busy_task()
@@ -5993,7 +5993,7 @@ class MainWindowModel(QObject):
         self.window.statistics_label.setText("")
         if hasattr(self.window, "run_summary_label"):
             self.window.run_summary_label.setText("No detection runs yet.")
-        self._set_workflow_message("Open a recording to begin")
+        self._set_workflow_message("Open an EEG file to begin")
         self.update_spindle_capability_state()
         self.update_status_indicators()
         self.update_decision_overview()

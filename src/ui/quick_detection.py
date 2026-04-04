@@ -113,7 +113,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
             (self.qd_length, 110),
         ):
             style_value_badge(label, min_width=width, selectable=True)
-        self.qd_filename.setText("No recording loaded")
+        self.qd_filename.setText("No EEG file loaded")
         self.qd_sampfreq.setText("--")
         self.qd_numchannels.setText("--")
         self.qd_length.setText("--")
@@ -160,7 +160,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
         self.horizontalLayout_2.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout_2.setSpacing(6)
 
-        self._tighten_groupbox(self.qd_edfInfo, title="Recording")
+        self._tighten_groupbox(self.qd_edfInfo, title="EEG Signal")
         self._tighten_groupbox(self.qd_filters, title="Filter")
         self._tighten_groupbox(self.qd_MNI_detector, title="MNI")
         self._tighten_groupbox(self.qd_STE_detector, title="STE")
@@ -204,7 +204,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
                 layout.setVerticalSpacing(4)
 
     def _compact_header_controls(self):
-        self.qd_loadEDF_button.setText("Load Recording")
+        self.qd_loadEDF_button.setText("Load EEG File")
         self.qd_loadEDF_button.setMinimumHeight(self.ui_density.compact_button_height)
         self.qd_loadEDF_button.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
         self.label_8.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
@@ -249,7 +249,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
 
         title = QtWidgets.QLabel("Run Setup", setup_card)
         title.setProperty("sectionTitle", True)
-        subtitle = QtWidgets.QLabel("Load a recording, choose the detector, then launch a compact run from here.", setup_card)
+        subtitle = QtWidgets.QLabel("Load an EEG file, choose the detector, then launch a compact run from here.", setup_card)
         subtitle.setProperty("helperText", True)
         subtitle.setWordWrap(True)
         setup_card_layout.addWidget(title)
@@ -295,10 +295,10 @@ class HFOQuickDetector(QtWidgets.QDialog):
         status_layout = QtWidgets.QVBoxLayout(status_card)
         status_layout.setContentsMargins(8, 8, 8, 8)
         status_layout.setSpacing(4)
-        self.run_status_value_label = QtWidgets.QLabel("Waiting for recording", status_card)
+        self.run_status_value_label = QtWidgets.QLabel("Waiting for EEG file", status_card)
         self.run_status_value_label.setProperty("sectionTitle", True)
         self.run_status_detail_label = QtWidgets.QLabel(
-            "Load a recording to enable quick detection and export results next to the source file.",
+            "Load an EEG file to enable quick detection and export results next to the source file.",
             status_card,
         )
         self.run_status_detail_label.setProperty("helperText", True)
@@ -378,7 +378,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
         if self.running:
             self._set_run_feedback(
                 f"Running {detector_name}",
-                "Filtering, detecting, and exporting the current recording. This panel will update when the run finishes.",
+                "Filtering, detecting, and exporting the current EEG signal. This panel will update when the run finishes.",
             )
             return
 
@@ -415,8 +415,8 @@ class HFOQuickDetector(QtWidgets.QDialog):
             return
 
         self._set_run_feedback(
-            "Waiting for recording",
-            "Load a recording to enable quick detection and export results next to the source file.",
+            "Waiting for EEG file",
+            "Load an EEG file to enable quick detection and export results next to the source file.",
         )
 
     def _apply_label_density(self, labels):
@@ -689,7 +689,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
         rs = self._parse_float_input(self.qd_rs_input.text(), "Filter attenuation", positive=True)
         stop_band_limit = self._filter_stop_band_limit()
         if stop_band_limit > 0 and fs > stop_band_limit:
-            raise ValueError(f"Filter stop band must stay below {stop_band_limit:.2f} Hz for this recording.")
+            raise ValueError(f"Filter stop band must stay below {stop_band_limit:.2f} Hz for this EEG signal.")
         if fp >= fs:
             raise ValueError("Filter pass band must be lower than the stop band.")
         return ParamFilter().from_dict(
@@ -835,7 +835,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
         if fname:
             worker = Worker(self.read_edf, fname)
             safe_connect_signal_slot(worker.signals.result, self.update_edf_info)
-            safe_connect_signal_slot(worker.signals.error, lambda error: self.handle_worker_error("Open recording", error))
+            safe_connect_signal_slot(worker.signals.error, lambda error: self.handle_worker_error("Open EEG file", error))
             self.threadpool.start(worker)
 
     def read_edf(self, fname, progress_callback):
@@ -1087,7 +1087,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
 
     def get_output_stem(self):
         if not getattr(self, "fname", None):
-            raise ValueError("Load a recording before running quick detection.")
+            raise ValueError("Load an EEG file before running quick detection.")
 
         recording_path = Path(self.fname)
         recording_name = recording_path.name

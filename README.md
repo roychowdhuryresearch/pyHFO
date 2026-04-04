@@ -26,7 +26,7 @@ The current workspace is broader than the older README described: it is no longe
 
 ## Supported inputs and outputs
 
-### Recording formats
+### EEG file formats
 
 - `.edf`
 - BrainVision triplets: `.vhdr`, `.eeg`, `.vmrk`
@@ -51,11 +51,11 @@ Note: some UI labels and session file extensions still use the historical `PyBra
 
 ### 1. Full workspace
 
-Use the main window when you want to load a recording, create multiple runs, compare them, review channels and waveforms, annotate events, and export final outputs.
+Use the main window when you want to load an EEG file, create multiple runs, compare them, review channels and waveforms, annotate events, and export final outputs.
 
 Typical HFO workflow:
 
-1. Open a recording.
+1. Open an EEG file.
 2. Filter the signal.
 3. Run one or more detectors such as STE, MNI, or HIL.
 4. Optionally classify the active run with artifact, spkHFO, and eHFO models.
@@ -65,7 +65,7 @@ Typical HFO workflow:
 
 ### 2. Quick Detection
 
-Use Quick Detection for a faster HFO-only path when you want to open a recording, choose one detector, optionally run classification, and export results without using the full workspace.
+Use Quick Detection for a faster HFO-only path when you want to open an EEG file, choose one detector, optionally run classification, and export results without using the full workspace.
 
 Quick Detection currently supports:
 
@@ -179,7 +179,7 @@ Note: desktop app packaging is not cross-platform here. Build macOS artifacts on
 ## Quick start
 
 1. Launch the app with `python main.py` or the packaged desktop build.
-2. Open an EEG recording.
+2. Open an EEG file.
 3. Choose `HFO`, `Spindle`, or `Spike` mode as needed.
 4. Configure filtering and detector parameters.
 5. Run detection.
@@ -239,9 +239,9 @@ If the default classifier presets cannot download, either:
 - confirm internet access for Hugging Face downloads, or
 - switch the classifier sources to local checkpoint files
 
-### Large recordings
+### Large EEG files
 
-Large EEG studies can consume substantial RAM. If the UI becomes sluggish, reduce the loaded recording size, close other applications, or prefer the full workspace over repeated ad hoc exports.
+Large EEG studies can consume substantial RAM. If the UI becomes sluggish, reduce the loaded EEG file span, close other applications, or prefer the full workspace over repeated ad hoc exports.
 
 ## Citation
 

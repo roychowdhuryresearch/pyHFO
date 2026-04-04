@@ -25,7 +25,7 @@ If you are using this manual during real work, the most useful sections are:
 
 For a routine case, PyHFO is safest when you follow this order:
 
-1. Open the recording.
+1. Open the EEG file.
 2. Confirm sampling frequency, channel count, and duration.
 3. Confirm the biomarker mode.
 4. Save a session after the first meaningful processing step.
@@ -62,14 +62,14 @@ The current `3.0.0` release centers around one unified workspace instead of the 
 
 ## 2. Supported Inputs And Outputs
 
-### Input recordings
+### Input EEG files
 
 PyHFO can open:
 
-- `EDF` recordings: `.edf`
-- BrainVision recordings: `.vhdr`, `.eeg`, `.vmrk`
-- `FIF` recordings: `.fif`
-- compressed FIF recordings: `.fif.gz`
+- `EDF` EEG files: `.edf`
+- BrainVision EEG files: `.vhdr`, `.eeg`, `.vmrk`
+- `FIF` EEG files: `.fif`
+- compressed FIF EEG files: `.fif.gz`
 
 ### Format-specific notes
 
@@ -213,11 +213,11 @@ The main window gives you three immediate entry points:
 
 These mean:
 
-- `Open File`: open a new EEG recording from disk.
+- `Open File`: open a new EEG file from disk.
 - `Load Detection`: load an existing saved PyHFO session from `.pybrain` or `.npz`.
-- `Quick Detection`: open the smaller one-recording HFO workflow.
+- `Quick Detection`: open the smaller single-EEG-file HFO workflow.
 
-After loading a recording, the main workspace exposes:
+After loading an EEG file, the main workspace exposes:
 
 - waveform controls
 - channel controls
@@ -240,10 +240,10 @@ There are three normal ways to begin.
 
 ### Scenario A: new case
 
-Use this when you have a new EEG recording and no prior PyHFO session.
+Use this when you have a new EEG file and no prior PyHFO session.
 
 1. Click `Open File`.
-2. Load the recording.
+2. Load the EEG file.
 3. Confirm the metadata panel is correct.
 4. Choose the biomarker mode.
 5. Continue with filtering and detection.
@@ -262,7 +262,7 @@ Use this when you already saved a PyHFO session.
 Use this when you only want a single detector run and exports, not the full multi-run workspace.
 
 1. Click `Quick Detection`.
-2. Load the recording inside the Quick Detection dialog.
+2. Load the EEG file inside the Quick Detection dialog.
 3. Select a detector.
 4. Run and export.
 
@@ -294,16 +294,16 @@ At the top of the workspace there is a biomarker selector:
 
 Use this before configuring detector or classifier settings because available controls depend on the selected biomarker type.
 
-### 6.3 Recording information area
+### 6.3 EEG signal information area
 
-The recording info panel shows:
+The EEG signal info panel shows:
 
 - file name
 - sampling frequency
 - number of channels
-- recording length
+- signal length
 
-Use this immediately after loading a recording to confirm that the file opened correctly.
+Use this immediately after loading an EEG file to confirm that the file opened correctly.
 
 ### 6.4 Waveform control bar
 
@@ -356,7 +356,7 @@ Depending on the workspace state and the current build, PyHFO can also expose:
 
 These are context-sensitive. If they are disabled, it usually means:
 
-- no recording is loaded yet
+- no EEG file is loaded yet
 - no events exist yet
 - no active run exists yet
 
@@ -454,7 +454,7 @@ If you are following a lab protocol, use the protocol values. If not, start from
 Before you click filter or detect, check:
 
 - `Fp` is below `Fs`
-- the values are compatible with the recording sampling frequency
+- the values are compatible with the EEG signal sampling frequency
 - you are using HFO-oriented defaults in `HFO` mode and spindle-oriented defaults in `Spindle` mode
 - you did not accidentally carry spindle settings into HFO mode, or vice versa
 
@@ -639,11 +639,11 @@ If you are unsure:
 
 This is the recommended full-workspace workflow.
 
-### Step 1. Open the recording
+### Step 1. Open the EEG file
 
 1. Click `Open File`.
 2. Select the EEG file.
-3. Confirm file name, sampling frequency, channel count, and length in the recording info panel.
+3. Confirm file name, sampling frequency, channel count, and length in the EEG signal info panel.
 
 ### Step 2. Set biomarker mode to HFO
 
@@ -694,7 +694,7 @@ At this point, verify that:
 
 - events were actually found
 - the waveform overlays look reasonable
-- the recording and event channels make sense
+- the EEG signal channels and event channels make sense
 
 ### Step 7. Optional classification
 
@@ -739,7 +739,7 @@ Recommended final sequence:
 
 Use this workflow when the case is a spindle review case.
 
-1. Open the recording.
+1. Open the EEG file.
 2. Switch biomarker mode to `Spindle`.
 3. Confirm the spindle filter settings.
 4. Review `YASA` parameters.
@@ -777,7 +777,7 @@ Quick Detection is a compact HFO-only dialog for single-pass runs.
 
 It is useful when you want:
 
-- one recording
+- one EEG file
 - one detector
 - optional classifier
 - immediate export
@@ -792,7 +792,7 @@ This figure shows the compact workflow after a completed `MNI` run with workbook
 
 Quick Detection includes:
 
-- `Load Recording`
+- `Load EEG File`
 - detector selector
 - `N Jobs`
 - filter section
@@ -804,7 +804,7 @@ Quick Detection includes:
 ### 13.2 Quick Detection workflow
 
 1. Open `Quick Detection`.
-2. Click `Load Recording`.
+2. Click `Load EEG File`.
 3. Pick one detector from the detector dropdown.
 4. Set filter parameters.
 5. Adjust detector-specific parameters if needed.
@@ -838,13 +838,13 @@ Important difference from the main workspace:
 
 ### 13.4 Quick Detection output naming
 
-Quick Detection writes files next to the source recording.
+Quick Detection writes files next to the source EEG file.
 
 Output names follow this pattern:
 
 ```text
-<recording_name>_<detector>.xlsx
-<recording_name>_<detector>.npz
+<eeg_file_name>_<detector>.xlsx
+<eeg_file_name>_<detector>.npz
 ```
 
 Examples:
@@ -988,7 +988,7 @@ The save dialog still allows:
 PyHFO sessions can preserve:
 
 - biomarker mode
-- recording reference
+- EEG file reference
 - filter settings
 - detector settings
 - classifier settings
@@ -1013,7 +1013,7 @@ PyHFO restores:
 After loading a saved session, always confirm:
 
 - the restored biomarker mode is correct
-- the correct recording path was restored
+- the correct EEG file path was restored
 - the waveform view is initialized
 - the expected run is active
 - the accepted run status still makes sense
@@ -1035,7 +1035,7 @@ This makes it easy to resume without recomputing everything.
 The main export workbook usually defaults to:
 
 ```text
-<recording_name>_clinical_summary.xlsx
+<eeg_file_name>_clinical_summary.xlsx
 ```
 
 It can include sheets such as:
@@ -1051,13 +1051,13 @@ It can include sheets such as:
 The report export usually defaults to:
 
 ```text
-<recording_name>_report.html
+<eeg_file_name>_report.html
 ```
 
 PyHFO also creates a companion asset folder:
 
 ```text
-<recording_name>_report_files/
+<eeg_file_name>_report_files/
 ```
 
 That folder may contain:
@@ -1175,8 +1175,8 @@ If one run is clearly better:
 
 If you want one conservative workflow to follow every time, use this:
 
-1. Open the recording.
-2. Check recording metadata.
+1. Open the EEG file.
+2. Check EEG signal metadata.
 3. Set the correct biomarker mode.
 4. Adjust waveform display to a manageable view.
 5. Configure filter parameters.
@@ -1203,7 +1203,7 @@ For a new case:
 If the `Go to time` field is visible in your current build:
 
 - use it to jump directly to a time point in seconds
-- use it when the recording is long and scrolling is inefficient
+- use it when the EEG signal span is long and scrolling is inefficient
 
 ### Save often during annotation
 
@@ -1257,7 +1257,7 @@ Check:
 
 Common causes:
 
-- no recording loaded
+- no EEG file loaded
 - no detector selected
 - no export format selected
 - classifier enabled without required model path
@@ -1299,8 +1299,8 @@ Suggestions:
 
 Check:
 
-- the source recording folder for Quick Detection outputs
-- the original recording directory for default workbook and report paths
+- the source EEG file folder for Quick Detection outputs
+- the original EEG file directory for default workbook and report paths
 - the chosen path from the save dialog if you changed it manually
 
 ## 20A. File examples
@@ -1339,7 +1339,7 @@ patient001_report_files/
 
 If you are teaching PyHFO to someone else, have them practice in this order:
 
-1. open a recording
+1. open an EEG file
 2. change the biomarker mode
 3. change the number of displayed channels
 4. run one detector

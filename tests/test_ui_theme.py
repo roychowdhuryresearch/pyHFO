@@ -276,7 +276,7 @@ def test_quick_detection_dialog_uses_shared_semantic_fields_and_readonly_styles(
         assert dialog.label_105.property("fieldLabel") is True
         assert dialog.label_40.property("fieldUnit") is True
         assert dialog.run_button.parent() is dialog.run_setup_card
-        assert dialog.run_status_value_label.text() == "Waiting for recording"
+        assert dialog.run_status_value_label.text() == "Waiting for EEG file"
         combo_palette = dialog.detectionTypeComboBox.palette()
         assert combo_palette.color(QtGui.QPalette.Text) != combo_palette.color(QtGui.QPalette.Base)
 
