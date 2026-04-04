@@ -1,0 +1,4 @@
+-r requirements.txt
+
+# Local development and test tooling.
+pytest

@@ -1,0 +1,4 @@
+-r requirements.txt
+
+# Windows executable build tooling.
+pyinstaller

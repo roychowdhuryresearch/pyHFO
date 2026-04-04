@@ -1,0 +1,4 @@
+-r requirements.txt
+
+# macOS app bundle build tooling.
+py2app

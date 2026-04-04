@@ -31,7 +31,7 @@ from src.utils.utils_gui import *
 from src.ui.plot_waveform import *
 from src.utils.app_state import build_base_checkpoint, checkpoint_array, checkpoint_get, checkpoint_version
 from src.utils.session_store import load_session_checkpoint
-from src.utils.utils_detector import has_yasa
+from src.utils.utils_detector import has_hil, has_yasa
 from src.utils.utils_montage import (
     BIPOLAR_TOKEN,
     get_adjacent_contact_neighbor_channels,
@@ -5884,7 +5884,7 @@ class MainWindowModel(QObject):
             self.window.hil_detect_button.setEnabled(True)
             return True
 
-        except (TypeError, ValueError) as exc:
+        except (ImportError, TypeError, ValueError) as exc:
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
             msg.setText("Error!")

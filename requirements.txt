@@ -1,18 +1,19 @@
-HFODetector
+# Core runtime dependencies for running PyHFO from source.
+# HIL is present again in HFODetector 0.0.23+.
+HFODetector>=0.0.23,<0.1
 matplotlib
 mne
-numpy==1.26.4
+numpy>=1.25,<2
+openpyxl
 p_tqdm
 pandas
-openpyxl
-PyQt5==5.15.9
-PyQt5_sip==12.12.1
+PyQt5>=5.15.9,<5.16
+PyQt5_sip>=12.12.1,<13
 pyqtgraph==0.13.3
-scipy
 scikit-image
+scipy
 torch
 torchvision
 tqdm
-transformers[torch]
-yasa
-pytest
+transformers
+yasa>=0.6.5,<0.7

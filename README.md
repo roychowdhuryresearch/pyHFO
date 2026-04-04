@@ -137,6 +137,45 @@ pip install -r requirements.txt
 python main.py
 ```
 
+### Option 3: Build release packages
+
+The repository now separates runtime, development, and release-build dependencies:
+
+- `requirements.txt`: runtime dependencies for running from source
+- `requirements-dev.txt`: runtime dependencies plus test tooling
+- `requirements-release-macos.txt`: runtime dependencies plus `py2app`
+- `requirements-release-windows.txt`: runtime dependencies plus `PyInstaller`
+
+#### Build a macOS app bundle
+
+Run this on macOS:
+
+```bash
+python3.9 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements-release-macos.txt
+python macos_package.py
+```
+
+This produces a `.app` bundle under `dist/`.
+
+#### Build a Windows release folder
+
+Run this on a Windows machine:
+
+```powershell
+py -3.9 -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements-release-windows.txt
+python windows_package.py
+```
+
+This produces a distributable `dist/PyHFO/` folder. Zip that folder before uploading it to a GitHub release.
+
+Note: desktop app packaging is not cross-platform here. Build macOS artifacts on macOS and Windows artifacts on Windows.
+
 ## Quick start
 
 1. Launch the app with `python main.py` or the packaged desktop build.
@@ -148,13 +187,19 @@ python main.py
 7. Open the review window to inspect and relabel events.
 8. Save a `.pybrain` session or export a workbook/report.
 
-The legacy overview screenshot is shown below:
+The current main workspace is shown below:
 
-![PyHFO Interface Overview](img/overview1.png)
+![PyHFO Main Workspace](img/overview1.png)
 
 For detailed operator instructions, refer to the [manual](https://docs.google.com/document/d/1KzQpfuPFDk2lr9V3TgSkmc21jISB54ZOxo3pIYKQsp0/edit?usp=sharing).
 
 ## Development
+
+Install development dependencies with:
+
+```bash
+pip install -r requirements-dev.txt
+```
 
 ### Run tests
 

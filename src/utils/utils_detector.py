@@ -1,8 +1,16 @@
-from HFODetector import ste, mni, hil
+from HFODetector import ste, mni
+try:
+    from HFODetector import hil
+except Exception:  # pragma: no cover - optional runtime dependency
+    hil = None
 try:
     import yasa
-except ImportError:  # pragma: no cover - optional runtime dependency
+except Exception:  # pragma: no cover - optional runtime dependency
     yasa = None
+
+
+def has_hil():
+    return hil is not None
 
 
 def has_yasa():
@@ -26,6 +34,8 @@ def set_MNI_detector(args):
 
 
 def set_HIL_detector(args):
+    if hil is None:
+        raise ImportError("HIL detection is not available in the installed HFODetector package.")
     detector = hil.HILDetector(sample_freq=args.sample_freq, filter_freq=[args.pass_band, args.stop_band],
                                sd_thres=args.sd_threshold, min_window=args.min_window,
                                epoch_len=args.epoch_time, n_jobs=args.n_jobs, front_num=1)
