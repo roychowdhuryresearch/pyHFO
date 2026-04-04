@@ -266,6 +266,73 @@ Use this when you only want a single detector run and exports, not the full mult
 3. Select a detector.
 4. Run and export.
 
+## 5B. Action Paths And Expected Reactions
+
+This section is intentionally explicit. It describes the operator path through the UI and the reaction you should expect from PyHFO after each action.
+
+### Path: open a new EEG file
+
+Operator path:
+
+1. Top toolbar -> `Open File`
+2. File chooser -> select `.edf`, `.vhdr`, `.fif`, or `.fif.gz`
+3. Confirm the dialog
+
+Expected reaction:
+
+- the EEG file name appears in the information panel
+- sampling frequency, channel count, and signal length populate
+- the waveform area is no longer empty
+- navigation controls become active
+- filter and detector controls become available for supported biomarker modes
+- the message/log panel reports that the EEG file loaded
+
+If this does not happen:
+
+- the file may not have loaded
+- the file format may be unsupported or incomplete
+- the log panel usually contains the first useful error message
+
+### Path: restore a saved session
+
+Operator path:
+
+1. Top toolbar -> `Load Detection`
+2. Select `.pybrain` or legacy `.npz`
+3. Confirm the dialog
+
+Expected reaction:
+
+- waveform state is rebuilt
+- biomarker mode switches to the saved mode
+- saved runs reappear
+- accepted run state is restored if one existed
+- annotation becomes available again if the saved run contains events
+
+If this does not happen:
+
+- check whether the `.pybrain.data` folder still exists beside the `.pybrain` file
+- check whether the session points to an EEG file path that still exists
+
+### Path: switch biomarker mode
+
+Operator path:
+
+1. Find the biomarker selector near the top of the workspace
+2. Choose `HFO`, `Spindle`, or `Spike`
+
+Expected reaction:
+
+- detector choices change to match that biomarker mode
+- classifier controls may change
+- existing visible run context may change
+- the workflow message updates to reflect the selected mode
+
+Important reaction to understand:
+
+- `Spike` mode is review-oriented, so some automated detection controls may stay disabled
+- `Spindle` mode depends on `YASA`, so spindle detection can stay unavailable if `YASA` is missing
+
 ## 6. Main Window Anatomy
 
 This section explains the main workspace by screen area.
@@ -277,12 +344,14 @@ The main toolbar contains:
 - `Open File`
 - `Load Detection`
 - `Quick Detection`
+- `Shortcuts`
 
 Typical use:
 
 - Start with `Open File` for a new case.
 - Use `Load Detection` to continue prior work.
 - Use `Quick Detection` when you want a compact one-pass HFO run instead of the full workspace.
+- Use `Shortcuts` when you want the in-app shortcut reference.
 
 ### 6.2 Biomarker selector
 
@@ -421,6 +490,171 @@ Good operator habit:
 - read the log before retrying a failed run
 - if a feature is grayed out, the log usually explains whether the issue is missing data, missing dependencies, or missing run state
 
+### 6.11 Right-side action panel: what changes when you progress
+
+The right-side panel is one of the most important places to watch during operation.
+
+Typical reaction pattern:
+
+1. Before loading an EEG file:
+   - run actions are mostly idle
+   - detector and classifier actions are limited
+2. After loading an EEG file:
+   - detector controls become meaningful
+   - filter fields and run buttons become relevant
+3. After detection:
+   - run information updates
+   - review and annotation actions become useful
+   - export actions become meaningful
+4. After classification:
+   - prediction-aware review becomes more useful
+   - event labeling and accepted-run decisions become easier
+
+If you are unsure whether PyHFO accepted your last action, watch the right-side panel and the message log together.
+
+### 6.12 Tool Definitions: Status And Scope Badges
+
+These are the compact badges and tool-state indicators that tell you what scope or mode you are currently in.
+
+- `Source Ref`: the waveform is showing the source referential channel view rather than a derived montage view.
+- `Scope All`: all channels in the current source scope are shown.
+- `Tool Browse`: normal browse mode is active. Cursor, measure, or other inspect modes are not currently taking over the waveform.
+- `Reset View`: clear temporary focus modes and return toward the normal browse state. Use this when you are unsure which scope or tool mode is still active.
+- `No events`: no event-navigation target is currently available in the active run.
+- `Visible`: status badge showing how many channels are currently visible.
+- `Win`: status showing the current visible waveform window length.
+- `Step`: status showing how far the waveform advances when you move forward or backward.
+
+Practical rule:
+
+- if the waveform looks different from what you expected, first read the active scope badge, then use `Reset View`
+
+### 6.13 Tool Definitions: Signal Display And Time Controls
+
+These tools change how the EEG signal is displayed, not which run is accepted.
+
+- `Raw`: show the raw source waveform.
+- `Filt`: show the filtered waveform. Use this when you want to inspect the processed signal rather than the raw trace.
+- `60 Hz`: toggle the 60 Hz cleanup view.
+- `Norm`: normalize the visible channels so their amplitudes are easier to compare visually.
+- `2 s`, `5 s`, `10 s`, `20 s`: preset visible time windows.
+- `Win`: numeric window field. This is the exact visible time span.
+- `Step`: numeric advance field. This controls how far the waveform jumps when you move forward or backward.
+- `Go`: jump to the typed time in seconds.
+- zoom out button: show a longer waveform window.
+- zoom in button: show a shorter waveform window.
+- `8 ch`, `16 ch`, `32 ch`, `Max`: preset visible channel counts.
+
+Expected reaction:
+
+- `Raw` and `Filt` change the signal view
+- `Win` and zoom change the time span
+- `8 ch` and related buttons change how many traces are visible at once
+- `Go` changes the current time position
+
+### 6.14 Tool Definitions: Channel And Montage Tools
+
+These tools change which channels you are looking at or how the channel view is derived.
+
+- `Channels`: open the channel-selection workspace.
+- `Montage`: open the montage or bipolar tool.
+- `Ref`: return to the referential source-channel view.
+- `Avg Ref`: show average-reference derived channels.
+- `Auto Bp`: automatically build conventional EEG bipolar chains or adjacent-contact iEEG bipolar channels.
+- `Highlight`: highlight the selected channel without hiding the other visible channels.
+- `Neighbors`: focus the highlighted channel together with adjacent channels.
+- `Clean`: hide explicitly bad or flat source channels that PyHFO knows should be excluded from routine review.
+- `Events`: only show channels with detected events in the active run.
+- `All`: return to the full referential source-channel list.
+
+How to think about these tools:
+
+- `Ref`, `Avg Ref`, and `Auto Bp` answer: what channel representation am I using?
+- `Highlight`, `Neighbors`, `Clean`, `Events`, and `All` answer: which subset am I focusing on?
+- `Montage` answers: how do I build or inspect a derived channel layout?
+
+Exit rule:
+
+- if you are lost, click `All` or `Ref`, then `Reset View`
+
+### 6.15 Tool Definitions: Event Navigation And Review Tools
+
+These tools help you move through detected events and inspect them efficiently.
+
+- previous-event button: jump to the previous detected event.
+- `Center`: center the waveform on the current event.
+- next-event button: jump to the next detected event.
+- `Pending`: jump to the next unreviewed detected event.
+- `Open Review`: open the detailed review or annotation workspace for the active run.
+- `Cursor`: show a live crosshair cursor over the waveform.
+- `Measure`: click two waveform points to measure interval and amplitude difference.
+- `Hotspot`: focus the most active review channels in the active or accepted run.
+- `Overlap`: review cross-channel overlaps for HFO events and keep the first event while tagging or hiding later duplicates.
+- snapshot button: save the current waveform view as an image.
+
+When to use them:
+
+- use event navigation when a run already exists and events were detected
+- use `Pending` during unfinished review work
+- use `Hotspot` when you want the channels with the strongest review priority first
+- use `Overlap` only for HFO overlap cleanup, not for general browsing
+
+### 6.16 Tool Definitions: Right-Side Run And Export Tools
+
+These tools control run state, review, saving, and export.
+
+- `Active`: the run currently selected for viewing and detailed inspection.
+- `Accept`: mark the selected run as the preferred downstream export target.
+- `Run Stats`: open run statistics and run-overlap comparison.
+- `Next`: choose the next workflow mode for a new run.
+- `New`: create a new run entry using the currently selected workflow path.
+- `Open Review`: open the review or annotation workspace for the active run.
+- `Save Session`: save the current case state.
+- `Export Workbook`: export the clinical summary workbook.
+- `Filter`: apply the current filter settings.
+- detector run button such as `Run STE` or `Run MNI`: launch a detector with the currently visible settings.
+- `Classify`: run classifier inference on the active run.
+
+Important distinction:
+
+- `Active` changes what you are looking at now
+- `Accept` changes what export prefers later
+
+### 6.17 Common Tool Shortcuts
+
+The waveform toolbar supports many direct keyboard shortcuts.
+
+- `1`: set waveform window to `2 s`
+- `2`: set waveform window to `5 s`
+- `3`: set waveform window to `10 s`
+- `4`: set waveform window to `20 s`
+- `Shift+1`: show `8` channels
+- `Shift+2`: show `16` channels
+- `Shift+3`: show `32` channels
+- `Shift+4`: show the full current channel subset
+- `[` : zoom out
+- `]` : zoom in
+- `F`: toggle raw versus filtered view
+- `E`: toggle event channels versus all channels
+- `C`: toggle cursor
+- `R`: toggle measure mode
+- `A`: toggle auto bipolar view
+- `V`: return to referential view
+- `M`: toggle average-reference view
+- `G`: highlight the selected channel
+- `T`: focus the highlighted channel and neighbors
+- `D`: toggle clean view
+- `B`: open montage / bipolar tool
+- `H`: focus hotspot channels
+- `Space`: center the current event
+- `N`: jump to the next unreviewed event
+- `Esc`: clear inspect mode
+
+Shortcut rule:
+
+- use shortcuts only after you know which tool state you are already in
+- if a shortcut seems to do the wrong thing, read the scope badge and use `Reset View`
+
 ## 7. Filter Parameters
 
 The standard filter section exposes four important values:
@@ -525,6 +759,29 @@ If you are exploring detector behavior:
 3. Compare the resulting runs before deciding which run to accept.
 
 Do not change five parameters at once and then try to reason backward from the output.
+
+### 8.2A Detector path and reaction
+
+Operator path:
+
+1. Select the biomarker mode
+2. Pick the detector from the detector selector
+3. Review detector parameters
+4. Click the detector run button
+
+Expected reaction:
+
+- the log shows that detection started
+- the run button may temporarily appear busy or disabled
+- after completion, a run appears in statistics and run management
+- event count and related review controls update
+- the annotation button becomes useful if events were found
+
+If the reaction is weaker than expected:
+
+- zero events can mean the detector completed successfully but found nothing
+- a disabled run button usually means PyHFO still lacks required input state
+- if fields look editable but results do not change, confirm you actually ran a new detector pass after editing the parameters
 
 ### 8.3 HIL
 
@@ -735,6 +992,95 @@ Recommended final sequence:
 3. export the report
 4. export any waveform snapshots you need
 
+## 10A. HFO Workflow: Path And Reaction
+
+This section restates the HFO workflow in operator language.
+
+### Path 1: file open -> waveform visible
+
+Operator path:
+
+1. `Open File`
+2. choose EEG file
+3. confirm the dialog
+
+Expected reaction:
+
+- metadata appears
+- waveform appears
+- channel and time controls become usable
+
+### Path 2: filter setup -> filtered review
+
+Operator path:
+
+1. set `Fp`, `Fs`, `rp`, `rs`
+2. apply or run the filter action
+3. turn on the filtered view if needed
+
+Expected reaction:
+
+- filtered waveform becomes available
+- the visible traces can look cleaner or narrower in band
+- the log shows filtering completion
+
+### Path 3: detector run -> event state
+
+Operator path:
+
+1. choose `STE`, `MNI`, or `HIL`
+2. review parameters
+3. run the detector
+
+Expected reaction:
+
+- a run is created
+- event counts update
+- run comparison becomes meaningful if more than one run exists
+- event navigation and annotation become available if events exist
+
+### Path 4: classifier run -> prediction-aware review
+
+Operator path:
+
+1. choose model source
+2. confirm device and batch size
+3. enable optional `spk-HFO` and `eHFO` outputs if needed
+4. run classification
+
+Expected reaction:
+
+- the log reports classifier progress
+- event review becomes more informative
+- prediction-aware navigation in annotation becomes more useful
+
+### Path 5: accept run -> export state
+
+Operator path:
+
+1. review one or more runs
+2. choose the preferred run
+3. mark it as accepted
+
+Expected reaction:
+
+- accepted-run indicators update
+- later workbook and report export target that accepted run
+
+### Path 6: export -> files on disk
+
+Operator path:
+
+1. export workbook
+2. export report
+3. optionally save a waveform snapshot
+
+Expected reaction:
+
+- files appear on disk
+- the workbook summarizes the chosen run
+- the report HTML is accompanied by a `*_report_files` folder
+
 ## 11. Spindle Workflow
 
 Use this workflow when the case is a spindle review case.
@@ -865,6 +1211,33 @@ case01_ste_2.xlsx
 case01_ste_3.xlsx
 ```
 
+### 13.5 Quick Detection: path and reaction
+
+Quick Detection is easiest to use when you think of it as a small linear pipeline.
+
+Path:
+
+1. `Load EEG File`
+2. choose detector
+3. review filter and detector fields
+4. decide whether classifier should run
+5. choose workbook and/or session export
+6. click `Run Detection`
+
+Expected reaction:
+
+- the status card changes from waiting to ready
+- during execution, the dialog reports that work is running
+- after completion, the status card changes to complete
+- exported files are listed in the status summary
+- outputs appear beside the source EEG file
+
+If the reaction is not what you expected:
+
+- if the run never starts, review whether at least one export format is selected
+- if the run starts but no files appear, read the status summary and the log first
+- if the detector completes with zero events, that is still a valid completion state
+
 ## 14. Annotation Window
 
 The annotation window is the main detailed review tool.
@@ -968,6 +1341,47 @@ For high-value cases:
 4. If the run looks good, continue annotation.
 5. Save the session before closing the review window.
 
+### 14.8 Annotation path and reaction
+
+Path:
+
+1. open annotation from the main workspace
+2. inspect the current event in the tracing, filtered tracing, and time-frequency views
+3. assign a label
+4. click `Save and Next` or use the keyboard shortcut
+
+Expected reaction:
+
+- the current event gets a saved label
+- the remaining count decreases
+- the next event loads
+- prediction navigation becomes easier once labels accumulate
+
+Path for pending-only review:
+
+1. enable `Unannotated only`
+2. use `Next Pending`
+
+Expected reaction:
+
+- PyHFO skips already-labeled events
+- the review queue becomes shorter and easier to finish
+
+Path for prediction-focused review:
+
+1. choose a `Prediction Scope`
+2. use `Prev Match` / `Next Match`
+
+Expected reaction:
+
+- navigation jumps within the selected prediction bucket instead of the full event list
+
+If the annotation window does not react:
+
+- confirm that an active run exists
+- confirm that the active run actually contains events
+- confirm that the run belongs to the currently selected biomarker mode
+
 ## 15. Saving Sessions
 
 ### 15.1 Main workspace session save
@@ -1027,6 +1441,43 @@ For real work, save a session:
 - after a major annotation pass
 
 This makes it easy to resume without recomputing everything.
+
+### 15.5 Session path and reaction
+
+### Path: save session
+
+Operator path:
+
+1. click `Save As npz`
+2. choose a path
+3. keep the default `.pybrain` format unless you specifically need legacy `.npz`
+4. confirm save
+
+Expected reaction:
+
+- a `.pybrain` file is created
+- a companion `.pybrain.data` directory is created
+- the log reports that the session was saved
+
+### Path: load session
+
+Operator path:
+
+1. click `Load Detection`
+2. select the saved session
+3. confirm the dialog
+
+Expected reaction:
+
+- waveform state is restored
+- run state is restored
+- biomarker mode is restored
+- accepted-run state returns if it existed in the saved session
+
+If session reaction is incomplete:
+
+- verify the companion folder still exists
+- verify the underlying EEG file path still resolves
 
 ## 16. Exporting Results
 
@@ -1092,6 +1543,48 @@ PyHFO can export a PNG image of the current waveform view. This is useful for:
 - methods supplements
 - slide decks
 - review notes
+
+### 16.5 Export path and reaction
+
+### Path: export workbook
+
+Operator path:
+
+1. confirm the accepted run
+2. click workbook export
+3. choose save location if prompted
+
+Expected reaction:
+
+- an `.xlsx` file appears
+- run summary sheets become available
+- the exported workbook reflects the accepted run whenever one exists
+
+### Path: export report
+
+Operator path:
+
+1. confirm the accepted run
+2. click report export
+3. choose a destination
+
+Expected reaction:
+
+- an HTML file appears
+- a matching asset folder appears
+- report metadata, event CSV, and snapshot assets may appear together
+
+### Path: export snapshot
+
+Operator path:
+
+1. set the waveform view you want to communicate
+2. click the snapshot action
+
+Expected reaction:
+
+- a PNG image is written
+- the image reflects the current visible view, not the entire file
 
 ## 17. Understanding Active Run Versus Accepted Run
 
@@ -1170,6 +1663,29 @@ If two runs are similar:
 If one run is clearly better:
 
 - accept it and proceed to export
+
+## 17C. Multi-Run Path And Reaction
+
+Path:
+
+1. create run A
+2. create run B
+3. open run statistics
+4. switch active run
+5. accept the preferred run
+
+Expected reaction:
+
+- both runs appear in the run table
+- one run is marked active
+- one run can be marked accepted
+- overlap and channel ranking update in run statistics
+
+Important reaction to understand:
+
+- switching the active run changes what you are currently inspecting
+- accepting a run changes what export prefers
+- these are related but not identical actions
 
 ## 18. Recommended Operator Sequence
 
@@ -1302,6 +1818,45 @@ Check:
 - the source EEG file folder for Quick Detection outputs
 - the original EEG file directory for default workbook and report paths
 - the chosen path from the save dialog if you changed it manually
+
+## 20C. If The Reaction You Expect Does Not Happen
+
+This is the shortest debugging checklist for normal users.
+
+### You clicked something and nothing changed
+
+Check in this order:
+
+1. Is an EEG file loaded?
+2. Is the correct biomarker mode selected?
+3. Does an active run exist?
+4. Does the log show an error or warning?
+5. Is the control disabled because PyHFO is waiting for a prerequisite state?
+
+### You expected events but saw zero
+
+Possible meanings:
+
+- detection genuinely found no events
+- filter or detector settings are too restrictive
+- you are in the wrong biomarker mode
+- you loaded the wrong file or wrong channel scope
+
+### You expected annotation to open but it stayed unavailable
+
+Usually this means one of three things:
+
+- no run exists yet
+- the active run has zero events
+- the restored session did not load the expected run state
+
+### You expected export to use one run but the output looks different
+
+Check:
+
+1. which run is active
+2. which run is accepted
+3. whether workbook export auto-accepted the active run because no accepted run existed
 
 ## 20A. File examples
 
