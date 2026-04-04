@@ -38,6 +38,16 @@ If you are training someone new, teach them these habits first:
 - never send a report HTML file without its `*_report_files` folder
 - never assume the active run and accepted run are the same
 
+## Figure Provenance
+
+All screenshots in this manual were regenerated on April 4, 2026 from the current `main` branch code for `PyHFO 3.0.0`.
+
+Use this as the trust rule for the figures:
+
+- the screenshots in this manual are current UI captures, not scans from the legacy PDF manual
+- the HFO, Quick Detection, annotation, and run-comparison figures use a real EDF-derived excerpt from `SM_B_ave.edf`
+- the figures are meant to show the current control layout and workflow state, not to provide clinical interpretation
+
 ## 1. What PyHFO Is
 
 PyHFO is a desktop EEG review application for:
@@ -217,6 +227,12 @@ After loading a recording, the main workspace exposes:
 - run statistics
 - annotation
 - export actions
+
+Current main workspace with a real EDF-derived excerpt loaded:
+
+![Current PyHFO main workspace with a real EDF-derived excerpt](img/manual/hfo-main-workspace.png)
+
+This figure shows the current `3.0.0` layout after loading a five-channel HFO review window derived from `SM_B_ave.edf`.
 
 ## 5A. First-Time Startup Scenarios
 
@@ -766,6 +782,12 @@ It is useful when you want:
 - optional classifier
 - immediate export
 
+Current Quick Detection dialog with a real EDF-derived HFO excerpt loaded:
+
+![Quick Detection using a real EDF-derived excerpt](img/manual/quick-detection-real-edf.png)
+
+This figure shows the compact workflow after a completed `MNI` run with workbook and session export enabled.
+
 ### 13.1 What the Quick Detection dialog contains
 
 Quick Detection includes:
@@ -848,6 +870,12 @@ case01_ste_3.xlsx
 The annotation window is the main detailed review tool.
 
 You typically open it after detection or classification results are available.
+
+Current annotation window on a real EDF-derived HFO event:
+
+![Annotation window using a real EDF-derived HFO event](img/manual/annotation-real-edf.png)
+
+This figure shows the current tracing, filtered tracing, time-frequency panel, and right-side review controls in the `3.0.0` annotation workflow.
 
 ### 14.1 Main annotation actions
 
@@ -1078,6 +1106,12 @@ Practical meaning:
 - the accepted run is the run you are choosing as the preferred export target
 
 If you compare multiple detector runs, make sure the accepted run is the one you truly want in the final workbook and report.
+
+Current run comparison view for two HFO runs on the same EDF-derived case:
+
+![Run comparison view using a real EDF-derived case](img/manual/run-comparison-real-edf.png)
+
+This figure shows how PyHFO displays active versus accepted runs, channel ranking, and pairwise run overlap before export.
 
 ## 17A. Multi-Run Comparison Workflow
 
