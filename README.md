@@ -7,7 +7,7 @@
 
 [Project Page](https://roychowdhuryresearch.github.io/PyHFO_Project_Page/) |
 [Releases](https://github.com/roychowdhuryresearch/pyHFO/releases) |
-[Manual](https://docs.google.com/document/d/1KzQpfuPFDk2lr9V3TgSkmc21jISB54ZOxo3pIYKQsp0/edit?usp=sharing)
+[Manual](MANUAL.md)
 
 PyHFO is a desktop EEG review workspace for high-frequency oscillation (HFO) analysis, spindle review, and related clinical event workflows. The current application combines data loading, filtering, detection, classification, event review, session persistence, and report export in one PyQt-based interface.
 
@@ -191,7 +191,7 @@ The current main workspace is shown below:
 
 ![PyHFO Main Workspace](img/overview1.png)
 
-For detailed operator instructions, refer to the [manual](https://docs.google.com/document/d/1KzQpfuPFDk2lr9V3TgSkmc21jISB54ZOxo3pIYKQsp0/edit?usp=sharing).
+For detailed operator instructions, refer to the [manual](MANUAL.md).
 
 ## Development
 
@@ -282,7 +282,7 @@ This project is licensed under the UCLA Academic License. See [LICENSE.txt](LICE
 
 - Issues: [GitHub Issues](https://github.com/roychowdhuryresearch/pyHFO/issues)
 - Discussions: [GitHub Discussions](https://github.com/roychowdhuryresearch/pyHFO/discussions)
-- Documentation: [User manual](https://docs.google.com/document/d/1KzQpfuPFDk2lr9V3TgSkmc21jISB54ZOxo3pIYKQsp0/edit?usp=sharing)
+- Documentation: [User manual](MANUAL.md)
 - Project site: [PyHFO Project Page](https://roychowdhuryresearch.github.io/PyHFO_Project_Page/)
 
 For academic collaboration questions, contact Prof. Vwani Roychowdhury through UCLA ECE.
