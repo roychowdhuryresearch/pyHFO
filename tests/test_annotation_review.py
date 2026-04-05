@@ -344,6 +344,29 @@ def test_fft_plot_displays_peak_frequency_badge(qapp):
     assert fft_plot.has_peak_marker() is True
 
 
+def test_fft_plot_keeps_frequency_axis_label_visible(qapp):
+    feature = HFO_Feature(np.array(["A1"]), np.array([[1000, 1100]]), sample_freq=2000)
+    t = np.arange(8000) / 2000
+    peak_signal = np.sin(2 * np.pi * 90 * t) * 100
+    eeg_data = np.vstack([peak_signal, peak_signal])
+    backend = DummyReviewBackend("HFO", feature, eeg_data=eeg_data)
+    fft_plot = FFTPlot(backend=backend)
+    fft_plot.resize(520, 220)
+    fft_plot.show()
+    qapp.processEvents()
+
+    fft_plot.plot(1000, 1100, "A1")
+    qapp.processEvents()
+
+    label = fft_plot.getPlotItem().getAxis("bottom").label
+    scene_rect = label.mapRectToScene(label.boundingRect())
+    top_left = fft_plot.mapFromScene(scene_rect.topLeft())
+    bottom_right = fft_plot.mapFromScene(scene_rect.bottomRight())
+
+    assert label.isVisible() is True
+    assert bottom_right.y() <= fft_plot.height()
+
+
 def test_annotation_window_shows_overlap_tag_scope_without_classifier(qapp):
     feature = HFO_Feature(
         np.array(["A1", "A2", "B1"]),

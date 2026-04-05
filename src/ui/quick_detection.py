@@ -523,6 +523,9 @@ class HFOQuickDetector(QtWidgets.QDialog):
         ):
             button.setMinimumWidth(86)
             button.setMinimumHeight(self.ui_density.compact_button_height)
+            button.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.Fixed)
+
+        self._rebuild_classifier_action_row()
 
         for display in (
             self.qd_classifier_artifact_filename_display,
@@ -535,6 +538,52 @@ class HFOQuickDetector(QtWidgets.QDialog):
             display.setPlaceholderText("No model selected")
             display.installEventFilter(self)
             self._set_model_path_display(display, display.property("fullPath") or "")
+
+    def _rebuild_classifier_action_row(self):
+        row_layout = getattr(self, "horizontalLayout_6", None)
+        if row_layout is None:
+            return
+
+        left_container = getattr(self, "_classifier_action_buttons", None)
+        right_container = getattr(self, "_classifier_toggle_row", None)
+        if left_container is None or right_container is None:
+            while row_layout.count():
+                item = row_layout.takeAt(0)
+                widget = item.widget()
+                if widget is not None:
+                    widget.hide()
+
+            left_container = QtWidgets.QFrame(self.classifier_groupbox_4)
+            left_layout = QtWidgets.QHBoxLayout(left_container)
+            left_layout.setContentsMargins(0, 0, 0, 0)
+            left_layout.setSpacing(6)
+            left_container.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+
+            right_container = QtWidgets.QFrame(self.classifier_groupbox_4)
+            right_layout = QtWidgets.QHBoxLayout(right_container)
+            right_layout.setContentsMargins(0, 0, 0, 0)
+            right_layout.setSpacing(12)
+            right_container.setSizePolicy(QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Fixed)
+
+            for button in (self.default_cpu_button, self.default_gpu_button):
+                button.setParent(left_container)
+                button.show()
+                left_layout.addWidget(button, 1)
+
+            for checkbox in (self.qd_use_spikes_checkbox, self.qd_use_ehfo_checkbox):
+                checkbox.setParent(right_container)
+                checkbox.show()
+                right_layout.addWidget(checkbox, 0)
+
+            row_layout.addWidget(left_container, 1)
+            row_layout.addStretch(1)
+            row_layout.addWidget(right_container, 0)
+            self._classifier_action_buttons = left_container
+            self._classifier_toggle_row = right_container
+
+        for checkbox in (self.qd_use_spikes_checkbox, self.qd_use_ehfo_checkbox):
+            checkbox.setSizePolicy(QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Fixed)
+            checkbox.setMinimumHeight(max(checkbox.sizeHint().height(), checkbox.minimumSizeHint().height()))
 
     def _update_classifier_controls_enabled(self, enabled):
         classifier_controls = (
@@ -561,9 +610,38 @@ class HFOQuickDetector(QtWidgets.QDialog):
         if layout is not None:
             layout.setContentsMargins(8, 6, 8, 6)
             if hasattr(layout, "setVerticalSpacing"):
-                layout.setVerticalSpacing(4)
+                layout.setVerticalSpacing(8)
         self.qd_npz_checkbox.setText("Session (.npz)")
         self.qd_excel_checkbox.setText("Workbook (.xlsx)")
+        self._rebuild_export_group()
+
+    def _rebuild_export_group(self):
+        layout = self.qd_saveAs.layout()
+        if layout is None:
+            return
+
+        export_column = getattr(self, "_export_checkbox_column", None)
+        if export_column is None:
+            if isinstance(layout, QtWidgets.QGridLayout):
+                layout.removeWidget(self.qd_npz_checkbox)
+                layout.removeWidget(self.qd_excel_checkbox)
+                export_column = QtWidgets.QFrame(self.qd_saveAs)
+                export_layout = QtWidgets.QVBoxLayout(export_column)
+                export_layout.setContentsMargins(0, 0, 0, 0)
+                export_layout.setSpacing(8)
+                for checkbox in (self.qd_npz_checkbox, self.qd_excel_checkbox):
+                    checkbox.setParent(export_column)
+                    checkbox.show()
+                    export_layout.addWidget(checkbox, 0, QtCore.Qt.AlignLeft)
+                export_layout.addStretch(1)
+                layout.addWidget(export_column, 0, 0, 2, 1)
+                self._export_checkbox_column = export_column
+            else:
+                export_column = self.qd_saveAs
+
+        for checkbox in (self.qd_npz_checkbox, self.qd_excel_checkbox):
+            checkbox.setSizePolicy(QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Fixed)
+            checkbox.setMinimumHeight(max(checkbox.sizeHint().height(), checkbox.minimumSizeHint().height()))
 
     def _apply_widget_level_density(self):
         density = self.ui_density

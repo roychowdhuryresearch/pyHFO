@@ -1012,6 +1012,8 @@ class FFTPlot(pg.PlotWidget):
         plot.setMenuEnabled(False)
         plot.getViewBox().setMouseEnabled(x=False, y=False)
         plot.getViewBox().setBackgroundColor(PLOT_THEME["axes_bg"])
+        # Reserve enough room for the bottom axis title inside the plot widget.
+        plot.layout.setContentsMargins(0, 0, 0, 18)
         plot.showGrid(x=True, y=True, alpha=0.32)
         for axis_name in ("left", "bottom"):
             axis = plot.getAxis(axis_name)

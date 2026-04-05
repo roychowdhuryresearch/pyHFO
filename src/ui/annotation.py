@@ -158,17 +158,32 @@ class Annotation(QtWidgets.QMainWindow):
         groupbox = getattr(self, "viewControlsGroupBox", None)
         if controls_layout is None:
             return
-        controls_layout.setSpacing(4)
-        controls_layout.setContentsMargins(4, 4, 4, 4)
+        controls_layout.setSpacing(6)
+        controls_layout.setContentsMargins(6, 4, 6, 4)
 
         if groupbox is not None:
             groupbox.setMinimumHeight(max(44, self.ui_density.compact_button_height + 24))
             groupbox.setMaximumHeight(QtWidgets.QWIDGETSIZE_MAX)
             groupbox.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
 
+        for button in (
+            getattr(self, "ResetViewButton", None),
+            getattr(self, "ZoomInButton", None),
+            getattr(self, "ZoomOutButton", None),
+            getattr(self, "PanLeftButton", None),
+            getattr(self, "PanRightButton", None),
+            getattr(self, "PanUpButton", None),
+            getattr(self, "PanDownButton", None),
+        ):
+            if button is None:
+                continue
+            button.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+
         self.SyncViewsCheckBox = QtWidgets.QCheckBox("Sync X", self)
         self.SyncViewsCheckBox.setToolTip("Synchronize the time axis across all review plots")
+        self.SyncViewsCheckBox.setSizePolicy(QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Fixed)
         controls_layout.addWidget(self.SyncViewsCheckBox)
+        controls_layout.addStretch(1)
 
         self.BackViewButton = QtWidgets.QToolButton(self)
         self.BackViewButton.setText("Back")
@@ -187,6 +202,7 @@ class Annotation(QtWidgets.QMainWindow):
 
         for button in (self.BackViewButton, self.ForwardViewButton, self.ExportSnapshotButton):
             button.setMinimumWidth(self.ui_density.annotation_view_button_width)
+            button.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
             button.setAutoRaise(False)
 
     def _build_info_labels(self):

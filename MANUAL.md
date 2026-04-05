@@ -1,4 +1,4 @@
-# PyHFO 3.0.0 User Manual
+# PyHFO 3.0.1 User Manual
 
 This manual is for day-to-day PyHFO use. It is written as an operator guide rather than a developer note. The goal is to answer four practical questions:
 
@@ -40,12 +40,13 @@ If you are training someone new, teach them these habits first:
 
 ## Figure Provenance
 
-All screenshots in this manual were regenerated on April 4, 2026 from the current `main` branch code for `PyHFO 3.0.0`.
+All screenshots in this manual were regenerated on April 4, 2026 from the current `main` branch code for `PyHFO 3.0.1`.
 
 Use this as the trust rule for the figures:
 
 - the screenshots in this manual are current UI captures, not scans from the legacy PDF manual
 - the HFO, Quick Detection, annotation, and run-comparison figures use a real EDF-derived excerpt from `SM_B_ave.edf`
+- the capture workflow uses fixed documentation window sizes so each figure reflects the current control layout rather than a default OS window size
 - the figures are meant to show the current control layout and workflow state, not to provide clinical interpretation
 
 ## 1. What PyHFO Is
@@ -58,7 +59,7 @@ PyHFO is a desktop EEG review application for:
 - session persistence
 - report and workbook export
 
-The current `3.0.0` release centers around one unified workspace instead of the older single-purpose EDF detector layout.
+The current `3.0.1` release centers around one unified workspace instead of the older single-purpose EDF detector layout.
 
 ## 2. Supported Inputs And Outputs
 
@@ -176,7 +177,7 @@ Current expectation for `Spike` mode:
 3. If macOS warns about the app or the DMG, clear quarantine:
 
 ```bash
-xattr -cr PyHFO-3.0.0-macos-arm64.dmg
+xattr -cr PyHFO-3.0.1-macos-arm64.dmg
 ```
 
 4. Open the DMG.
@@ -228,11 +229,11 @@ After loading an EEG file, the main workspace exposes:
 - annotation
 - export actions
 
-Current main workspace with a real EDF-derived excerpt loaded:
+Current main workspace in a completed HFO review state:
 
 ![Current PyHFO main workspace with a real EDF-derived excerpt](img/manual/hfo-main-workspace.png)
 
-This figure shows the current `3.0.0` layout after loading a five-channel HFO review window derived from `SM_B_ave.edf`.
+This figure shows the current `3.0.1` main workspace after HFO detection and accepted-run selection on a five-channel HFO review window derived from `SM_B_ave.edf`, captured at the fixed manual layout size.
 
 ## 5A. First-Time Startup Scenarios
 
@@ -1115,7 +1116,7 @@ What to expect:
 - waveform review is available
 - session loading and saving are available
 - export pipeline is available
-- automated spike detection is not the primary release target in `3.0.0`
+- automated spike detection is not the primary release target in `3.0.1`
 
 ## 13. Quick Detection Workflow
 
@@ -1248,7 +1249,7 @@ Current annotation window on a real EDF-derived HFO event:
 
 ![Annotation window using a real EDF-derived HFO event](img/manual/annotation-real-edf.png)
 
-This figure shows the current tracing, filtered tracing, time-frequency panel, and right-side review controls in the `3.0.0` annotation workflow.
+This figure shows the current tracing, filtered tracing, time-frequency panel, and right-side review controls in the `3.0.1` annotation workflow, captured at the fixed manual layout size.
 
 ### 14.1 Main annotation actions
 
@@ -1910,7 +1911,7 @@ That sequence covers almost everything that matters in routine use.
 
 This manual matches:
 
-- `PyHFO 3.0.0`
+- `PyHFO 3.0.1`
 
 This release includes:
 

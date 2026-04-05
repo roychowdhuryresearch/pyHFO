@@ -11,9 +11,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 DIST_DIR = ROOT / "dist"
 APP_NAME = "PyHFO"
-APP_VERSION = "3.0.0"
+APP_VERSION = "3.0.1"
 APP_IDENTIFIER = "org.roychowdhuryresearch.pyhfo"
-PYTHON_LIB_DIRNAME = f"python{sys.version_info.major}.{sys.version_info.minor}"
+DEFAULT_PYTHON_LIB_DIRNAME = f"python{sys.version_info.major}.{sys.version_info.minor}"
 RELEASE_STEM = f"{APP_NAME}-{APP_VERSION}-macos-arm64"
 EXTRA_SITE_PACKAGES = (
     "HFODetector",
@@ -80,10 +80,10 @@ def _find_built_app():
 
 def _site_packages_roots():
     candidates = [
-        Path(sys.prefix) / "lib" / PYTHON_LIB_DIRNAME / "site-packages",
-        Path(sys.base_prefix) / "lib" / PYTHON_LIB_DIRNAME / "site-packages",
-        Path(f"/opt/homebrew/lib/{PYTHON_LIB_DIRNAME}/site-packages"),
-        Path(f"/usr/local/lib/{PYTHON_LIB_DIRNAME}/site-packages"),
+        Path(sys.prefix) / "lib" / DEFAULT_PYTHON_LIB_DIRNAME / "site-packages",
+        Path(sys.base_prefix) / "lib" / DEFAULT_PYTHON_LIB_DIRNAME / "site-packages",
+        Path(f"/opt/homebrew/lib/{DEFAULT_PYTHON_LIB_DIRNAME}/site-packages"),
+        Path(f"/usr/local/lib/{DEFAULT_PYTHON_LIB_DIRNAME}/site-packages"),
     ]
     roots = []
     for candidate in candidates:
@@ -113,10 +113,10 @@ def _find_site_package_entries(name):
 
 def _find_qt_root():
     candidates = [
-        Path(sys.prefix) / "lib" / PYTHON_LIB_DIRNAME / "site-packages" / "PyQt5" / "Qt5",
-        Path(sys.base_prefix) / "lib" / PYTHON_LIB_DIRNAME / "site-packages" / "PyQt5" / "Qt5",
-        Path(f"/opt/homebrew/lib/{PYTHON_LIB_DIRNAME}/site-packages/PyQt5/Qt5"),
-        Path(f"/usr/local/lib/{PYTHON_LIB_DIRNAME}/site-packages/PyQt5/Qt5"),
+        Path(sys.prefix) / "lib" / DEFAULT_PYTHON_LIB_DIRNAME / "site-packages" / "PyQt5" / "Qt5",
+        Path(sys.base_prefix) / "lib" / DEFAULT_PYTHON_LIB_DIRNAME / "site-packages" / "PyQt5" / "Qt5",
+        Path(f"/opt/homebrew/lib/{DEFAULT_PYTHON_LIB_DIRNAME}/site-packages/PyQt5/Qt5"),
+        Path(f"/usr/local/lib/{DEFAULT_PYTHON_LIB_DIRNAME}/site-packages/PyQt5/Qt5"),
     ]
     for candidate in candidates:
         if candidate.exists():
@@ -173,9 +173,18 @@ def _stage_source_app(source_app):
     return stage_root, staged_app
 
 
-def _overlay_repo_source(app_path):
+def _detect_app_python_lib_dirname(app_path):
+    lib_root = app_path / "Contents" / "Resources" / "lib"
+    candidates = sorted(path.name for path in lib_root.glob("python*") if path.is_dir())
+    version_dirs = [name for name in candidates if name.startswith("python") and "." in name]
+    if version_dirs:
+        return version_dirs[0]
+    return DEFAULT_PYTHON_LIB_DIRNAME
+
+
+def _overlay_repo_source(app_path, python_lib_dirname):
     resources_dir = app_path / "Contents" / "Resources"
-    lib_root = resources_dir / "lib" / PYTHON_LIB_DIRNAME
+    lib_root = resources_dir / "lib" / python_lib_dirname
     lib_root.mkdir(parents=True, exist_ok=True)
 
     _copy_path(ROOT / "main.py", resources_dir / "main.py")
@@ -183,8 +192,8 @@ def _overlay_repo_source(app_path):
     _copy_path(ROOT / "ckpt", lib_root / "ckpt")
 
 
-def _bundle_python_packages(app_path, package_names):
-    lib_root = app_path / "Contents" / "Resources" / "lib" / PYTHON_LIB_DIRNAME
+def _bundle_python_packages(app_path, package_names, python_lib_dirname, overwrite_existing=False):
+    lib_root = app_path / "Contents" / "Resources" / "lib" / python_lib_dirname
     lib_root.mkdir(parents=True, exist_ok=True)
     for package_name in package_names:
         sources = _find_site_package_entries(package_name)
@@ -192,10 +201,13 @@ def _bundle_python_packages(app_path, package_names):
             print(f"Warning: site-packages entry not found for {package_name}; skipping.")
             continue
         for source in sources:
-            _copy_path(source, lib_root / source.name)
+            target = lib_root / source.name
+            if target.exists() and not overwrite_existing:
+                continue
+            _copy_path(source, target)
 
 
-def _bundle_qt_plugins(app_path):
+def _bundle_qt_plugins(app_path, python_lib_dirname):
     qt_root = _find_qt_root()
     if qt_root is None:
         raise RuntimeError("PyQt5 Qt5 directory was not found.")
@@ -209,7 +221,7 @@ def _bundle_qt_plugins(app_path):
     qt_conf = app_path / "Contents" / "Resources" / "qt.conf"
     qt_conf.write_text("[Paths]\nPlugins = PlugIns\n", encoding="utf-8")
 
-    plugin_rpath = f"@executable_path/../Resources/lib/{PYTHON_LIB_DIRNAME}/PyQt5/Qt5/lib"
+    plugin_rpath = f"@executable_path/../Resources/lib/{python_lib_dirname}/PyQt5/Qt5/lib"
     for dylib in sorted(target_platforms.glob("*.dylib")):
         subprocess.run(
             ["install_name_tool", "-add_rpath", plugin_rpath, str(dylib)],
@@ -354,9 +366,15 @@ def main():
             raise FileNotFoundError(f"Source app does not exist: {source_app}")
 
     stage_root, staged_app = _stage_source_app(source_app)
-    _overlay_repo_source(staged_app)
-    _bundle_python_packages(staged_app, EXTRA_SITE_PACKAGES)
-    _bundle_qt_plugins(staged_app)
+    python_lib_dirname = _detect_app_python_lib_dirname(staged_app)
+    _overlay_repo_source(staged_app, python_lib_dirname)
+    _bundle_python_packages(
+        staged_app,
+        EXTRA_SITE_PACKAGES,
+        python_lib_dirname,
+        overwrite_existing=args.source_app is None,
+    )
+    _bundle_qt_plugins(staged_app, python_lib_dirname)
     _remove_duplicate_qt_frameworks(staged_app)
     _ensure_liblzma(staged_app)
     _update_bundle_metadata(staged_app)

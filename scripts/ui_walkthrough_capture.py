@@ -28,6 +28,11 @@ from src.utils.utils_detector import has_yasa
 
 SAMPLE_EDF = ROOT / "SM_B_ave.edf"
 
+MAIN_WINDOW_CAPTURE_SIZE = (1600, 980)
+QUICK_DETECTION_CAPTURE_SIZE = (1380, 1180)
+RUN_STATS_CAPTURE_SIZE = (1480, 920)
+ANNOTATION_CAPTURE_SIZE = (1760, 1180)
+
 
 def _process_events(app, cycles=25):
     for _ in range(cycles):
@@ -39,6 +44,16 @@ def _close_widget(widget, app):
         return
     widget.close()
     _process_events(app)
+
+
+def _resize_widget(widget, size, app, cycles=30):
+    if widget is None:
+        return
+    width, height = size
+    widget.resize(int(width), int(height))
+    widget.adjustSize()
+    widget.resize(int(width), int(height))
+    _process_events(app, cycles=cycles)
 
 
 def _load_recording_into_model(model, path):
@@ -171,12 +186,14 @@ class UIWalkthroughCapture:
 
     def create_main_window(self):
         window = MainWindow()
+        _resize_widget(window, MAIN_WINDOW_CAPTURE_SIZE, self.app)
         window.show()
         _process_events(self.app)
         return window
 
     def run_quick_detection_flow(self, hfo_input_path):
         dialog = HFOQuickDetector()
+        _resize_widget(dialog, QUICK_DETECTION_CAPTURE_SIZE, self.app)
         dialog.show()
         _process_events(self.app)
         try:
@@ -329,6 +346,7 @@ class UIWalkthroughCapture:
             _process_events(self.app)
             run_stats_dialog = getattr(window, "run_stats_dialog", None)
             if run_stats_dialog is not None:
+                _resize_widget(run_stats_dialog, RUN_STATS_CAPTURE_SIZE, self.app)
                 self.capture(
                     run_stats_dialog,
                     "16_hfo_run_comparison",
@@ -356,6 +374,7 @@ class UIWalkthroughCapture:
             window.model.open_annotation()
             _process_events(self.app)
             annotation_window = _find_annotation_window(window)
+            _resize_widget(annotation_window, ANNOTATION_CAPTURE_SIZE, self.app)
             self.capture(
                 annotation_window,
                 "18_hfo_annotation_open",
@@ -482,6 +501,7 @@ class UIWalkthroughCapture:
             window.model.open_annotation()
             _process_events(self.app)
             annotation_window = _find_annotation_window(window)
+            _resize_widget(annotation_window, ANNOTATION_CAPTURE_SIZE, self.app)
             self.capture(
                 annotation_window,
                 "34_spindle_annotation_open",

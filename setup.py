@@ -10,7 +10,7 @@ sys.setrecursionlimit(1500)
 
 ROOT = Path(__file__).resolve().parent
 APP_NAME = "PyHFO"
-APP_VERSION = "3.0.0"
+APP_VERSION = "3.0.1"
 APP_IDENTIFIER = "org.roychowdhuryresearch.pyhfo"
 APP = ["main.py"]
 
@@ -93,5 +93,5 @@ setup(
     data_files=DATA_FILES,
     options={'py2app': OPTIONS},
     setup_requires=['py2app'],
-    install_requires=read_requirements("requirements.txt"),
+    install_requires=[] if "py2app" in sys.argv else read_requirements("requirements.txt"),
 )

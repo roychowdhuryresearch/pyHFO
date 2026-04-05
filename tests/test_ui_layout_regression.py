@@ -4,9 +4,11 @@ from PyQt5 import QtCore, QtWidgets
 from src.hfo_feature import HFO_Feature
 from src.models.main_window_model import MainWindowModel
 from src.param.param_classifier import ParamClassifier
+from src.spindle_feature import SpindleFeature
 from src.ui.annotation import Annotation
 from src.ui.main_window import MainWindow
 from src.ui.quick_detection import HFOQuickDetector
+from src.utils.analysis_session import DetectionRun
 
 
 _LAYOUT_WIDGET_TYPES = (
@@ -193,17 +195,27 @@ class _DummyQuickDetectionBackend:
 
 
 class _DummyReviewBackend:
-    def __init__(self):
-        self.biomarker_type = "HFO"
+    def __init__(self, biomarker_type="HFO", event_features=None):
+        self.biomarker_type = biomarker_type
         self.sample_freq = 2000
         self.param_filter = None
         self.filter_data = None
-        self.event_features = HFO_Feature(
-            np.array(["A1", "A2"]),
-            np.array([[1000, 1100], [3000, 3120]]),
-            sample_freq=2000,
-        )
-        self.channel_names = np.array(["A1", "A2"])
+        if event_features is None:
+            if biomarker_type == "Spindle":
+                event_features = SpindleFeature(
+                    np.array(["A1", "A2"]),
+                    np.array([1000, 3000]),
+                    np.array([1120, 3120]),
+                    sample_freq=2000,
+                )
+            else:
+                event_features = HFO_Feature(
+                    np.array(["A1", "A2"]),
+                    np.array([[1000, 1100], [3000, 3120]]),
+                    sample_freq=2000,
+                )
+        self.event_features = event_features
+        self.channel_names = np.unique(np.array(getattr(event_features, "channel_names", np.array(["A1", "A2"]))))
         timeline = np.linspace(0, 20, 8000)
         self.eeg_data = np.vstack(
             [
@@ -244,6 +256,37 @@ def _load_recording(window, tiny_fif_path, qapp):
     results = window.model.read_edf(str(tiny_fif_path), None)
     window.model.update_edf_info(results)
     _process_events(qapp, cycles=20)
+
+
+def _seed_hfo_runs(window):
+    first_feature = HFO_Feature(
+        np.array([str(window.model.backend.channel_names[0]), str(window.model.backend.channel_names[1])]),
+        np.array([[10, 20], [40, 56]]),
+        sample_freq=int(window.model.backend.sample_freq),
+    )
+    second_feature = HFO_Feature(
+        np.array([str(window.model.backend.channel_names[0]), str(window.model.backend.channel_names[0])]),
+        np.array([[12, 22], [60, 74]]),
+        sample_freq=int(window.model.backend.sample_freq),
+    )
+    for detector_name, feature in (("STE", first_feature), ("MNI", second_feature)):
+        run = DetectionRun.create(
+            biomarker_type="HFO",
+            detector_name=detector_name,
+            selected_channels=list(window.model.backend.channel_names),
+            param_filter=getattr(window.model.backend, "param_filter", None),
+            param_detector=getattr(window.model.backend, "param_detector", None),
+            param_classifier=getattr(window.model.backend, "param_classifier", None),
+            event_features=feature,
+            classified=False,
+        )
+        window.model.backend.analysis_session.add_run(run)
+    active_run = window.model.backend.analysis_session.get_active_run()
+    if active_run is not None:
+        window.model.backend.analysis_session.accept_run(active_run.run_id)
+        window.model.backend.event_features = active_run.event_features
+        window.model.backend.detected = True
+    window.model.update_run_management_panel()
 
 
 def test_main_window_layout_regression_covers_dynamic_sections(monkeypatch, qapp, tiny_fif_path):
@@ -309,6 +352,74 @@ def test_main_window_layout_regression_covers_dynamic_sections(monkeypatch, qapp
         _process_events(qapp)
 
 
+def test_main_window_layout_stays_stable_across_supported_window_sizes(monkeypatch, qapp, tiny_fif_path):
+    window = _create_main_window(monkeypatch, qapp)
+    try:
+        _load_recording(window, tiny_fif_path, qapp)
+
+        for size in (
+            (1024, 680),
+            (1200, 820),
+            (1600, 980),
+        ):
+            window.resize(*size)
+            _process_events(qapp, cycles=20)
+
+            for container in (
+                window.run_actions_card,
+                window.results_card,
+                window.prepare_tab_compact_container,
+                window.statistics_box,
+                window.waveform_toolbar_frame,
+            ):
+                _assert_container_layout(window, container)
+    finally:
+        window.close()
+        _process_events(qapp)
+
+
+def test_run_statistics_dialog_layout_stays_stable_across_supported_window_sizes(monkeypatch, qapp, tiny_fif_path):
+    window = _create_main_window(monkeypatch, qapp)
+    try:
+        _load_recording(window, tiny_fif_path, qapp)
+        _seed_hfo_runs(window)
+
+        window.model.show_run_comparison()
+        _process_events(qapp, cycles=12)
+        dialog = window.run_stats_dialog
+        runs_group = window.run_table.parentWidget()
+
+        for size in (
+            (860, 680),
+            (1180, 760),
+            (1480, 920),
+        ):
+            dialog.resize(*size)
+            _process_events(qapp, cycles=12)
+
+            _assert_container_layout(dialog, runs_group)
+            _assert_buttons_fit_text(
+                [
+                    window.run_stats_activate_button,
+                    window.run_stats_accept_button,
+                    window.run_stats_export_button,
+                    window.run_stats_report_button,
+                ]
+            )
+            _assert_widgets_do_not_overlap(
+                dialog,
+                [
+                    window.run_stats_activate_button,
+                    window.run_stats_accept_button,
+                    window.run_stats_export_button,
+                    window.run_stats_report_button,
+                ],
+            )
+    finally:
+        window.close()
+        _process_events(qapp)
+
+
 def test_quick_detection_layout_regression_covers_detector_and_classifier_panels(qapp):
     dialog = HFOQuickDetector(backend=_DummyQuickDetectionBackend())
     try:
@@ -335,6 +446,48 @@ def test_quick_detection_layout_regression_covers_detector_and_classifier_panels
             dialog.detectionTypeComboBox.setCurrentText(detector_name)
             _process_events(qapp, cycles=8)
             _assert_container_layout(dialog, panel)
+    finally:
+        dialog.close()
+        _process_events(qapp)
+
+
+def test_quick_detection_layout_stays_stable_across_supported_window_sizes(qapp):
+    dialog = HFOQuickDetector(backend=_DummyQuickDetectionBackend())
+    try:
+        dialog.show()
+        _process_events(qapp)
+        dialog.qd_use_classifier_checkbox.setChecked(True)
+        _process_events(qapp, cycles=8)
+
+        for size in (
+            (960, 700),
+            (1180, 820),
+            (1380, 1180),
+        ):
+            dialog.resize(*size)
+            _process_events(qapp, cycles=12)
+
+            for container in (
+                dialog.run_setup_card,
+                dialog.qd_edfInfo,
+                dialog.qd_filters,
+                dialog.classifier_groupbox_4,
+                dialog.qd_saveAs,
+            ):
+                _assert_container_layout(dialog, container)
+
+            _assert_widgets_do_not_overlap(
+                dialog,
+                [
+                    dialog.default_cpu_button,
+                    dialog.default_gpu_button,
+                    dialog.qd_use_spikes_checkbox,
+                    dialog.qd_use_ehfo_checkbox,
+                    dialog.qd_npz_checkbox,
+                    dialog.qd_excel_checkbox,
+                ],
+            )
+            _assert_horizontal_gap(dialog, dialog.qd_use_spikes_checkbox, dialog.qd_use_ehfo_checkbox, 8)
     finally:
         dialog.close()
         _process_events(qapp)
@@ -422,6 +575,70 @@ def test_annotation_layout_regression_covers_side_panel_and_view_controls(qapp):
                 window.IntervalDropdownBox,
             ],
         )
+    finally:
+        window.close()
+        _process_events(qapp)
+
+
+def test_spindle_annotation_layout_matches_hfo_layout_rules(qapp):
+    window = Annotation(backend=_DummyReviewBackend(biomarker_type="Spindle"))
+    try:
+        window.show()
+        _process_events(qapp)
+
+        _assert_container_layout(window, window.viewControlsGroupBox)
+        _assert_container_layout(window, window.prediction_scope_card)
+        _assert_container_layout(window, window.groupBox_2)
+        _assert_container_layout(window, window.groupBox)
+        _assert_widgets_do_not_overlap(
+            window,
+            [
+                window.PreviousButton,
+                window.NextButton,
+                window.PrevPendingButton,
+                window.NextPendingButton,
+                window.ClearAnnotationButton,
+                window.SyncViewsCheckBox,
+                window.BackViewButton,
+                window.ForwardViewButton,
+                window.ExportSnapshotButton,
+            ],
+        )
+    finally:
+        window.close()
+        _process_events(qapp)
+
+
+def test_annotation_view_controls_keep_stable_layout_when_window_resizes(qapp):
+    window = Annotation(backend=_DummyReviewBackend())
+    try:
+        window.show()
+        _process_events(qapp)
+
+        controls = [
+            window.ResetViewButton,
+            window.ZoomInButton,
+            window.ZoomOutButton,
+            window.PanLeftButton,
+            window.PanRightButton,
+            window.PanUpButton,
+            window.PanDownButton,
+            window.SyncViewsCheckBox,
+            window.BackViewButton,
+            window.ForwardViewButton,
+            window.ExportSnapshotButton,
+        ]
+
+        for size in (
+            (window.minimumWidth(), window.minimumHeight()),
+            (1400, 900),
+        ):
+            window.resize(*size)
+            _process_events(qapp, cycles=10)
+
+            _assert_container_layout(window, window.viewControlsGroupBox)
+            _assert_widgets_do_not_overlap(window, controls)
+            assert window.SyncViewsCheckBox.width() <= window.SyncViewsCheckBox.sizeHint().width() + 24
     finally:
         window.close()
         _process_events(qapp)
