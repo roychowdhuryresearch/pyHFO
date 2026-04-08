@@ -215,6 +215,15 @@ class MainWindowView(QObject):
         widget.setProperty("inspectorOptionOrder", self._inspector_option_counter)
         return widget
 
+    def _waveform_spinbox_slot_width(self, widget, fallback_width):
+        if widget is None:
+            return int(fallback_width)
+        try:
+            hint_width = max(widget.sizeHint().width(), widget.minimumSizeHint().width())
+        except Exception:
+            hint_width = int(fallback_width)
+        return max(int(fallback_width), int(hint_width) + 4)
+
     def _collect_section_option_specs(self, section_id, *, visible_only=False):
         root = self._inspector_section_roots.get(section_id)
         if root is None:
@@ -454,6 +463,48 @@ class MainWindowView(QObject):
             disabled_background="#f3f5f7",
             disabled_accent="#b9c4cf",
         )
+        waveform_stepper_up_icon = (ROOT_DIR / "src" / "ui" / "images" / "chevron_up.svg").resolve().as_posix()
+        waveform_stepper_down_icon = (ROOT_DIR / "src" / "ui" / "images" / "chevron_down.svg").resolve().as_posix()
+        waveform_stepper_stylesheet = f"""
+            QAbstractSpinBox[waveformField="true"][waveformStepper="true"] {{
+                padding-right: 22px;
+            }}
+            QAbstractSpinBox[waveformField="true"][waveformStepper="true"]::up-button {{
+                subcontrol-origin: border;
+                subcontrol-position: top right;
+                width: 18px;
+                border-left: 1px solid #d7e0e7;
+                border-top-right-radius: 7px;
+                background: #f4f8fb;
+            }}
+            QAbstractSpinBox[waveformField="true"][waveformStepper="true"]::down-button {{
+                subcontrol-origin: border;
+                subcontrol-position: bottom right;
+                width: 18px;
+                border-left: 1px solid #d7e0e7;
+                border-top: 1px solid #d7e0e7;
+                border-bottom-right-radius: 7px;
+                background: #f4f8fb;
+            }}
+            QAbstractSpinBox[waveformField="true"][waveformStepper="true"]::up-button:hover,
+            QAbstractSpinBox[waveformField="true"][waveformStepper="true"]::down-button:hover {{
+                background: #edf4f9;
+            }}
+            QAbstractSpinBox[waveformField="true"][waveformStepper="true"]::up-button:pressed,
+            QAbstractSpinBox[waveformField="true"][waveformStepper="true"]::down-button:pressed {{
+                background: #e4edf4;
+            }}
+            QAbstractSpinBox[waveformField="true"][waveformStepper="true"]::up-arrow {{
+                image: url("{waveform_stepper_up_icon}");
+                width: 10px;
+                height: 10px;
+            }}
+            QAbstractSpinBox[waveformField="true"][waveformStepper="true"]::down-arrow {{
+                image: url("{waveform_stepper_down_icon}");
+                width: 10px;
+                height: 10px;
+            }}
+        """
         self.window.setStyleSheet("""
             QMainWindow {
                 background: #f3f4f6;
@@ -770,15 +821,21 @@ class MainWindowView(QObject):
                 border-color: #8ea5b8;
                 background: #ffffff;
             }
-            QAbstractSpinBox[waveformField="true"]::up-button,
-            QAbstractSpinBox[waveformField="true"]::down-button {
+            QAbstractSpinBox[waveformField="true"][waveformStepper="false"]::up-button,
+            QAbstractSpinBox[waveformField="true"][waveformStepper="false"]::down-button {
                 width: 0px;
                 border: none;
+            }
+            QAbstractSpinBox[waveformField="true"][waveformStepper="true"]::up-button,
+            QAbstractSpinBox[waveformField="true"][waveformStepper="true"]::down-button {
+                width: 16px;
+                border: none;
+                background: transparent;
             }
             QToolButton::menu-indicator {
                 width: 10px;
             }
-        """ + checkbox_stylesheet + """
+        """ + waveform_stepper_stylesheet + checkbox_stylesheet + """
             QLineEdit, QSpinBox, QDoubleSpinBox, QTextEdit, QComboBox {
                 border: 1px solid #cfd6dd;
                 border-radius: 5px;
@@ -1707,7 +1764,7 @@ class MainWindowView(QObject):
         self.window.widget_2.setMinimumHeight(control_strip_height)
         self.window.widget_2.setMaximumHeight(control_strip_height)
         self.window.n_channel_input.setMaximumWidth(70)
-        self.window.display_time_window_input.setMaximumWidth(80)
+        self.window.display_time_window_input.setMaximumWidth(128)
         self.window.Time_Increment_Input.setMaximumWidth(80)
         self.window.n_jobs_spinbox.setMaximumWidth(54)
         self.window.label_10.setText("Visible")
@@ -1720,6 +1777,7 @@ class MainWindowView(QObject):
         self.window.label_9.setAlignment(Qt.AlignCenter)
         self.window.display_time_window_input.setSuffix(" s")
         self.window.display_time_window_input.setToolTip("Length of the waveform window in seconds")
+        self.window.display_time_window_input.setKeyboardTracking(False)
         self.window.label_8.hide()
         self.window.label_14.setText("Advance")
         self.window.label_14.setToolTip("How far the waveform view moves when stepping through time")
@@ -1736,7 +1794,12 @@ class MainWindowView(QObject):
         ):
             widget.setPrefix(prefix)
             widget.setAlignment(Qt.AlignCenter)
-            widget.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
+            if widget is self.window.display_time_window_input:
+                widget.setButtonSymbols(QtWidgets.QAbstractSpinBox.UpDownArrows)
+                widget.setProperty("waveformStepper", True)
+            else:
+                widget.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
+                widget.setProperty("waveformStepper", False)
             widget.setProperty("waveformField", True)
 
         for label in (self.window.label_10, self.window.label_9, self.window.label_14):
@@ -3101,8 +3164,9 @@ class MainWindowView(QObject):
             self.ui_density.waveform_control_strip_height + 4,
         )
         slot_widths = {
-            "window": 80,
+            "window": 112,
             "step": 80,
+            "amplitude": 112,
             "jump": 80,
             "visible_channels": 56,
             "event_position": 128,
@@ -3257,7 +3321,26 @@ class MainWindowView(QObject):
         self.window.go_to_time_input.setAlignment(Qt.AlignCenter)
         self.window.go_to_time_input.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
         self.window.go_to_time_input.setProperty("waveformField", True)
+        self.window.go_to_time_input.setProperty("waveformStepper", False)
         self.window.go_to_time_input.setToolTip("Jump to a specific time in seconds")
+
+        self.window.waveform_amplitude_input = QDoubleSpinBox(self.window.waveform_toolbar_frame)
+        self.window.waveform_amplitude_input.setDecimals(2)
+        self.window.waveform_amplitude_input.setSingleStep(0.25)
+        self.window.waveform_amplitude_input.setMinimum(0.25)
+        self.window.waveform_amplitude_input.setMaximum(10.0)
+        self.window.waveform_amplitude_input.setValue(1.0)
+        self.window.waveform_amplitude_input.setKeyboardTracking(False)
+        self.window.waveform_amplitude_input.setPrefix("Amp ")
+        self.window.waveform_amplitude_input.setSuffix("x")
+        self.window.waveform_amplitude_input.setAlignment(Qt.AlignCenter)
+        self.window.waveform_amplitude_input.setButtonSymbols(QtWidgets.QAbstractSpinBox.UpDownArrows)
+        self.window.waveform_amplitude_input.setProperty("waveformField", True)
+        self.window.waveform_amplitude_input.setProperty("waveformStepper", True)
+        self.window.waveform_amplitude_input.setToolTip("Scale the waveform vertically without changing the raw measurement values")
+
+        slot_widths["window"] = self._waveform_spinbox_slot_width(self.window.display_time_window_input, slot_widths["window"])
+        slot_widths["amplitude"] = self._waveform_spinbox_slot_width(self.window.waveform_amplitude_input, slot_widths["amplitude"])
 
         self.window.go_to_time_button = self._make_waveform_tool_button(
             icon=get_waveform_toolbar_icon("go"),
@@ -3312,6 +3395,7 @@ class MainWindowView(QObject):
             button.setProperty("preserveButtonHeight", True)
             button.setFixedHeight(26)
             button.setFixedWidth(42)
+            button.hide()
             self.window.graph_window_preset_buttons.append(button)
         self.window.graph_channel_preset_buttons = []
         for preset_value, label in ((8, "8 ch"), (16, "16 ch"), (32, "32 ch"), ("all", "Max")):
@@ -3339,6 +3423,12 @@ class MainWindowView(QObject):
             self.window.waveform_toolbar_frame,
             self.window.Time_Increment_Input,
             width=slot_widths["step"],
+            height=toolbar_item_height,
+        )
+        self.window.waveform_amplitude_slot = self._mount_waveform_toolbar_slot(
+            self.window.waveform_toolbar_frame,
+            self.window.waveform_amplitude_input,
+            width=slot_widths["amplitude"],
             height=toolbar_item_height,
         )
         self.window.go_to_time_slot = self._mount_waveform_toolbar_slot(
@@ -3402,11 +3492,9 @@ class MainWindowView(QObject):
         ):
             waveform_layout.addWidget(button)
         waveform_layout.addSpacing(4)
-        for button in self.window.graph_window_preset_buttons:
-            waveform_layout.addWidget(button)
-        waveform_layout.addSpacing(4)
         waveform_layout.addWidget(self.window.display_time_window_slot)
         waveform_layout.addWidget(self.window.time_increment_slot)
+        waveform_layout.addWidget(self.window.waveform_amplitude_slot)
         waveform_layout.addSpacing(4)
         waveform_layout.addWidget(self.window.go_to_time_slot)
         waveform_layout.addWidget(self.window.go_to_time_button)
@@ -3494,6 +3582,7 @@ class MainWindowView(QObject):
             self.window.n_channel_input,
             self.window.display_time_window_input,
             self.window.Time_Increment_Input,
+            self.window.waveform_amplitude_input,
             self.window.go_to_time_input,
         ):
             widget.setProperty("preserveInputHeight", True)

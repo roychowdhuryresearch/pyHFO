@@ -104,6 +104,28 @@ def test_main_waveform_plot_model_downsamples_long_windows():
     assert offset_value == 6
 
 
+def test_main_waveform_plot_model_applies_vertical_amplitude_scale():
+    backend = FakeBackend()
+    model = MainWaveformPlotModel(backend)
+
+    model.init_eeg_data()
+    model.set_time_window(2)
+    model.set_current_time_window(0)
+
+    eeg_data, y_100_length, y_scale_length, offset_value = model.get_all_current_eeg_data_to_display()
+    time_axis = model.get_current_time_window().copy()
+
+    model.set_vertical_amplitude_scale(2.5)
+    scaled_data, scaled_y_100_length, scaled_y_scale_length, scaled_offset_value = model.get_all_current_eeg_data_to_display()
+
+    assert model.get_vertical_amplitude_scale() == pytest.approx(2.5)
+    assert scaled_y_100_length == y_100_length
+    assert scaled_offset_value == offset_value
+    assert scaled_y_scale_length == pytest.approx(y_scale_length * 2.5)
+    assert np.array_equal(model.get_current_time_window(), time_axis)
+    assert np.allclose(scaled_data, eeg_data * 2.5)
+
+
 def test_main_waveform_plot_model_clips_partial_overlap_event_segments():
     backend = PartialOverlapBackend()
     model = MainWaveformPlotModel(backend)

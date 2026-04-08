@@ -1531,6 +1531,8 @@ class MainWindowModel(QObject):
         )
         if hasattr(self.window, "go_to_time_input"):
             self.window.go_to_time_input.setEnabled(has_recording)
+        if hasattr(self.window, "waveform_amplitude_input"):
+            self.window.waveform_amplitude_input.setEnabled(has_recording)
         if hasattr(self.window, "go_to_time_button"):
             self.window.go_to_time_button.setEnabled(has_recording)
         if hasattr(self.window, "zoom_in_button"):
@@ -1857,6 +1859,8 @@ class MainWindowModel(QObject):
             channel_gutter_widget=getattr(self.window, "waveform_channel_gutter_widget", None),
         )
         self.window.waveform_plot.set_overlay_run_provider(self._get_case_visible_runs_for_waveform)
+        if hasattr(self.window, "waveform_amplitude_input"):
+            self.window.waveform_plot.set_vertical_amplitude_scale(float(self.window.waveform_amplitude_input.value()))
 
         # part of “clear everything if exit”, optimize in the future
         safe_connect_signal_slot(self.window.waveform_time_scroll_bar.valueChanged, self.scroll_time_waveform_plot)
@@ -2275,6 +2279,43 @@ class MainWindowModel(QObject):
         if plot is None or not hasattr(plot, "set_trackpad_sensitivity"):
             return
         plot.set_trackpad_sensitivity(self.waveform_trackpad_sensitivity)
+
+    def _waveform_stepper_subcontrols(self, widget):
+        if widget is None or not isinstance(widget, QAbstractSpinBox):
+            return []
+        option = QStyleOptionSpinBox()
+        try:
+            widget.initStyleOption(option)
+        except Exception:
+            return []
+        style = widget.style()
+        controls = (
+            QStyle.SC_SpinBoxUp,
+            QStyle.SC_SpinBoxDown,
+        )
+        return [
+            style.subControlRect(QStyle.CC_SpinBox, option, control, widget)
+            for control in controls
+        ]
+
+    def _event_hits_waveform_stepper(self, widget, event):
+        if widget is None or event is None or not hasattr(event, "pos"):
+            return False
+        for rect in self._waveform_stepper_subcontrols(widget):
+            if rect.isValid() and rect.contains(event.pos()):
+                return True
+        return False
+
+    def eventFilter(self, obj, event):
+        if event is not None and event.type() == QEvent.MouseButtonRelease:
+            stepper_widgets = (
+                getattr(self.window, "display_time_window_input", None),
+                getattr(self.window, "waveform_amplitude_input", None),
+            )
+            if obj in stepper_widgets and getattr(event, "button", lambda: None)() == Qt.LeftButton:
+                if self._event_hits_waveform_stepper(obj, event):
+                    QTimer.singleShot(0, self.waveform_plot_button_clicked)
+        return super(MainWindowModel, self).eventFilter(obj, event)
 
     def _validate_waveform_shortcut_bindings(self, _enabled, bindings):
         seen = {}
@@ -2816,6 +2857,14 @@ class MainWindowModel(QObject):
             self.window.n_channel_input,
         ):
             safe_connect_signal_slot(widget.editingFinished, self.waveform_plot_button_clicked)
+        if hasattr(self.window, "waveform_amplitude_input"):
+            safe_connect_signal_slot(self.window.waveform_amplitude_input.editingFinished, self.waveform_plot_button_clicked)
+        for widget in (
+            getattr(self.window, "display_time_window_input", None),
+            getattr(self.window, "waveform_amplitude_input", None),
+        ):
+            if widget is not None:
+                widget.installEventFilter(self)
         safe_connect_signal_slot(self.window.Choose_Channels_Button.clicked, self.open_channel_selection)
         if hasattr(self.window, "review_channels_button"):
             safe_connect_signal_slot(self.window.review_channels_button.clicked, self.open_channel_selection)
@@ -5433,6 +5482,20 @@ class MainWindowModel(QObject):
         self.window.waveform_plot.set_time_increment(time_increment)
         normalize_vertical = self.window.normalize_vertical_input.isChecked()
         self.window.waveform_plot.set_normalize_vertical(normalize_vertical)
+        previous_amplitude_scale = (
+            float(self.window.waveform_plot.get_vertical_amplitude_scale())
+            if hasattr(self.window.waveform_plot, "get_vertical_amplitude_scale")
+            else 1.0
+        )
+        next_amplitude_scale = float(
+            self.window.waveform_amplitude_input.value()
+            if hasattr(self.window, "waveform_amplitude_input")
+            else 1.0
+        )
+        if hasattr(self.window.waveform_plot, "set_vertical_amplitude_scale"):
+            self.window.waveform_plot.set_vertical_amplitude_scale(next_amplitude_scale)
+        if abs(next_amplitude_scale - previous_amplitude_scale) > 1e-9:
+            self._reset_waveform_measurement_state()
         is_empty = self.window.n_channel_input.maximum() == 0
         start = self.window.waveform_plot.t_start
         first_channel_to_plot = self.window.waveform_plot.first_channel_to_plot

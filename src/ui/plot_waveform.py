@@ -93,6 +93,12 @@ class CenterWaveformAndMiniPlotController():
         self.normalize_vertical = normalize_vertical
         self.main_waveform_plot_controller.set_normalize_vertical(normalize_vertical)
 
+    def set_vertical_amplitude_scale(self, vertical_amplitude_scale: float):
+        self.main_waveform_plot_controller.set_vertical_amplitude_scale(vertical_amplitude_scale)
+
+    def get_vertical_amplitude_scale(self):
+        return self.main_waveform_plot_controller.get_vertical_amplitude_scale()
+
     def set_time_window(self,time_window:float):
         self.time_window = time_window
         self.main_waveform_plot_controller.set_time_window(time_window)
