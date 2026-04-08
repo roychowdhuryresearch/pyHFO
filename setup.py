@@ -10,7 +10,7 @@ sys.setrecursionlimit(1500)
 
 ROOT = Path(__file__).resolve().parent
 APP_NAME = "PyHFO"
-APP_VERSION = "3.0.1"
+APP_VERSION = "3.0.2"
 APP_IDENTIFIER = "org.roychowdhuryresearch.pyhfo"
 APP = ["main.py"]
 
