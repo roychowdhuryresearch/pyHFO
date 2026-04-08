@@ -1,6 +1,7 @@
 import numpy as np
 from PyQt5 import QtCore
 
+from src.param.param_detector import ParamSpikeRMSLL
 from src.spike_feature import SpikeFeature
 from src.ui.annotation import Annotation
 from src.utils.utils_detector import SpikeRMSLLDetector
@@ -59,6 +60,19 @@ def test_spike_rms_ll_detector_finds_synthetic_spike():
     assert len(events) >= 1
     first_start, first_end = events[0]
     assert first_start < int(spike_center * sample_freq) < first_end
+
+
+def test_spike_default_parameters_use_conservative_review_preset():
+    params = ParamSpikeRMSLL()
+
+    assert params.rms_window == 0.02
+    assert params.ll_window == 0.01
+    assert params.rms_thres == 5.0
+    assert params.ll_thres == 5.0
+    assert params.peak_thres == 6.0
+    assert params.min_window == 0.015
+    assert params.max_window == 0.05
+    assert params.min_gap == 0.08
 
 
 class _DummySpikeReviewBackend:

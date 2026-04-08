@@ -210,12 +210,12 @@ class ParamSpikeRMSLL:
         stop_band=80,
         rms_window=0.02,
         ll_window=0.01,
-        rms_thres=3.0,
-        ll_thres=3.0,
-        peak_thres=4.0,
+        rms_thres=5.0,
+        ll_thres=5.0,
+        peak_thres=6.0,
         min_window=0.015,
-        max_window=0.07,
-        min_gap=0.05,
+        max_window=0.05,
+        min_gap=0.08,
         n_jobs=8,
     ):
         self.sample_freq = sample_freq
