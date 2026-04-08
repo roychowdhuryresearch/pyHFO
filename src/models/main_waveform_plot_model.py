@@ -27,6 +27,7 @@ class MainWaveformPlotModel:
         self.n_channels_to_plot = 10
         self.filtered = False
         self.normalize_vertical = False
+        self.vertical_amplitude_scale = 1.0
         self._display_cache = {}
         self._overlay_cache = {}
         self._current_display_time = np.array([])
@@ -148,6 +149,24 @@ class MainWaveformPlotModel:
         self._current_full_window_data = None
         self._current_raw_window_data = None
         self._current_full_window_key = None
+
+    def set_vertical_amplitude_scale(self, vertical_amplitude_scale: float):
+        try:
+            vertical_amplitude_scale = float(vertical_amplitude_scale)
+        except (TypeError, ValueError):
+            vertical_amplitude_scale = 1.0
+        if not np.isfinite(vertical_amplitude_scale) or vertical_amplitude_scale <= 0:
+            vertical_amplitude_scale = 1.0
+        if abs(float(self.vertical_amplitude_scale) - vertical_amplitude_scale) < 1e-9:
+            return
+        self.vertical_amplitude_scale = vertical_amplitude_scale
+        self._display_cache = {}
+        self._current_full_window_data = None
+        self._current_raw_window_data = None
+        self._current_full_window_key = None
+
+    def get_vertical_amplitude_scale(self):
+        return float(self.vertical_amplitude_scale)
         
     def get_waveform_color(self):
         return self.color_dict["waveform"]
@@ -261,6 +280,12 @@ class MainWaveformPlotModel:
         eeg_data_to_display = (eeg_data_to_display - means) / self.stds
         eeg_data_to_display[np.isnan(eeg_data_to_display)] = 0
         return eeg_data_to_display
+
+    def _apply_vertical_amplitude_scale(self, eeg_data_to_display):
+        scale = float(self.vertical_amplitude_scale or 1.0)
+        if abs(scale - 1.0) < 1e-9:
+            return eeg_data_to_display
+        return eeg_data_to_display * scale
     
     def get_all_current_eeg_data_to_display(self):
         start_idx, end_idx = self._current_sample_bounds()
@@ -270,6 +295,7 @@ class MainWaveformPlotModel:
             tuple(self.channel_indices_to_plot),
             self.filtered,
             self.normalize_vertical,
+            self.vertical_amplitude_scale,
             self._target_render_points(),
         )
         cached = self._display_cache.get(cache_key)
@@ -280,7 +306,9 @@ class MainWaveformPlotModel:
                 full_window_data, _ = self.backend.get_eeg_data(start_idx, end_idx, self.filtered)
                 raw_window_data = full_window_data[self.channel_indices_to_plot, :]
                 self._current_raw_window_data = raw_window_data
-                self._current_full_window_data = self._normalize_window(raw_window_data.copy())
+                self._current_full_window_data = self._apply_vertical_amplitude_scale(
+                    self._normalize_window(raw_window_data.copy())
+                )
                 self._current_full_window_start_idx = start_idx
                 self._current_full_window_key = cache_key
             return cached[1:]
@@ -288,7 +316,9 @@ class MainWaveformPlotModel:
         eeg_data_to_display, _ = self.backend.get_eeg_data(start_idx, end_idx, self.filtered)
         eeg_data_to_display = eeg_data_to_display[self.channel_indices_to_plot,:]
         raw_window_data = eeg_data_to_display.copy()
-        eeg_data_to_display = self._normalize_window(eeg_data_to_display.copy())
+        eeg_data_to_display = self._apply_vertical_amplitude_scale(
+            self._normalize_window(eeg_data_to_display.copy())
+        )
 
         self._current_full_window_data = eeg_data_to_display.copy()
         self._current_raw_window_data = raw_window_data
@@ -306,11 +336,11 @@ class MainWaveformPlotModel:
             # Set the length of the scale lines
             y_100_length = 50  # 100 microvolts
             offset_value = 6
-            y_scale_length = y_100_length / self.stds
+            y_scale_length = (y_100_length / self.stds) * float(self.vertical_amplitude_scale)
         else:
             y_100_length = 100  # 100 microvolts
             offset_value = 6
-            y_scale_length = y_100_length / self.stds
+            y_scale_length = (y_100_length / self.stds) * float(self.vertical_amplitude_scale)
         self._current_offset_value = float(offset_value)
 
         payload = (time_to_display, eeg_data_to_display, y_100_length, y_scale_length, offset_value)

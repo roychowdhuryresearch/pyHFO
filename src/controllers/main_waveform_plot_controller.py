@@ -41,6 +41,12 @@ class MainWaveformPlotController:
 
     def set_normalize_vertical(self, normalize_vertical:bool):
         self.model.set_normalize_vertical(normalize_vertical)
+
+    def set_vertical_amplitude_scale(self, vertical_amplitude_scale: float):
+        self.model.set_vertical_amplitude_scale(vertical_amplitude_scale)
+
+    def get_vertical_amplitude_scale(self):
+        return self.model.get_vertical_amplitude_scale()
     
     def update_channel_names(self, new_channel_names):
         self.model.update_channel_names(new_channel_names)

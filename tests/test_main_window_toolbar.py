@@ -243,6 +243,14 @@ def _dispatch_waveform_native_zoom(window, value):
     return handled, event
 
 
+def _click_spinbox_stepper(widget, subcontrol):
+    option = QtWidgets.QStyleOptionSpinBox()
+    widget.initStyleOption(option)
+    rect = widget.style().subControlRect(QtWidgets.QStyle.CC_SpinBox, option, subcontrol, widget)
+    assert rect.isValid()
+    QtTest.QTest.mouseClick(widget, QtCore.Qt.LeftButton, pos=rect.center())
+
+
 def _assert_main_workspace_busy(window, busy):
     expected_enabled = not busy
     for widget in (
@@ -291,12 +299,20 @@ def test_waveform_toolbar_uses_direct_tool_rows_and_icons(monkeypatch, qapp):
         assert window.go_to_time_button.text() == "Go"
         assert window.display_time_window_input.prefix() == "Win "
         assert window.display_time_window_input.suffix() == " s"
+        assert window.display_time_window_input.buttonSymbols() == QtWidgets.QAbstractSpinBox.UpDownArrows
+        assert window.display_time_window_input.property("waveformStepper") is True
         assert window.Time_Increment_Input.prefix() == "Step "
         assert window.Time_Increment_Input.suffix() == "%"
         assert window.n_channel_input.prefix() == "Vis "
+        assert window.waveform_amplitude_input.prefix() == "Amp "
+        assert window.waveform_amplitude_input.suffix() == "x"
+        assert window.waveform_amplitude_input.buttonSymbols() == QtWidgets.QAbstractSpinBox.UpDownArrows
+        assert window.waveform_amplitude_input.property("waveformStepper") is True
         assert window.go_to_time_input.prefix() == "Go "
         assert window.go_to_time_input.suffix() == " s"
+        assert window.go_to_time_input.property("waveformStepper") is False
         preset_height = window.graph_window_preset_buttons[0].height()
+        assert window.waveform_amplitude_input.height() == preset_height
         assert window.go_to_time_input.height() == preset_height
         assert window.event_position_label.height() == preset_height
         assert window.prev_event_button.height() == preset_height
@@ -305,6 +321,7 @@ def test_waveform_toolbar_uses_direct_tool_rows_and_icons(monkeypatch, qapp):
         assert window.event_position_label.parent().property("waveformSlot") is True
         assert window.montage_status_badge.parent().property("waveformSlot") is True
         assert window.measurement_status_badge.parent().property("waveformSlot") is True
+        assert window.waveform_amplitude_input.parent().property("waveformSlot") is True
         assert window.go_to_time_input.parent().property("waveformSlot") is True
         assert window.montage_status_badge.parent().width() >= window.montage_status_badge.fontMetrics().horizontalAdvance("Adj. Bipolar") + 12
         assert window.montage_status_slot.isVisible() is False
@@ -317,6 +334,7 @@ def test_waveform_toolbar_uses_direct_tool_rows_and_icons(monkeypatch, qapp):
         assert window.cursor_tool_button.isCheckable() is True
         assert window.hotspot_tool_button.text() == "Hotspot"
         assert [button.text() for button in window.graph_window_preset_buttons] == ["2 s", "5 s", "10 s", "20 s"]
+        assert all(not button.isVisibleTo(window) for button in window.graph_window_preset_buttons)
         assert [button.text() for button in window.graph_channel_preset_buttons] == ["8 ch", "16 ch", "32 ch", "Max"]
 
         assert not window.prev_event_button.icon().isNull()
@@ -1808,6 +1826,61 @@ def test_go_to_time_button_clamps_to_recording_bounds(monkeypatch, qapp, tiny_fi
 
         assert abs(float(window.waveform_plot.t_start)) < 1e-6
         assert abs(float(window.go_to_time_input.value())) < 1e-6
+    finally:
+        window.close()
+        _process_events(qapp)
+
+
+def test_waveform_amplitude_input_scales_the_main_window_signal(monkeypatch, qapp, tiny_fif_path):
+    window = _create_window(monkeypatch, qapp)
+    try:
+        _load_recording(window, tiny_fif_path, qapp)
+
+        plot_model = window.waveform_plot.main_waveform_plot_controller.model
+        base_data, _, base_scale_length, base_offset_value = plot_model.get_all_current_eeg_data_to_display()
+
+        window.waveform_amplitude_input.setValue(2.0)
+        window.model.waveform_plot_button_clicked()
+        _process_events(qapp, cycles=6)
+
+        scaled_data, _, scaled_scale_length, scaled_offset_value = plot_model.get_all_current_eeg_data_to_display()
+
+        assert window.waveform_plot.get_vertical_amplitude_scale() == 2.0
+        assert scaled_offset_value == base_offset_value
+        assert abs(scaled_scale_length - (base_scale_length * 2.0)) < 1e-6
+        assert np.allclose(scaled_data, base_data * 2.0)
+    finally:
+        window.close()
+        _process_events(qapp)
+
+
+def test_waveform_amplitude_stepper_updates_signal_immediately(monkeypatch, qapp, tiny_fif_path):
+    window = _create_window(monkeypatch, qapp)
+    try:
+        _load_recording(window, tiny_fif_path, qapp)
+
+        initial_scale = float(window.waveform_plot.get_vertical_amplitude_scale())
+        _click_spinbox_stepper(window.waveform_amplitude_input, QtWidgets.QStyle.SC_SpinBoxUp)
+        _process_events(qapp, cycles=6)
+
+        assert float(window.waveform_amplitude_input.value()) > initial_scale
+        assert float(window.waveform_plot.get_vertical_amplitude_scale()) == float(window.waveform_amplitude_input.value())
+    finally:
+        window.close()
+        _process_events(qapp)
+
+
+def test_waveform_window_stepper_updates_plot_immediately(monkeypatch, qapp, tiny_fif_path):
+    window = _create_window(monkeypatch, qapp)
+    try:
+        _load_recording(window, tiny_fif_path, qapp)
+
+        initial_window = float(window.waveform_plot.get_time_window())
+        _click_spinbox_stepper(window.display_time_window_input, QtWidgets.QStyle.SC_SpinBoxDown)
+        _process_events(qapp, cycles=6)
+
+        assert float(window.display_time_window_input.value()) < initial_window
+        assert float(window.waveform_plot.get_time_window()) == float(window.display_time_window_input.value())
     finally:
         window.close()
         _process_events(qapp)
