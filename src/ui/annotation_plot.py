@@ -643,7 +643,9 @@ class AnnotationPlot(pg.GraphicsLayoutWidget):
                 vmin, vmax = percentile_limits(view_data, lower=8.0, upper=99.7)
             else:
                 vmin, vmax = percentile_limits(tf_display, lower=8.0, upper=99.7)
-            image_item = pg.ImageItem(tf_display)
+            # The spectrogram array is indexed as [frequency, time], so force row-major
+            # mapping to keep time on x and frequency on y regardless of pyqtgraph defaults.
+            image_item = pg.ImageItem(tf_display, axisOrder="row-major")
             image_item.setLookupTable(self._get_lut())
             image_item.setLevels((vmin, vmax))
             image_item.setRect(QtCore.QRectF(full_start_index / fs, min_freq, (full_end_index - full_start_index) / fs, max_freq - min_freq))

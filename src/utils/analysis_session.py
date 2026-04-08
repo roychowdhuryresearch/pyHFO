@@ -12,6 +12,7 @@ from src.hfo_feature import HFO_Feature
 from src.param.param_classifier import ParamClassifier
 from src.param.param_detector import ParamDetector
 from src.param.param_filter import ParamFilter, ParamFilterSpindle
+from src.spike_feature import SpikeFeature
 from src.spindle_feature import SpindleFeature
 
 
@@ -42,6 +43,15 @@ def _restore_classifier_param(payload: dict | None):
 def _restore_event_features(biomarker_type: str, payload: dict | None):
     if not payload:
         return None
+    if biomarker_type == "Spike":
+        feature = SpikeFeature.from_dict(payload)
+        feature.artifact_predictions = np.array(payload.get("artifact_predictions", getattr(feature, "artifact_predictions", np.array([]))))
+        feature.accepted_predictions = np.array(payload.get("accepted_predictions", getattr(feature, "accepted_predictions", np.array([]))))
+        feature.artifact_annotations = np.array(payload.get("artifact_annotations", getattr(feature, "artifact_annotations", np.array([]))))
+        feature.accepted_annotations = np.array(payload.get("accepted_annotations", getattr(feature, "accepted_annotations", np.array([]))))
+        feature.annotated = np.array(payload.get("annotated", getattr(feature, "annotated", np.array([]))))
+        feature._refresh_annotation_counts()
+        return feature
     if biomarker_type == "Spindle":
         feature = SpindleFeature.from_dict(payload)
         artifact_predictions = np.array(payload.get("artifact_predictions", getattr(feature, "artifact_predictions", np.array([]))))
@@ -69,6 +79,12 @@ def serialize_event_features(biomarker_type: str, event_features):
         return None
     payload = event_features.to_dict()
     payload["annotated"] = np.array(getattr(event_features, "annotated", np.array([])))
+    if biomarker_type == "Spike":
+        payload["artifact_annotations"] = np.array(getattr(event_features, "artifact_annotations", np.array([])))
+        payload["accepted_annotations"] = np.array(getattr(event_features, "accepted_annotations", np.array([])))
+        payload["artifact_predictions"] = np.array(getattr(event_features, "artifact_predictions", np.array([])))
+        payload["accepted_predictions"] = np.array(getattr(event_features, "accepted_predictions", np.array([])))
+        return payload
     if biomarker_type == "Spindle":
         payload["artifact_annotations"] = np.array(getattr(event_features, "artifact_annotations", np.array([])))
         payload["spike_annotations"] = np.array(getattr(event_features, "spike_annotations", np.array([])))

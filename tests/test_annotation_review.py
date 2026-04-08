@@ -8,9 +8,9 @@ from src.ui.annotation_plot import AnnotationPlot, FFTPlot
 
 
 class DummyReviewBackend:
-    def __init__(self, biomarker_type, event_features, eeg_data=None):
+    def __init__(self, biomarker_type, event_features, eeg_data=None, sample_freq=2000):
         self.biomarker_type = biomarker_type
-        self.sample_freq = 2000
+        self.sample_freq = sample_freq
         self.param_filter = None
         self.filter_data = None
         event_channels = getattr(event_features, "channel_names", np.array([]))
@@ -26,7 +26,8 @@ class DummyReviewBackend:
                     self.channel_names = self.channel_names[: eeg_data.shape[0]]
             self.eeg_data = eeg_data
         else:
-            timeline = np.linspace(0, 20, 8000)
+            total_samples = int(self.sample_freq * 4)
+            timeline = np.linspace(0, total_samples / self.sample_freq, total_samples, endpoint=False)
             waves = []
             for idx, _channel in enumerate(self.channel_names):
                 phase = idx * (np.pi / 4)
@@ -328,6 +329,54 @@ def test_annotation_plot_places_high_frequency_at_top(qapp):
     assert metadata["high_frequency_at_top"] is True
     assert metadata["cmap"] == "magma"
     assert plot.get_axis_ranges()[2][1][0] < plot.get_axis_ranges()[2][1][1]
+
+
+def test_annotation_plot_maps_time_frequency_image_as_row_major(qapp):
+    feature = HFO_Feature(np.array(["A1"]), np.array([[1000, 1100]]), sample_freq=2000)
+    t = np.arange(8000) / 2000
+    burst = np.zeros_like(t)
+    mask = (t >= 0.5) & (t <= 0.56)
+    burst[mask] = np.sin(2 * np.pi * 120 * t[mask]) * 100
+    eeg_data = np.vstack([burst, burst])
+    backend = DummyReviewBackend("HFO", feature, eeg_data=eeg_data)
+    plot = AnnotationPlot(backend=backend)
+
+    plot.plot_full_data(2, 1000, 1100, "A1")
+
+    image_item = plot.tf_image_items[2]
+    assert image_item is not None
+    assert image_item.axisOrder == "row-major"
+
+
+def test_annotation_frequency_controls_start_in_sync_with_tf_plot(qapp):
+    feature = HFO_Feature(np.array(["A1"]), np.array([[1000, 1100]]), sample_freq=2000)
+    backend = DummyReviewBackend("HFO", feature)
+    window = Annotation(backend=backend)
+    try:
+        tf_limits = tuple(int(round(value)) for value in window.annotation_controller.model.waveform_plot.get_axis_ranges()[2][1])
+        fft_limits = (
+            window.annotation_controller.model.fft_plot.min_freq,
+            window.annotation_controller.model.fft_plot.max_freq,
+        )
+        assert (window.spinBox_minFreq.value(), window.spinBox_maxFreq.value()) == tf_limits
+        assert fft_limits == tf_limits
+    finally:
+        window.close()
+
+
+def test_annotation_frequency_controls_clamp_to_nyquist(qapp):
+    feature = HFO_Feature(np.array(["A1"]), np.array([[100, 140]]), sample_freq=200)
+    backend = DummyReviewBackend("HFO", feature, sample_freq=200)
+    window = Annotation(backend=backend)
+    try:
+        tf_limits = tuple(int(round(value)) for value in window.annotation_controller.model.waveform_plot.get_axis_ranges()[2][1])
+        assert tf_limits == (1, 100)
+        assert (window.spinBox_minFreq.value(), window.spinBox_maxFreq.value()) == tf_limits
+        assert window.annotation_controller.model.fft_plot.max_freq == 100
+        assert window.spinBox_minFreq.maximum() == 99
+        assert window.spinBox_maxFreq.maximum() == 100
+    finally:
+        window.close()
 
 
 def test_fft_plot_displays_peak_frequency_badge(qapp):

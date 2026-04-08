@@ -1,4 +1,4 @@
-# PyHFO 3.0.1 User Manual
+# PyHFO 3.0.2 User Manual
 
 This manual is for day-to-day PyHFO use. It is written as an operator guide rather than a developer note. The goal is to answer four practical questions:
 
@@ -40,7 +40,7 @@ If you are training someone new, teach them these habits first:
 
 ## Figure Provenance
 
-All screenshots in this manual were regenerated on April 4, 2026 from the current `main` branch code for `PyHFO 3.0.1`.
+All screenshots in this manual were regenerated on April 8, 2026 from the current `v3.0.2` code line for `PyHFO 3.0.2`.
 
 Use this as the trust rule for the figures:
 
@@ -59,7 +59,7 @@ PyHFO is a desktop EEG review application for:
 - session persistence
 - report and workbook export
 
-The current `3.0.1` release centers around one unified workspace instead of the older single-purpose EDF detector layout.
+The current `3.0.2` release centers around one unified workspace instead of the older single-purpose EDF detector layout.
 
 ## 2. Supported Inputs And Outputs
 
@@ -177,7 +177,7 @@ Current expectation for `Spike` mode:
 3. If macOS warns about the app or the DMG, clear quarantine:
 
 ```bash
-xattr -cr PyHFO-3.0.1-macos-arm64.dmg
+xattr -cr PyHFO-3.0.2-macos-arm64.dmg
 ```
 
 4. Open the DMG.
@@ -233,7 +233,7 @@ Current main workspace in a completed HFO review state:
 
 ![Current PyHFO main workspace with a real EDF-derived excerpt](img/manual/hfo-main-workspace.png)
 
-This figure shows the current `3.0.1` main workspace after HFO detection and accepted-run selection on a five-channel HFO review window derived from `SM_B_ave.edf`, captured at the fixed manual layout size.
+This figure shows the current `3.0.2` main workspace after HFO detection and accepted-run selection on a five-channel HFO review window derived from `SM_B_ave.edf`, captured at the fixed manual layout size.
 
 ## 5A. First-Time Startup Scenarios
 
@@ -377,41 +377,41 @@ Use this immediately after loading an EEG file to confirm that the file opened c
 
 ### 6.4 Waveform control bar
 
-Above the waveform display, PyHFO provides controls for visual navigation:
+Above the waveform display, PyHFO provides direct controls for visual navigation:
 
-- `Number of Channels to Display`
-- `Display Time Window`
-- `Display Time Window Increment`
+- `Win`: exact visible time span
+- `Step`: navigation jump size as a percentage of the current window
+- `Amp`: display-only waveform amplitude scaling
+- `Vis`: current visible channel count, plus nearby `8 ch`, `16 ch`, `32 ch`, and `Max` presets
 
-Use them to control how much EEG is visible at once.
+Use them to control how much EEG is visible at once and how aggressively the view moves.
 
 Practical interpretation:
 
-- fewer displayed channels makes navigation easier
-- a smaller time window gives more temporal detail
-- the increment controls how far the window advances during navigation
+- fewer visible channels makes navigation easier
+- a smaller `Win` gives more temporal detail
+- `Step` controls how far the waveform advances during navigation
+- `Amp` only changes display scaling, not the underlying signal values
 
 ### 6.5 Waveform utility controls
 
 Near the waveform area you will also see:
 
-- `Normalize Vertically`
-- `Toggle Filtered`
-- `Filter 60 Hz`
-- `Bipolar Selection`
-- `Choose Channels`
-- `Update Plot`
-- `N Jobs`
+- `Channels`
+- `Montage`
+- `Cursor`
+- `Measure`
+- `Overlap`
+- snapshot export button
 
 What these do:
 
-- `Normalize Vertically`: rescales traces to a more uniform visual amplitude.
-- `Toggle Filtered`: switch the displayed waveform between raw and filtered views.
-- `Filter 60 Hz`: apply line-noise suppression in the display workflow.
-- `Bipolar Selection`: configure bipolar display pairs.
-- `Choose Channels`: restrict the visible channel set.
-- `Update Plot`: refresh the current waveform display after control changes.
-- `N Jobs`: set the worker count for supported processing steps.
+- `Channels`: restrict the visible channel set.
+- `Montage`: configure derived channel layouts or bipolar pairs.
+- `Cursor`: enable single-point inspection on the waveform.
+- `Measure`: enable interval and amplitude measurements on the waveform.
+- `Overlap`: open overlap or agreement views when that workflow is available.
+- snapshot export button: save the current waveform view as an image.
 
 ### 6.5A Navigation and review helpers that may appear
 
@@ -522,9 +522,7 @@ These are the compact badges and tool-state indicators that tell you what scope 
 - `Tool Browse`: normal browse mode is active. Cursor, measure, or other inspect modes are not currently taking over the waveform.
 - `Reset View`: clear temporary focus modes and return toward the normal browse state. Use this when you are unsure which scope or tool mode is still active.
 - `No events`: no event-navigation target is currently available in the active run.
-- `Visible`: status badge showing how many channels are currently visible.
-- `Win`: status showing the current visible waveform window length.
-- `Step`: status showing how far the waveform advances when you move forward or backward.
+- `Vis`: status badge showing how many channels are currently visible.
 
 Practical rule:
 
@@ -538,9 +536,9 @@ These tools change how the EEG signal is displayed, not which run is accepted.
 - `Filt`: show the filtered waveform. Use this when you want to inspect the processed signal rather than the raw trace.
 - `60 Hz`: toggle the 60 Hz cleanup view.
 - `Norm`: normalize the visible channels so their amplitudes are easier to compare visually.
-- `2 s`, `5 s`, `10 s`, `20 s`: preset visible time windows.
-- `Win`: numeric window field. This is the exact visible time span.
+- `Win`: numeric window field with stepper arrows. This is the exact visible time span.
 - `Step`: numeric advance field. This controls how far the waveform jumps when you move forward or backward.
+- `Amp`: numeric amplitude field with stepper arrows. This scales the waveform display only.
 - `Go`: jump to the typed time in seconds.
 - zoom out button: show a longer waveform window.
 - zoom in button: show a shorter waveform window.
@@ -550,6 +548,7 @@ Expected reaction:
 
 - `Raw` and `Filt` change the signal view
 - `Win` and zoom change the time span
+- `Amp` changes the display scale without changing exported values
 - `8 ch` and related buttons change how many traces are visible at once
 - `Go` changes the current time position
 
@@ -624,6 +623,8 @@ Important distinction:
 ### 6.17 Common Tool Shortcuts
 
 The waveform toolbar supports many direct keyboard shortcuts.
+
+The time-window preset shortcuts still work in the current layout even though the dedicated `2 s`, `5 s`, `10 s`, and `20 s` buttons are no longer shown in the toolbar.
 
 - `1`: set waveform window to `2 s`
 - `2`: set waveform window to `5 s`
@@ -912,9 +913,9 @@ This is the recommended full-workspace workflow.
 
 Recommended first adjustments:
 
-- reduce `Number of Channels to Display` if the view is crowded
-- choose a manageable `Display Time Window`
-- click `Choose Channels` if you only want a subset
+- reduce `Vis` or use `8 ch`, `16 ch`, `32 ch`, or `Max` if the view is crowded
+- choose a manageable `Win`
+- click `Channels` if you only want a subset
 
 ### Step 4. Configure filtering
 
@@ -1116,7 +1117,7 @@ What to expect:
 - waveform review is available
 - session loading and saving are available
 - export pipeline is available
-- automated spike detection is not the primary release target in `3.0.1`
+- automated spike detection is not the primary release target in `3.0.2`
 
 ## 13. Quick Detection Workflow
 
@@ -1249,7 +1250,7 @@ Current annotation window on a real EDF-derived HFO event:
 
 ![Annotation window using a real EDF-derived HFO event](img/manual/annotation-real-edf.png)
 
-This figure shows the current tracing, filtered tracing, time-frequency panel, and right-side review controls in the `3.0.1` annotation workflow, captured at the fixed manual layout size.
+This figure shows the current tracing, filtered tracing, time-frequency panel, and right-side review controls in the `3.0.2` annotation workflow, captured at the fixed manual layout size.
 
 ### 14.1 Main annotation actions
 
@@ -1911,7 +1912,7 @@ That sequence covers almost everything that matters in routine use.
 
 This manual matches:
 
-- `PyHFO 3.0.1`
+- `PyHFO 3.0.2`
 
 This release includes:
 
