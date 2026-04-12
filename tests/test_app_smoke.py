@@ -312,12 +312,12 @@ def test_main_window_spindle_and_spike_branch_smoke(monkeypatch, qapp, tmp_path)
         _process_events(qapp)
 
         assert window.model.biomarker_type == "Spike"
-        assert window.model.biomarker_supports_detection() is False
+        assert window.model.biomarker_supports_detection() is True
         assert window.model.biomarker_supports_classification() is False
         assert window.detector_run_button.isEnabled() is False
         assert window.classifier_run_button.isEnabled() is False
-        assert window.detector_run_button.text() == "Review Only"
-        assert window.classifier_run_button.text() == "Review Only"
+        assert window.detector_run_button.text() == "Run RMS/LL"
+        assert window.classifier_run_button.text() == "Unavailable"
 
         spindle_session_path = _build_spindle_session(tmp_path)
         window.model._offer_direct_annotation = lambda: None

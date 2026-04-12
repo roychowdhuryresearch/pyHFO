@@ -19,10 +19,11 @@ except ImportError:  # pragma: no cover - optional runtime dependency
     torch = None
 from src.hfo_app import HFO_App
 from src.hfo_feature import HFO_Feature
+from src.spike_app import SpikeApp
 from src.spindle_app import SpindleApp
 from src.ui.channels_selection import ChannelSelectionWindow
 from src.param.param_classifier import ParamClassifier
-from src.param.param_detector import ParamDetector, ParamSTE, ParamMNI, ParamHIL, ParamYASA
+from src.param.param_detector import ParamDetector, ParamSTE, ParamMNI, ParamHIL, ParamYASA, ParamSpikeRMSLL
 from src.param.param_filter import ParamFilter, ParamFilterSpindle
 from src.ui.bipolar_channel_selection import BipolarChannelSelectionWindow
 from src.ui.annotation import Annotation
@@ -188,6 +189,10 @@ class MainWindowModel(QObject):
             default_param = ParamFilterSpindle()
             min_pass_band = 0.1
             gap_floor = 0.5
+        elif self.biomarker_type == "Spike":
+            default_param = ParamFilter(fp=4, fs=80, rp=0.5, rs=93, sample_freq=self._recording_sample_frequency() or 2000)
+            min_pass_band = 0.5
+            gap_floor = 4.0
         else:
             default_param = ParamFilter()
             min_pass_band = 1.0
@@ -202,7 +207,12 @@ class MainWindowModel(QObject):
         preferred_gap = max(gap_floor, stop_band * 0.15)
         pass_band = min(float(default_param.fp), stop_band - preferred_gap)
         if pass_band <= 0:
-            pass_band = max(min_pass_band, stop_band * (0.45 if self.biomarker_type == "Spindle" else 0.8))
+            if self.biomarker_type == "Spindle":
+                pass_band = max(min_pass_band, stop_band * 0.45)
+            elif self.biomarker_type == "Spike":
+                pass_band = max(min_pass_band, stop_band * 0.08)
+            else:
+                pass_band = max(min_pass_band, stop_band * 0.8)
         pass_band = min(pass_band, stop_band - 0.1)
         pass_band = max(min_pass_band, pass_band)
         if pass_band >= stop_band:
@@ -332,6 +342,14 @@ class MainWindowModel(QObject):
             "yasa_thresh_rel_pow_input": {"minimum": 0.0},
             "yasa_thresh_corr_input": {"minimum": 0.0},
             "yasa_thresh_rms_input": {"minimum": 0.0},
+            "spike_rms_window_input": {"minimum": 0.0},
+            "spike_ll_window_input": {"minimum": 0.0},
+            "spike_min_duration_input": {"minimum": 0.0},
+            "spike_max_duration_input": {"minimum": 0.0},
+            "spike_min_gap_input": {"minimum": 0.0},
+            "spike_rms_threshold_input": {"minimum": 0.0},
+            "spike_ll_threshold_input": {"minimum": 0.0},
+            "spike_peak_threshold_input": {"minimum": 0.0},
         }
         for attr, kwargs in detector_field_specs.items():
             widget = getattr(self.window, attr, None)
@@ -385,11 +403,7 @@ class MainWindowModel(QObject):
         raise ValueError("Device must be either cpu or cuda:0.")
 
     def _create_spike_review_backend(self):
-        backend = HFO_App()
-        backend.biomarker_type = "Spike"
-        if hasattr(backend, "analysis_session"):
-            backend.analysis_session.biomarker_type = "Spike"
-        return backend
+        return SpikeApp()
 
     def set_biomarker_type_and_init_backend(self, bio_type):
         self.biomarker_type = bio_type
@@ -410,7 +424,7 @@ class MainWindowModel(QObject):
         return self.biomarker_type or "event"
 
     def biomarker_supports_detection(self):
-        return self.biomarker_type in {'HFO', 'Spindle'}
+        return self.biomarker_type in {'HFO', 'Spindle', 'Spike'}
 
     def biomarker_supports_classification(self):
         return self.biomarker_type in {'HFO', 'Spindle'}
@@ -574,6 +588,7 @@ class MainWindowModel(QObject):
             "MNI": getattr(self.window, "mni_detect_button", None),
             "HIL": getattr(self.window, "hil_detect_button", None),
             "YASA": getattr(self.window, "yasa_detect_button", None),
+            "RMS/LL": getattr(self.window, "spike_detect_button", None),
         }
         return self._unique_alive_widgets(
             [
@@ -1608,7 +1623,7 @@ class MainWindowModel(QObject):
         annotation_labels = {
             "HFO": ["Pathological", "Physiological", "Artifact"],
             "Spindle": ["Real", "Spike", "Artifact"],
-            "Spike": [],
+            "Spike": ["Accepted", "Artifact"],
         }.get(self.biomarker_type or "", [])
         visible_quick_labels = False
         for index, button in enumerate(getattr(self.window, "graph_label_buttons", [])):
@@ -2018,6 +2033,11 @@ class MainWindowModel(QObject):
             self.init_default_yasa_input_params()
 
             self.set_yasa_input_len(8)
+        elif biomarker_type == 'Spike':
+            self.init_default_filter_input_params()
+            self.init_default_spike_input_params()
+
+            self.set_spike_input_len(8)
 
     def init_default_filter_input_params(self):
         self._sync_filter_inputs_from_param(self._recommended_filter_param())
@@ -2079,6 +2099,17 @@ class MainWindowModel(QObject):
         self.window.yasa_thresh_rel_pow_input.setText(str(default_params.rel_pow))
         self.window.yasa_thresh_corr_input.setText(str(default_params.corr))
         self.window.yasa_thresh_rms_input.setText(str(default_params.rms))
+
+    def init_default_spike_input_params(self):
+        default_params = ParamSpikeRMSLL()
+        self.window.spike_rms_window_input.setText(str(default_params.rms_window))
+        self.window.spike_ll_window_input.setText(str(default_params.ll_window))
+        self.window.spike_min_duration_input.setText(str(default_params.min_window))
+        self.window.spike_max_duration_input.setText(str(default_params.max_window))
+        self.window.spike_min_gap_input.setText(str(default_params.min_gap))
+        self.window.spike_rms_threshold_input.setText(str(default_params.rms_thres))
+        self.window.spike_ll_threshold_input.setText(str(default_params.ll_thres))
+        self.window.spike_peak_threshold_input.setText(str(default_params.peak_thres))
 
     def _settings_store(self):
         return QSettings("PyBrain", "PyBrain")
@@ -3054,11 +3085,14 @@ class MainWindowModel(QObject):
             safe_connect_signal_slot(self.window.YASA_save_button.clicked, self.save_yasa_params)
             # self.window.YASA_save_button.setEnabled(False)
         elif biomarker_type == 'Spike':
+            safe_connect_signal_slot(self.window.overview_filter_button.clicked, self.filter_data)
             self.window.overview_filter_button.setEnabled(False)
-            self.window.detect_all_button.setEnabled(False)
-            self.window.save_csv_button.setEnabled(False)
-            self.window.save_npz_button.setEnabled(False)
-            self._set_report_export_enabled(False)
+
+            safe_connect_signal_slot(self.window.spike_detect_button.clicked, self.detect_Spikes)
+            self.window.spike_detect_button.setEnabled(False)
+
+            safe_connect_signal_slot(self.window.SPIKE_save_button.clicked, self.save_spike_params)
+            self.window.SPIKE_save_button.setEnabled(False)
         self._configure_main_window_input_conventions()
         self.update_waveform_toolbar_state()
         self.update_setup_action_state()
@@ -3259,11 +3293,16 @@ class MainWindowModel(QObject):
                                                  (f"\n Accepted run: {accepted_run.detector_name}" if accepted_run else "") + \
                                                  top_channel)
         elif self.biomarker_type == 'Spike':
-            self.window.statistics_label.setText(
-                " Spike review summary\n"
-                " Use this mode to inspect signal, choose channels, and manage saved sessions.\n"
-                " Detector-specific spike automation is not yet available in this workspace."
-            )
+            num_candidates = self.backend.event_features.get_num_biomarker()
+            counts = self.backend.event_features.get_annotation_counts()
+            self.window.statistics_label.setText(" Total spike candidates: " + str(num_candidates) + \
+                                                 "\n Artifacts: " + str(counts.get("Artifact", 0)) + \
+                                                 "\n Accepted spikes: " + str(counts.get("Accepted", 0)) + \
+                                                 "\n Pending review: " + str(max(num_candidates - int(np.sum(self.backend.event_features.annotated > 0)), 0)) + \
+                                                 f"\n Runs in session: {run_count}" + \
+                                                 (f"\n Active run: {active_run.detector_name}" if active_run else "") + \
+                                                 (f"\n Accepted run: {accepted_run.detector_name}" if accepted_run else "") + \
+                                                 top_channel)
         self.update_run_management_panel()
         self.update_decision_overview()
         self._sync_workspace_state()
@@ -3921,18 +3960,13 @@ class MainWindowModel(QObject):
             detector_apply.setText("Apply")
             detector_apply.setToolTip(f"Apply the current {detector_name} detector parameters")
         if detector_run is not None:
-            if self.biomarker_type == "Spike":
-                detector_run.setText("Review Only")
-                detector_run.setEnabled(False)
-                detector_run.setToolTip("Spike mode currently supports review and import, not automated detection.")
+            detector_run.setText(f"Run {detector_name}")
+            enabled = has_recording and supports_detection and (self.biomarker_type != "Spindle" or yasa_ready)
+            detector_run.setEnabled(enabled)
+            if self.biomarker_type == "Spindle" and not yasa_ready:
+                detector_run.setToolTip("Install the optional 'yasa' package to run spindle detection.")
             else:
-                detector_run.setText(f"Run {detector_name}")
-                enabled = has_recording and supports_detection and (self.biomarker_type != "Spindle" or yasa_ready)
-                detector_run.setEnabled(enabled)
-                if self.biomarker_type == "Spindle" and not yasa_ready:
-                    detector_run.setToolTip("Install the optional 'yasa' package to run spindle detection.")
-                else:
-                    detector_run.setToolTip(f"Apply the visible settings and run a new {self.get_biomarker_display_name()} analysis")
+                detector_run.setToolTip(f"Apply the visible settings and run a new {self.get_biomarker_display_name()} analysis")
 
         classifier_apply = getattr(self.window, "classifier_apply_button", None)
         classifier_run = getattr(self.window, "classifier_run_button", None)
@@ -3944,9 +3978,9 @@ class MainWindowModel(QObject):
             classifier_apply.setEnabled(has_recording and custom_mode and supports_classification)
         if classifier_run is not None:
             if self.biomarker_type == "Spike":
-                classifier_run.setText("Review Only")
+                classifier_run.setText("Unavailable")
                 classifier_run.setEnabled(False)
-                classifier_run.setToolTip("Spike mode currently focuses on review rather than automated classification.")
+                classifier_run.setToolTip("Spike classification is not configured in this workflow.")
             else:
                 classifier_run.setText("Classify")
                 classifier_run.setEnabled(has_detection_result and supports_classification)
@@ -3968,6 +4002,7 @@ class MainWindowModel(QObject):
             ("HFO", "MNI"): self.save_mni_params,
             ("HFO", "HIL"): self.save_hil_params,
             ("Spindle", "YASA"): self.save_yasa_params,
+            ("Spike", "RMS/LL"): self.save_spike_params,
         }
         handler = handlers.get((self.biomarker_type, detector_name))
         if handler is None:
@@ -4004,6 +4039,8 @@ class MainWindowModel(QObject):
             self.detect_HFOs()
         elif self.biomarker_type == "Spindle":
             self.detect_Spindles()
+        elif self.biomarker_type == "Spike":
+            self.detect_Spikes()
         else:
             self.handle_unsupported_biomarker_mode(
                 f"{self.get_biomarker_display_name()} mode currently focuses on review rather than automated detection."
@@ -4069,7 +4106,10 @@ class MainWindowModel(QObject):
         if combo is None or tabs is None or index < 0:
             return
         if self.biomarker_type == "Spike":
-            self._set_workflow_message("Spike review mode is active")
+            blocker = QSignalBlocker(tabs)
+            tabs.setCurrentIndex(min(index, max(0, tabs.count() - 1)))
+            del blocker
+            self._set_workflow_message(f"Detector set to {combo.currentText()}")
             self.update_setup_action_state()
             return
         blocker = QSignalBlocker(tabs)
@@ -4198,6 +4238,7 @@ class MainWindowModel(QObject):
             combo.setCurrentIndex(0)
             del blocker
             self._set_classifier_custom_sources_visible(False)
+            self.update_setup_action_state()
             return
 
         classifier_param = self.backend.get_classifier_param() if self.backend is not None and hasattr(self.backend, "get_classifier_param") else None
@@ -4229,6 +4270,7 @@ class MainWindowModel(QObject):
             blocker = QSignalBlocker(combo)
             combo.setCurrentIndex(0)
             del blocker
+            self.update_setup_action_state()
             return
         detector_name = ""
         if self.backend is not None and getattr(self.backend, "param_detector", None) is not None:
@@ -5145,6 +5187,8 @@ class MainWindowModel(QObject):
             self.window.go_to_time_input.setMaximum(max(0.0, self.window.waveform_plot.get_total_time()))
             self.window.go_to_time_input.setValue(0.0)
 
+        self._apply_backend_defaults_if_needed()
+
         if getattr(self.backend, "param_filter", None) is not None:
             self._sync_filter_inputs_from_param(self.backend.param_filter)
         if self.backend.filtered and getattr(self.backend, "param_filter", None) is not None:
@@ -5210,10 +5254,7 @@ class MainWindowModel(QObject):
         elif self.biomarker_type == 'Spindle':
             self._apply_default_spindle_configuration()
         elif self.biomarker_type == 'Spike':
-            self.handle_unsupported_biomarker_mode(
-                "Spike review mode is available, but its dedicated detection backend is not finalized yet.",
-                show_dialog=False,
-            )
+            self._apply_default_spike_configuration()
 
     def _apply_default_hfo_configuration(self):
         try:
@@ -5250,10 +5291,34 @@ class MainWindowModel(QObject):
                 detector_params = {"detector_type": "YASA", "detector_param": default_params.to_dict()}
                 self.backend.set_detector(ParamDetector.from_dict(detector_params))
 
+            if self.backend.param_classifier is None:
+                self.backend.set_default_cpu_classifier()
+
             self.set_detector_param_display()
+            self.set_classifier_param_display()
             self.update_spindle_capability_state()
         except Exception as exc:
             print(f"Warning: Could not set default YASA parameters: {exc}")
+
+    def _apply_default_spike_configuration(self):
+        try:
+            if self.backend.param_filter is None:
+                self.backend.set_filter_parameter(self._recommended_filter_param())
+            self._sync_filter_inputs_from_param(self.backend.param_filter)
+
+            if self.backend.param_detector is None:
+                default_params = ParamSpikeRMSLL(self.backend.sample_freq)
+                default_params.pass_band = float(self.backend.param_filter.fp)
+                default_params.stop_band = float(self.backend.param_filter.fs)
+                default_params.n_jobs = self.backend.n_jobs
+                detector_params = {"detector_type": "RMS/LL", "detector_param": default_params.to_dict()}
+                self.backend.set_detector(ParamDetector.from_dict(detector_params))
+
+            self.set_detector_param_display()
+            if hasattr(self.window, "spike_detect_button"):
+                self.window.spike_detect_button.setEnabled(True)
+        except Exception as exc:
+            print(f"Warning: Could not set default spike parameters: {exc}")
 
     def open_channel_selection(self):
         # Check if EEG data is loaded
@@ -5564,6 +5629,14 @@ class MainWindowModel(QObject):
             self._set_filtered_toggle_state(True)
             self.window.waveform_plot.set_filtered(True)
             self.window.save_npz_button.setEnabled(True)
+        elif self.biomarker_type == 'Spike':
+            self.window.SPIKE_save_button.setEnabled(True)
+            self.window.spike_detect_button.setEnabled(True)
+            self.window.is_data_filtered = True
+            self.window.show_filtered = True
+            self._set_filtered_toggle_state(True)
+            self.window.waveform_plot.set_filtered(True)
+            self.window.save_npz_button.setEnabled(True)
         self.update_status_indicators()
 
     def detect_HFOs(self):
@@ -5580,6 +5653,13 @@ class MainWindowModel(QObject):
         worker = Worker(self._detect)
         self._connect_worker(worker, "Detection", result_handler=self._detect_finished)
 
+    def detect_Spikes(self):
+        print("Detecting Spikes...")
+        self._set_workflow_message(f"Running {self.get_biomarker_display_name()} detection...")
+        self._begin_busy_task("detection", "Detecting", self._detection_busy_buttons())
+        worker = Worker(self._detect)
+        self._connect_worker(worker, "Detection", result_handler=self._detect_finished)
+
     def _detect_finished(self):
         self._end_busy_task()
         # right now do nothing beyond message handler saying that
@@ -5587,7 +5667,7 @@ class MainWindowModel(QObject):
         self.message_handler("Biomarker detected")
         self.update_statistics_label()
         self.window.waveform_plot.set_plot_biomarkers(self._has_case_visible_runs() or bool(self.backend and self.backend.detected))
-        self.window.detect_all_button.setEnabled(True)
+        self.window.detect_all_button.setEnabled(self.biomarker_supports_classification())
         has_events = (
             self.backend.event_features is not None
             and self.backend.event_features.get_num_biomarker() > 0
@@ -5698,7 +5778,7 @@ class MainWindowModel(QObject):
             num_events = len(self.backend.event_features.starts)
             
             # Fix spike_predictions array if it's empty
-            if len(self.backend.event_features.spike_predictions) == 0 and num_events > 0:
+            if hasattr(self.backend.event_features, "spike_predictions") and len(self.backend.event_features.spike_predictions) == 0 and num_events > 0:
                 self.backend.event_features.spike_predictions = np.zeros(num_events)
             
             # Fix ehfo_predictions array if it's empty (for HFO type)
@@ -5735,6 +5815,8 @@ class MainWindowModel(QObject):
         self.window.hil_detect_button.setEnabled(False)
         if hasattr(self.window, "yasa_detect_button"):
             self.window.yasa_detect_button.setEnabled(False)
+        if hasattr(self.window, "spike_detect_button"):
+            self.window.spike_detect_button.setEnabled(False)
         self.window.detect_all_button.setEnabled(False)
         self.window.save_csv_button.setEnabled(False)
         self._set_report_export_enabled(False)
@@ -5747,6 +5829,8 @@ class MainWindowModel(QObject):
         self.window.HIL_save_button.setEnabled(False)
         if hasattr(self.window, "YASA_save_button"):
             self.window.YASA_save_button.setEnabled(False)
+        if hasattr(self.window, "SPIKE_save_button"):
+            self.window.SPIKE_save_button.setEnabled(False)
         self.window.Filter60Button.setEnabled(False)
 
     def set_mni_input_len(self, max_len=5):
@@ -5789,6 +5873,16 @@ class MainWindowModel(QObject):
         self.window.yasa_thresh_rel_pow_input.setMaxLength(max_len)
         self.window.yasa_thresh_corr_input.setMaxLength(max_len)
         self.window.yasa_thresh_rms_input.setMaxLength(max_len)
+
+    def set_spike_input_len(self, max_len=5):
+        self.window.spike_rms_window_input.setMaxLength(max_len)
+        self.window.spike_ll_window_input.setMaxLength(max_len)
+        self.window.spike_min_duration_input.setMaxLength(max_len)
+        self.window.spike_max_duration_input.setMaxLength(max_len)
+        self.window.spike_min_gap_input.setMaxLength(max_len)
+        self.window.spike_rms_threshold_input.setMaxLength(max_len)
+        self.window.spike_ll_threshold_input.setMaxLength(max_len)
+        self.window.spike_peak_threshold_input.setMaxLength(max_len)
 
     def close_other_window(self):
         self.window.close_signal.emit()
@@ -6021,6 +6115,61 @@ class MainWindowModel(QObject):
             self.window.yasa_detect_button.setEnabled(False)
             return False
 
+    def save_spike_params(self):
+        rms_window_raw = self.window.spike_rms_window_input.text()
+        ll_window_raw = self.window.spike_ll_window_input.text()
+        min_duration_raw = self.window.spike_min_duration_input.text()
+        max_duration_raw = self.window.spike_max_duration_input.text()
+        min_gap_raw = self.window.spike_min_gap_input.text()
+        rms_threshold_raw = self.window.spike_rms_threshold_input.text()
+        ll_threshold_raw = self.window.spike_ll_threshold_input.text()
+        peak_threshold_raw = self.window.spike_peak_threshold_input.text()
+
+        try:
+            min_duration = self._parse_float_input(min_duration_raw, "Spike minimum duration", positive=True)
+            max_duration = self._parse_float_input(max_duration_raw, "Spike maximum duration", positive=True)
+            if min_duration >= max_duration:
+                raise ValueError("Spike maximum duration must be greater than the minimum duration.")
+
+            param_dict = {
+                "sample_freq": self.backend.sample_freq or 2000,
+                "pass_band": float(getattr(getattr(self.backend, "param_filter", None), "fp", 4)),
+                "stop_band": float(getattr(getattr(self.backend, "param_filter", None), "fs", 80)),
+                "rms_window": self._parse_float_input(rms_window_raw, "Spike RMS window", positive=True),
+                "ll_window": self._parse_float_input(ll_window_raw, "Spike line-length window", positive=True),
+                "rms_thres": self._parse_float_input(rms_threshold_raw, "Spike RMS threshold", positive=True),
+                "ll_thres": self._parse_float_input(ll_threshold_raw, "Spike line-length threshold", positive=True),
+                "peak_thres": self._parse_float_input(peak_threshold_raw, "Spike peak threshold", positive=True),
+                "min_window": min_duration,
+                "max_window": max_duration,
+                "min_gap": self._parse_float_input(min_gap_raw, "Spike minimum gap", non_negative=True),
+                "n_jobs": self.backend.n_jobs,
+            }
+            detector_params = {"detector_type": "RMS/LL", "detector_param": param_dict}
+            self.backend.set_detector(ParamDetector.from_dict(detector_params))
+
+            self.window.spike_rms_window_display.setText(rms_window_raw)
+            self.window.spike_ll_window_display.setText(ll_window_raw)
+            self.window.spike_min_duration_display.setText(min_duration_raw)
+            self.window.spike_max_duration_display.setText(max_duration_raw)
+            self.window.spike_min_gap_display.setText(min_gap_raw)
+            self.window.spike_rms_threshold_display.setText(rms_threshold_raw)
+            self.window.spike_ll_threshold_display.setText(ll_threshold_raw)
+            self.window.spike_peak_threshold_display.setText(peak_threshold_raw)
+
+            self.update_detector_tab("RMS/LL")
+            self.window.spike_detect_button.setEnabled(True)
+            return True
+        except (TypeError, ValueError) as exc:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setText("Error!")
+            msg.setInformativeText(f"Detector could not be constructed given the parameters. {exc}")
+            msg.setWindowTitle("Detector Construction Failed")
+            msg.exec_()
+            self.window.spike_detect_button.setEnabled(False)
+            return False
+
     def update_spindle_capability_state(self):
         if self.biomarker_type != 'Spindle':
             return
@@ -6040,6 +6189,8 @@ class MainWindowModel(QObject):
         elif index == "HIL":
             self.window.stacked_widget_detection_param.setCurrentIndex(2)
         elif index == "YASA":
+            self.window.stacked_widget_detection_param.setCurrentIndex(0)
+        elif index == "RMS/LL":
             self.window.stacked_widget_detection_param.setCurrentIndex(0)
 
     def reinitialize(self):
@@ -6179,6 +6330,37 @@ class MainWindowModel(QObject):
         self.update_detector_tab("HIL")
         self.window.detector_subtabs.setCurrentIndex(2)
 
+    def update_spike_params(self, spike_params):
+        rms_window = str(spike_params["rms_window"])
+        ll_window = str(spike_params["ll_window"])
+        min_duration = str(spike_params["min_window"])
+        max_duration = str(spike_params["max_window"])
+        min_gap = str(spike_params["min_gap"])
+        rms_threshold = str(spike_params["rms_thres"])
+        ll_threshold = str(spike_params["ll_thres"])
+        peak_threshold = str(spike_params["peak_thres"])
+
+        self.window.spike_rms_window_input.setText(rms_window)
+        self.window.spike_ll_window_input.setText(ll_window)
+        self.window.spike_min_duration_input.setText(min_duration)
+        self.window.spike_max_duration_input.setText(max_duration)
+        self.window.spike_min_gap_input.setText(min_gap)
+        self.window.spike_rms_threshold_input.setText(rms_threshold)
+        self.window.spike_ll_threshold_input.setText(ll_threshold)
+        self.window.spike_peak_threshold_input.setText(peak_threshold)
+
+        self.window.spike_rms_window_display.setText(rms_window)
+        self.window.spike_ll_window_display.setText(ll_window)
+        self.window.spike_min_duration_display.setText(min_duration)
+        self.window.spike_max_duration_display.setText(max_duration)
+        self.window.spike_min_gap_display.setText(min_gap)
+        self.window.spike_rms_threshold_display.setText(rms_threshold)
+        self.window.spike_ll_threshold_display.setText(ll_threshold)
+        self.window.spike_peak_threshold_display.setText(peak_threshold)
+
+        self.update_detector_tab("RMS/LL")
+        self.window.detector_subtabs.setCurrentIndex(0)
+
     def set_detector_param_display(self):
         if self.backend is None or self.backend.param_detector is None:
             self.refresh_detector_mode_ui()
@@ -6193,6 +6375,8 @@ class MainWindowModel(QObject):
             self.update_hil_params(detector_params.detector_param.to_dict())
         elif detector_type == "yasa":
             self.window.detector_subtabs.setCurrentIndex(0)
+        elif detector_type == "rms/ll":
+            self.update_spike_params(detector_params.detector_param.to_dict())
         self.refresh_detector_mode_ui()
 
     def open_bipolar_channel_selection(self):

@@ -146,7 +146,7 @@ The repository now separates runtime, development, and release-build dependencie
 - `requirements-release-macos.txt`: runtime dependencies plus `py2app`
 - `requirements-release-windows.txt`: runtime dependencies plus `PyInstaller`
 
-#### Build a macOS app bundle
+#### Build a macOS release package
 
 Run this on macOS:
 
@@ -158,7 +158,11 @@ pip install -r requirements-release-macos.txt
 python macos_package.py
 ```
 
-This produces a `.app` bundle under `dist/`.
+This produces:
+
+- `dist/PyHFO.app`
+- `dist/PyHFO-<version>-macos-arm64.zip`
+- `dist/PyHFO-<version>-macos-arm64.dmg`
 
 #### Build a Windows release folder
 

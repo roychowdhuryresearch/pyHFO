@@ -1851,8 +1851,14 @@ class MainWindowView(QObject):
         runtime_layout.addWidget(self.window.n_jobs_ok_button)
         runtime_layout.addStretch(1)
 
-        filter_layout.addWidget(runtime_frame, 1, 0)
-        self.window.prepare_runtime_frame = runtime_frame
+        self.window.runtime_controls_frame = runtime_frame
+        runtime_host = getattr(self.window, "run_runtime_host", None)
+        if runtime_host is not None:
+            host_layout = getattr(runtime_host, "layout", lambda: None)()
+            if host_layout is not None:
+                runtime_frame.setParent(runtime_host)
+                host_layout.addWidget(runtime_frame)
+                runtime_frame.show()
 
     def _enhance_analysis_setup_tabs(self):
         self._build_detector_mode_header()
@@ -2445,6 +2451,19 @@ class MainWindowView(QObject):
             2,
         )
 
+        runtime_host = QFrame(frame)
+        runtime_host_layout = QVBoxLayout(runtime_host)
+        runtime_host_layout.setContentsMargins(0, 0, 0, 0)
+        runtime_host_layout.setSpacing(0)
+        self.window.run_runtime_host = runtime_host
+        grid.addWidget(
+            self._mark_section_option(runtime_host, "run_workers", "Workers", "standard"),
+            3,
+            0,
+            1,
+            3,
+        )
+
         self.window.switch_run_button = QPushButton("Activate")
         self.window.switch_run_button.setVisible(False)
         self.window.switch_run_button.setEnabled(False)
@@ -2650,17 +2669,6 @@ class MainWindowView(QObject):
         )
         layout.addLayout(advanced_grid, 1, 0, 1, 2)
 
-        action_row = QGridLayout()
-        action_row.setContentsMargins(0, 0, 0, 0)
-        action_row.setHorizontalSpacing(4)
-        action_row.setVerticalSpacing(4)
-        if hasattr(self.window, "prepare_runtime_frame"):
-            self.window.prepare_runtime_frame.setParent(groupbox)
-            self.window.prepare_runtime_frame.show()
-            workers_frame = self._mark_section_option(self.window.prepare_runtime_frame, "signal_workers", "Workers", "advanced")
-            action_row.addWidget(workers_frame, 0, 0)
-            action_row.setColumnStretch(0, 1)
-        layout.addLayout(action_row, 2, 0, 1, 2)
         self.window._filter_section_rebuilt = True
         self._apply_section_visibility("SIGNAL")
 
@@ -4233,24 +4241,12 @@ class MainWindowView(QObject):
             self.window.detector_subtabs.addTab(tab_yasa, 'YASA')
         elif biomarker_type == 'Spike':
             clear_stacked_widget(self.window.stacked_widget_detection_param)
-            page = QWidget()
-            layout = QVBoxLayout(page)
-            label = QLabel("Manual review mode.")
-            label.setWordWrap(True)
-            label.setProperty("helperText", True)
-            label.setContentsMargins(8, 10, 8, 10)
-            layout.addWidget(label)
-            self.window.stacked_widget_detection_param.addWidget(page)
+            page_spike = self.create_detection_parameter_page_spike('Detection Parameters (RMS/LL)')
+            self.window.stacked_widget_detection_param.addWidget(page_spike)
 
             self.window.detector_subtabs.clear()
-            tab = QWidget()
-            tab_layout = QVBoxLayout(tab)
-            tab_text = QLabel("Detector controls are not available yet.")
-            tab_text.setWordWrap(True)
-            tab_text.setProperty("helperText", True)
-            tab_text.setContentsMargins(8, 10, 8, 10)
-            tab_layout.addWidget(tab_text)
-            self.window.detector_subtabs.addTab(tab, 'Spike')
+            tab_spike = self.create_detection_parameter_tab_spike()
+            self.window.detector_subtabs.addTab(tab_spike, 'RMS/LL')
         # Detector tabs are rebuilt when the active biomarker changes, so any
         # newly created inputs/buttons need the compact density treatment again.
         apply_compact_button_heights(self.window, self.ui_density)
@@ -4265,7 +4261,7 @@ class MainWindowView(QObject):
             detector_options = {
                 "HFO": [("STE", "Short-term energy detector"), ("MNI", "Montreal detector"), ("HIL", "Hilbert detector")],
                 "Spindle": [("YASA", "YASA spindle detector")],
-                "Spike": [("Review", "Manual review and import workflow")],
+                "Spike": [("RMS/LL", "RMS and line-length spike candidate detector")],
             }
             blocker = QSignalBlocker(self.window.detector_mode_combo)
             self.window.detector_mode_combo.clear()
@@ -4277,7 +4273,7 @@ class MainWindowView(QObject):
                 hints = {
                     "HFO": "Choose a detector, tune the quick parameters below, then run a new HFO analysis.",
                     "Spindle": "Tune the YASA spindle settings below, then run a new spindle analysis.",
-                    "Spike": "Spike mode currently supports review and import, not automated detection.",
+                    "Spike": "Tune the spike candidate thresholds below, then run RMS and line-length detection.",
                 }
                 self.window.detector_mode_hint.setText(hints.get(biomarker_type, "Choose the detector for the next run."))
 
@@ -4294,7 +4290,7 @@ class MainWindowView(QObject):
                 hints = {
                     "HFO": "Hugging Face presets are recommended. Choose CPU or GPU, adjust the review settings, then classify the active run.",
                     "Spindle": "Hugging Face presets are recommended. Choose CPU or GPU, adjust the review settings, then classify the active spindle run.",
-                    "Spike": "Spike mode currently focuses on review and import workflows.",
+                    "Spike": "Spike mode currently supports detection and review. Classification is not configured in this workflow.",
                 }
                 self.window.classifier_mode_hint.setText(hints.get(biomarker_type, "Choose a classifier preset."))
 
@@ -4583,6 +4579,75 @@ class MainWindowView(QObject):
         page.setLayout(layout)
         return page
 
+    def create_detection_parameter_page_spike(self, groupbox_title):
+        page = QWidget()
+        layout = QGridLayout()
+
+        detection_groupbox_spike = QGroupBox(groupbox_title)
+        spike_parameter_layout = QGridLayout(detection_groupbox_spike)
+
+        clear_layout(spike_parameter_layout)
+
+        label1 = QLabel('RMS Window (s)')
+        label2 = QLabel('LL Window (s)')
+        label3 = QLabel('Min Duration (s)')
+        label4 = QLabel('Max Duration (s)')
+        label5 = QLabel('Min Gap (s)')
+        label6 = QLabel('RMS Threshold')
+        label7 = QLabel('LL Threshold')
+        label8 = QLabel('Peak Threshold')
+        for label in (label1, label2, label3, label4, label5, label6, label7, label8):
+            label.setProperty("fieldLabel", True)
+
+        self.window.spike_rms_window_display = QLabel()
+        self.window.spike_ll_window_display = QLabel()
+        self.window.spike_min_duration_display = QLabel()
+        self.window.spike_max_duration_display = QLabel()
+        self.window.spike_min_gap_display = QLabel()
+        self.window.spike_rms_threshold_display = QLabel()
+        self.window.spike_ll_threshold_display = QLabel()
+        self.window.spike_peak_threshold_display = QLabel()
+        for display in (
+            self.window.spike_rms_window_display,
+            self.window.spike_ll_window_display,
+            self.window.spike_min_duration_display,
+            self.window.spike_max_duration_display,
+            self.window.spike_min_gap_display,
+            self.window.spike_rms_threshold_display,
+            self.window.spike_ll_threshold_display,
+            self.window.spike_peak_threshold_display,
+        ):
+            style_value_badge(display, alignment=Qt.AlignCenter)
+
+        self.window.spike_detect_button = QPushButton('Run')
+
+        spike_parameter_layout.addWidget(label1, 0, 0)
+        spike_parameter_layout.addWidget(label2, 0, 1)
+        spike_parameter_layout.addWidget(self.window.spike_rms_window_display, 1, 0)
+        spike_parameter_layout.addWidget(self.window.spike_ll_window_display, 1, 1)
+        spike_parameter_layout.addWidget(label3, 2, 0)
+        spike_parameter_layout.addWidget(label4, 2, 1)
+        spike_parameter_layout.addWidget(self.window.spike_min_duration_display, 3, 0)
+        spike_parameter_layout.addWidget(self.window.spike_max_duration_display, 3, 1)
+        spike_parameter_layout.addWidget(label5, 4, 0)
+        spike_parameter_layout.addWidget(self.window.spike_min_gap_display, 5, 0)
+
+        threshold_group = QGroupBox('Thresholds')
+        threshold_layout = QVBoxLayout(threshold_group)
+        threshold_layout.addWidget(label6)
+        threshold_layout.addWidget(self.window.spike_rms_threshold_display)
+        threshold_layout.addWidget(label7)
+        threshold_layout.addWidget(self.window.spike_ll_threshold_display)
+        threshold_layout.addWidget(label8)
+        threshold_layout.addWidget(self.window.spike_peak_threshold_display)
+
+        spike_parameter_layout.addWidget(threshold_group, 0, 2, 6, 1)
+        spike_parameter_layout.addWidget(self.window.spike_detect_button, 6, 2)
+
+        layout.addWidget(detection_groupbox_spike)
+        page.setLayout(layout)
+        return page
+
     def create_detection_parameter_tab_ste(self):
         self.window.ste_rms_window_input = QLineEdit()
         self.window.ste_min_window_input = QLineEdit()
@@ -4756,6 +4821,31 @@ class MainWindowView(QObject):
         layout.addWidget(groupbox)
         return tab
 
+    def create_detection_parameter_tab_spike(self):
+        self.window.spike_rms_window_input = QLineEdit()
+        self.window.spike_ll_window_input = QLineEdit()
+        self.window.spike_min_duration_input = QLineEdit()
+        self.window.spike_max_duration_input = QLineEdit()
+        self.window.spike_min_gap_input = QLineEdit()
+        self.window.spike_rms_threshold_input = QLineEdit()
+        self.window.spike_ll_threshold_input = QLineEdit()
+        self.window.spike_peak_threshold_input = QLineEdit()
+        self.window.SPIKE_save_button = QPushButton('Apply')
+        self.window.SPIKE_save_button.setVisible(False)
+        return self._create_compact_parameter_tab(
+            [
+                ("RMS window", self.window.spike_rms_window_input, "sec", "det_spike_rms_window", "essential"),
+                ("LL window", self.window.spike_ll_window_input, "sec", "det_spike_ll_window", "essential"),
+                ("Min duration", self.window.spike_min_duration_input, "sec", "det_spike_min_duration", "essential"),
+                ("Max duration", self.window.spike_max_duration_input, "sec", "det_spike_max_duration", "standard"),
+                ("Min gap", self.window.spike_min_gap_input, "sec", "det_spike_min_gap", "standard"),
+                ("RMS thresh.", self.window.spike_rms_threshold_input, "", "det_spike_rms_threshold", "advanced"),
+                ("LL thresh.", self.window.spike_ll_threshold_input, "", "det_spike_ll_threshold", "advanced"),
+                ("Peak thresh.", self.window.spike_peak_threshold_input, "", "det_spike_peak_threshold", "essential"),
+            ],
+            self.window.SPIKE_save_button,
+        )
+
     def _create_compact_parameter_tab(self, fields, save_button):
         tab = QWidget()
         tab.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
@@ -4807,8 +4897,8 @@ class MainWindowView(QObject):
     def create_frame_biomarker_spike(self):
         self._populate_biomarker_legend([
             ("#b2684d", "Artifact"),
-            ("#6b8194", "Spike"),
-            ("#758c74", "Accepted"),
+            (COLOR_MAP['spike'], "Spike candidate"),
+            (COLOR_MAP['Accepted'], "Accepted"),
         ])
 
     def _populate_biomarker_legend(self, entries):

@@ -123,6 +123,8 @@ def _assert_workflow_controls_remain_mounted(window):
     controls = (
         window.combo_box_biomarker,
         window.active_run_selector,
+        window.n_jobs_spinbox,
+        window.n_jobs_ok_button,
         window.detector_mode_combo,
         window.classifier_mode_combo,
         window.overview_filter_button,
@@ -156,6 +158,7 @@ def _assert_compact_workflow_inputs(window):
     for widget in (
         window.combo_box_biomarker,
         window.active_run_selector,
+        window.n_jobs_spinbox,
         window.detector_mode_combo,
         window.classifier_mode_combo,
         window.ste_rms_window_input,
@@ -1633,7 +1636,7 @@ def test_new_run_actions_keep_workflow_selections_stable_across_biomarkers(monke
 
         workflow_matrix = (
             ("Spindle", window.new_spindle_run_action, ["YASA"], False, ["Hugging Face CPU", "Hugging Face GPU", "Custom"], True),
-            ("Spike", window.new_spike_run_action, ["Review"], False, ["Review only"], False),
+            ("Spike", window.new_spike_run_action, ["RMS/LL"], False, ["Review only"], False),
             ("HFO", window.new_hfo_run_action, ["STE", "MNI", "HIL"], True, ["Hugging Face CPU", "Hugging Face GPU", "Custom"], True),
         )
 
@@ -1681,12 +1684,12 @@ def test_detector_and_classifier_selections_stay_in_sync_with_active_workflow(mo
         window.new_spike_run_action.trigger()
         _process_events(qapp, cycles=30)
 
-        assert window.detector_mode_combo.currentText() == "Review"
+        assert window.detector_mode_combo.currentText() == "RMS/LL"
         assert window.classifier_mode_combo.currentText() == "Review only"
         assert window.classifier_mode_combo.isEnabled() is False
-        assert window.detector_run_button.text() == "Review Only"
-        assert window.detector_run_button.isEnabled() is False
-        assert window.classifier_run_button.text() == "Review Only"
+        assert window.detector_run_button.text() == "Run RMS/LL"
+        assert window.detector_run_button.isEnabled() is True
+        assert window.classifier_run_button.text() == "Unavailable"
         assert window.classifier_run_button.isEnabled() is False
         _assert_classifier_custom_sources_follow_mode(window)
 
@@ -1977,6 +1980,8 @@ def test_workers_spinbox_applies_on_edit_commit(monkeypatch, qapp):
     window = _create_window(monkeypatch, qapp)
     try:
         assert window.model.backend is not None
+        assert window.run_actions_card.isAncestorOf(window.n_jobs_spinbox)
+        assert not window.prepare_tab_compact_container.isAncestorOf(window.n_jobs_spinbox)
         target_jobs = min(2, window.n_jobs_spinbox.maximum())
 
         _commit_spinbox_text(window.n_jobs_spinbox, str(target_jobs), qapp)
@@ -2063,9 +2068,12 @@ def test_detector_and_classifier_action_paths_apply_all_main_workflow_modes(monk
         window.new_spike_run_action.trigger()
         _process_events(qapp, cycles=30)
         assert window.combo_box_biomarker.currentText() == "Spike"
-        assert window.detector_run_button.isEnabled() is False
+        assert window.detector_run_button.isEnabled() is True
         assert window.classifier_run_button.isEnabled() is False
-        assert window.detector_apply_button.isEnabled() is False
+        assert window.detector_apply_button.isEnabled() is True
+        window.detector_apply_button.click()
+        _process_events(qapp, cycles=6)
+        assert window.model.backend.param_detector.detector_type.upper() == "RMS/LL"
     finally:
         window.close()
         _process_events(qapp)

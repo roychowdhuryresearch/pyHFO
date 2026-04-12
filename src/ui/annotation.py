@@ -1,6 +1,5 @@
 import os
 import sys
-import warnings
 from pathlib import Path
 
 import numpy as np
@@ -36,6 +35,7 @@ class Annotation(QtWidgets.QMainWindow):
         self.annotation_options = {
             "HFO": ["Pathological", "Physiological", "Artifact"],
             "Spindle": ["Real", "Spike", "Artifact"],
+            "Spike": ["Accepted", "Artifact"],
         }
         self.default_prediction_scope = "All"
 
@@ -50,6 +50,7 @@ class Annotation(QtWidgets.QMainWindow):
 
         self.init_waveform_plot()
         self.init_fft_plot()
+        self._sync_frequency_controls_to_plot_defaults()
         self.init_annotation_dropdown()
         self.refresh_prediction_scope_controls()
         self.update_infos()
@@ -73,6 +74,8 @@ class Annotation(QtWidgets.QMainWindow):
             self.IntervalDropdownBox.addItems(["1s", "0.5s", "0.25s"])
         elif self.biomarker_type == "Spindle":
             self.IntervalDropdownBox.addItems(["4s", "3.5s"])
+        elif self.biomarker_type == "Spike":
+            self.IntervalDropdownBox.addItems(["1s", "0.5s", "0.25s"])
         self.IntervalDropdownBox.setCurrentIndex(0)
 
     def _build_dynamic_controls(self):
@@ -268,6 +271,7 @@ class Annotation(QtWidgets.QMainWindow):
         self.SetFreqLimit.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
         self.spinBox_minFreq.setFixedWidth(88)
         self.spinBox_maxFreq.setFixedWidth(88)
+        self._set_frequency_spinbox_ranges()
 
         for widget in (self.label, self.label_2, self.spinBox_minFreq, self.spinBox_maxFreq, self.SetFreqLimit):
             layout.removeWidget(widget)
@@ -343,6 +347,8 @@ class Annotation(QtWidgets.QMainWindow):
         safe_connect_signal_slot(self.SetFreqLimit.clicked, self.update_frequency)
         safe_connect_signal_slot(self.spinBox_minFreq.editingFinished, self._submit_frequency_range)
         safe_connect_signal_slot(self.spinBox_maxFreq.editingFinished, self._submit_frequency_range)
+        safe_connect_signal_slot(self.spinBox_minFreq.valueChanged, self._on_min_freq_changed)
+        safe_connect_signal_slot(self.spinBox_maxFreq.valueChanged, self._on_max_freq_changed)
         safe_connect_signal_slot(self.ResetViewButton.clicked, self.reset_view)
         safe_connect_signal_slot(self.ZoomInButton.clicked, self.zoom_in)
         safe_connect_signal_slot(self.ZoomOutButton.clicked, self.zoom_out)
@@ -473,6 +479,13 @@ class Annotation(QtWidgets.QMainWindow):
                     (QtGui.QKeySequence("3"), lambda: self.select_annotation_option("Artifact")),
                 ]
             )
+        elif self.biomarker_type == "Spike":
+            shortcut_specs.extend(
+                [
+                    (QtGui.QKeySequence("1"), lambda: self.select_annotation_option("Accepted")),
+                    (QtGui.QKeySequence("2"), lambda: self.select_annotation_option("Artifact")),
+                ]
+            )
 
         for sequence, handler in shortcut_specs:
             self.shortcut_objects.append(QtWidgets.QShortcut(sequence, self, activated=handler))
@@ -528,16 +541,69 @@ class Annotation(QtWidgets.QMainWindow):
         except (ValueError, AttributeError):
             return 1.0
 
+    def _get_frequency_bounds(self):
+        fs = float(getattr(self.backend, "sample_freq", 0) or 0)
+        nyquist = max(2.0, fs / 2.0)
+        max_freq = int(np.floor(nyquist))
+        return 1, max(2, max_freq)
+
+    def _normalize_frequency_range(self, min_freq, max_freq):
+        min_bound, max_bound = self._get_frequency_bounds()
+        normalized_min = int(np.floor(min_freq))
+        normalized_max = int(np.ceil(max_freq))
+        normalized_min = int(np.clip(normalized_min, min_bound, max_bound - 1))
+        normalized_max = int(np.clip(normalized_max, min_bound + 1, max_bound))
+        if normalized_min >= normalized_max:
+            if normalized_max >= max_bound:
+                normalized_min = max(min_bound, max_bound - 1)
+                normalized_max = max_bound
+            else:
+                normalized_max = min(max_bound, normalized_min + 1)
+                normalized_min = min(normalized_min, normalized_max - 1)
+        return normalized_min, normalized_max
+
+    def _set_frequency_spinbox_ranges(self):
+        min_bound, max_bound = self._get_frequency_bounds()
+        self.spinBox_minFreq.setRange(min_bound, max_bound - 1)
+        self.spinBox_maxFreq.setRange(min_bound + 1, max_bound)
+
+    def _set_frequency_spinbox_values(self, min_freq, max_freq):
+        min_freq, max_freq = self._normalize_frequency_range(min_freq, max_freq)
+        min_blocker = QtCore.QSignalBlocker(self.spinBox_minFreq)
+        max_blocker = QtCore.QSignalBlocker(self.spinBox_maxFreq)
+        self.spinBox_minFreq.setValue(min_freq)
+        self.spinBox_maxFreq.setValue(max_freq)
+        del min_blocker
+        del max_blocker
+
+    def _sync_frequency_controls_to_plot_defaults(self):
+        waveform_plot = getattr(getattr(self.annotation_controller, "model", None), "waveform_plot", None)
+        fft_plot = getattr(getattr(self.annotation_controller, "model", None), "fft_plot", None)
+        if waveform_plot is None or fft_plot is None or not waveform_plot.data_plotted[2]:
+            return
+        tf_min, tf_max = waveform_plot.get_axis_ranges()[2][1]
+        min_freq, max_freq = self._normalize_frequency_range(tf_min, tf_max)
+        self._set_frequency_spinbox_ranges()
+        self._set_frequency_spinbox_values(min_freq, max_freq)
+        self.annotation_controller.set_current_freq_limit(min_freq, max_freq)
+        channel, start, end = self.annotation_controller.get_current_event()
+        fft_plot.plot(start, end, channel)
+
+    def _on_min_freq_changed(self, value):
+        if value >= self.spinBox_maxFreq.value():
+            with QtCore.QSignalBlocker(self.spinBox_maxFreq):
+                self.spinBox_maxFreq.setValue(min(self.spinBox_maxFreq.maximum(), value + 1))
+
+    def _on_max_freq_changed(self, value):
+        if value <= self.spinBox_minFreq.value():
+            with QtCore.QSignalBlocker(self.spinBox_minFreq):
+                self.spinBox_minFreq.setValue(max(self.spinBox_minFreq.minimum(), value - 1))
+
     def get_current_freq_limit(self):
-        min_freq = self.spinBox_minFreq.value()
-        max_freq = self.spinBox_maxFreq.value()
-        if min_freq >= max_freq:
-            warnings.warn(
-                "Invalid frequency range. Returning default values (10, 500).",
-                UserWarning,
-            )
-            return 10, 500
-        return min_freq, max_freq
+        return self._normalize_frequency_range(
+            self.spinBox_minFreq.value(),
+            self.spinBox_maxFreq.value(),
+        )
 
     def _show_message(self, message, timeout=3000):
         self.statusbar.showMessage(message, timeout)
@@ -809,6 +875,7 @@ class Annotation(QtWidgets.QMainWindow):
 
     def update_frequency(self):
         min_freq, max_freq = self.get_current_freq_limit()
+        self._set_frequency_spinbox_values(min_freq, max_freq)
         self.annotation_controller.set_current_freq_limit(min_freq, max_freq)
         channel, start, end = self.annotation_controller.get_current_event()
         self.annotation_controller.update_plots(start, end, channel)

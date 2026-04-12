@@ -17,6 +17,8 @@ class ParamDetector:
             param.detector_param = ParamHIL.from_dict(param_dict['detector_param'])
         elif detector_type.lower() == 'yasa':
             param.detector_param = ParamYASA.from_dict(param_dict['detector_param'])
+        elif detector_type.lower() == 'rms/ll':
+            param.detector_param = ParamSpikeRMSLL.from_dict(param_dict['detector_param'])
         return param
     
 class ParamSTE:
@@ -197,4 +199,67 @@ class ParamYASA:
             d["rel_pow"],
             d["rms"],
             d["n_jobs"]
+        )
+
+
+class ParamSpikeRMSLL:
+    def __init__(
+        self,
+        sample_freq=2000,
+        pass_band=4,
+        stop_band=80,
+        rms_window=0.02,
+        ll_window=0.01,
+        rms_thres=5.0,
+        ll_thres=5.0,
+        peak_thres=6.0,
+        min_window=0.015,
+        max_window=0.05,
+        min_gap=0.08,
+        n_jobs=8,
+    ):
+        self.sample_freq = sample_freq
+        self.pass_band = pass_band
+        self.stop_band = stop_band
+        self.rms_window = rms_window
+        self.ll_window = ll_window
+        self.rms_thres = rms_thres
+        self.ll_thres = ll_thres
+        self.peak_thres = peak_thres
+        self.min_window = min_window
+        self.max_window = max_window
+        self.min_gap = min_gap
+        self.n_jobs = n_jobs
+
+    def to_dict(self):
+        return {
+            "sample_freq": self.sample_freq,
+            "pass_band": self.pass_band,
+            "stop_band": self.stop_band,
+            "rms_window": self.rms_window,
+            "ll_window": self.ll_window,
+            "rms_thres": self.rms_thres,
+            "ll_thres": self.ll_thres,
+            "peak_thres": self.peak_thres,
+            "min_window": self.min_window,
+            "max_window": self.max_window,
+            "min_gap": self.min_gap,
+            "n_jobs": self.n_jobs,
+        }
+
+    @staticmethod
+    def from_dict(d):
+        return ParamSpikeRMSLL(
+            sample_freq=d["sample_freq"],
+            pass_band=d["pass_band"],
+            stop_band=d["stop_band"],
+            rms_window=d["rms_window"],
+            ll_window=d["ll_window"],
+            rms_thres=d["rms_thres"],
+            ll_thres=d["ll_thres"],
+            peak_thres=d["peak_thres"],
+            min_window=d["min_window"],
+            max_window=d["max_window"],
+            min_gap=d["min_gap"],
+            n_jobs=d["n_jobs"],
         )
