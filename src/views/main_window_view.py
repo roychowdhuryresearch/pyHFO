@@ -1851,8 +1851,14 @@ class MainWindowView(QObject):
         runtime_layout.addWidget(self.window.n_jobs_ok_button)
         runtime_layout.addStretch(1)
 
-        filter_layout.addWidget(runtime_frame, 1, 0)
-        self.window.prepare_runtime_frame = runtime_frame
+        self.window.runtime_controls_frame = runtime_frame
+        runtime_host = getattr(self.window, "run_runtime_host", None)
+        if runtime_host is not None:
+            host_layout = getattr(runtime_host, "layout", lambda: None)()
+            if host_layout is not None:
+                runtime_frame.setParent(runtime_host)
+                host_layout.addWidget(runtime_frame)
+                runtime_frame.show()
 
     def _enhance_analysis_setup_tabs(self):
         self._build_detector_mode_header()
@@ -2445,6 +2451,19 @@ class MainWindowView(QObject):
             2,
         )
 
+        runtime_host = QFrame(frame)
+        runtime_host_layout = QVBoxLayout(runtime_host)
+        runtime_host_layout.setContentsMargins(0, 0, 0, 0)
+        runtime_host_layout.setSpacing(0)
+        self.window.run_runtime_host = runtime_host
+        grid.addWidget(
+            self._mark_section_option(runtime_host, "run_workers", "Workers", "standard"),
+            3,
+            0,
+            1,
+            3,
+        )
+
         self.window.switch_run_button = QPushButton("Activate")
         self.window.switch_run_button.setVisible(False)
         self.window.switch_run_button.setEnabled(False)
@@ -2650,17 +2669,6 @@ class MainWindowView(QObject):
         )
         layout.addLayout(advanced_grid, 1, 0, 1, 2)
 
-        action_row = QGridLayout()
-        action_row.setContentsMargins(0, 0, 0, 0)
-        action_row.setHorizontalSpacing(4)
-        action_row.setVerticalSpacing(4)
-        if hasattr(self.window, "prepare_runtime_frame"):
-            self.window.prepare_runtime_frame.setParent(groupbox)
-            self.window.prepare_runtime_frame.show()
-            workers_frame = self._mark_section_option(self.window.prepare_runtime_frame, "signal_workers", "Workers", "advanced")
-            action_row.addWidget(workers_frame, 0, 0)
-            action_row.setColumnStretch(0, 1)
-        layout.addLayout(action_row, 2, 0, 1, 2)
         self.window._filter_section_rebuilt = True
         self._apply_section_visibility("SIGNAL")
 

@@ -123,6 +123,8 @@ def _assert_workflow_controls_remain_mounted(window):
     controls = (
         window.combo_box_biomarker,
         window.active_run_selector,
+        window.n_jobs_spinbox,
+        window.n_jobs_ok_button,
         window.detector_mode_combo,
         window.classifier_mode_combo,
         window.overview_filter_button,
@@ -156,6 +158,7 @@ def _assert_compact_workflow_inputs(window):
     for widget in (
         window.combo_box_biomarker,
         window.active_run_selector,
+        window.n_jobs_spinbox,
         window.detector_mode_combo,
         window.classifier_mode_combo,
         window.ste_rms_window_input,
@@ -1977,6 +1980,8 @@ def test_workers_spinbox_applies_on_edit_commit(monkeypatch, qapp):
     window = _create_window(monkeypatch, qapp)
     try:
         assert window.model.backend is not None
+        assert window.run_actions_card.isAncestorOf(window.n_jobs_spinbox)
+        assert not window.prepare_tab_compact_container.isAncestorOf(window.n_jobs_spinbox)
         target_jobs = min(2, window.n_jobs_spinbox.maximum())
 
         _commit_spinbox_text(window.n_jobs_spinbox, str(target_jobs), qapp)
