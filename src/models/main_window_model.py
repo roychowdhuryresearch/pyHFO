@@ -1510,9 +1510,9 @@ class MainWindowModel(QObject):
             else []
         )
         preferred_scope_labels = {
-            "HFO": ["Artifact", "spkHFO", "eHFO"],
-            "Spindle": ["Artifact", "Spike", "Non-artifact"],
-            "Spike": [],
+            "HFO": ["Unreviewed", "Artifact", "spkHFO", "eHFO"],
+            "Spindle": ["Unreviewed", "Artifact", "Spike", "Non-artifact"],
+            "Spike": ["Unreviewed"],
         }.get(self.biomarker_type or "", [])
 
         if hasattr(self.window, "normalize_tool_button"):
@@ -1645,7 +1645,7 @@ class MainWindowModel(QObject):
             button.setProperty("predictionScope", scope)
             if scope:
                 button.setText(scope)
-                button.setToolTip(f"Jump to the next review target in the '{scope}' model bucket")
+                button.setToolTip(f"Jump to the next review target in the '{scope}' queue")
                 button.setVisible(True)
                 button.setEnabled(scope in available_scopes and total_events > 0)
                 visible_prediction_scopes = True
@@ -3035,6 +3035,8 @@ class MainWindowModel(QObject):
             safe_connect_signal_slot(self.window.run_stats_activate_button.clicked, self.activate_selected_run_from_popup)
         if hasattr(self.window, "run_stats_accept_button"):
             safe_connect_signal_slot(self.window.run_stats_accept_button.clicked, self.accept_selected_run_from_popup)
+        if hasattr(self.window, "run_stats_consensus_button"):
+            safe_connect_signal_slot(self.window.run_stats_consensus_button.clicked, self.create_consensus_run_from_visible)
         if hasattr(self.window, "run_stats_export_button"):
             safe_connect_signal_slot(self.window.run_stats_export_button.clicked, self.save_to_excel)
         if hasattr(self.window, "run_stats_report_button"):
@@ -3324,6 +3326,8 @@ class MainWindowModel(QObject):
                 self.window.run_stats_activate_button.setEnabled(False)
             if hasattr(self.window, "run_stats_accept_button"):
                 self.window.run_stats_accept_button.setEnabled(False)
+            if hasattr(self.window, "run_stats_consensus_button"):
+                self.window.run_stats_consensus_button.setEnabled(False)
             if hasattr(self.window, "run_stats_export_button"):
                 self.window.run_stats_export_button.setEnabled(False)
             self._set_report_export_enabled(False)
@@ -3364,6 +3368,8 @@ class MainWindowModel(QObject):
                 self.window.run_stats_activate_button.setEnabled(bool(case_runs))
             if hasattr(self.window, "run_stats_accept_button"):
                 self.window.run_stats_accept_button.setEnabled(False)
+            if hasattr(self.window, "run_stats_consensus_button"):
+                self.window.run_stats_consensus_button.setEnabled(False)
             if hasattr(self.window, "run_stats_export_button"):
                 self.window.run_stats_export_button.setEnabled(False)
             self._set_report_export_enabled(active_run is not None or accepted_run is not None)
@@ -3398,6 +3404,9 @@ class MainWindowModel(QObject):
             self.window.run_stats_activate_button.setEnabled(bool(case_runs))
         if hasattr(self.window, "run_stats_accept_button"):
             self.window.run_stats_accept_button.setEnabled(active_run is not None)
+        if hasattr(self.window, "run_stats_consensus_button"):
+            source_count = len(self._consensus_source_run_ids())
+            self.window.run_stats_consensus_button.setEnabled(source_count >= 2 and hasattr(self.backend, "create_consensus_run"))
         if hasattr(self.window, "run_stats_export_button"):
             self.window.run_stats_export_button.setEnabled(hasattr(self.backend, "export_clinical_summary") or hasattr(self.backend, "export_excel"))
         self._set_report_export_enabled(active_run is not None or accepted_run is not None)
@@ -3405,6 +3414,15 @@ class MainWindowModel(QObject):
         self.update_active_run_panel(active_run, accepted_run)
         comparison_rows = self._compare_case_runs().get("pairwise_overlap", [])
         self.populate_decision_tables(case_runs, ranking if 'ranking' in locals() else [], comparison_rows)
+
+    def _run_summary_is_consensus(self, run_summary):
+        detector_name = str(run_summary.get("detector_name", "") if isinstance(run_summary, dict) else getattr(run_summary, "detector_name", ""))
+        if detector_name.lower().startswith("consensus "):
+            return True
+        if isinstance(run_summary, dict):
+            return bool(run_summary.get("consensus_strategy"))
+        event_features = getattr(run_summary, "event_features", None)
+        return bool(getattr(event_features, "consensus_metadata", None))
 
     def _default_report_path(self):
         default_path = os.path.expanduser("~")
@@ -4307,6 +4325,54 @@ class MainWindowModel(QObject):
             return
         self.activate_run_from_table(row, 0)
         QTimer.singleShot(0, self.accept_active_run)
+
+    def _consensus_source_run_ids(self):
+        if self.backend is None or not hasattr(self.backend, "analysis_session"):
+            return []
+        session = self.backend.analysis_session
+        visible_runs = []
+        if hasattr(session, "get_visible_runs"):
+            visible_runs = [run for run in session.get_visible_runs() if run is not None]
+        return [run.run_id for run in visible_runs if not self._run_summary_is_consensus(run)]
+
+    def _choose_consensus_strategy(self):
+        strategy_items = [
+            ("Majority - supported by most visible runs", "majority"),
+            ("Union - include any visible-run event", "union"),
+            ("Intersection - require all visible runs", "intersection"),
+        ]
+        labels = [label for label, _strategy in strategy_items]
+        selected, ok = QInputDialog.getItem(
+            self.window,
+            "Create Consensus Run",
+            "Consensus strategy:",
+            labels,
+            0,
+            False,
+        )
+        if not ok or not selected:
+            return None
+        return dict(strategy_items).get(selected, "majority")
+
+    def create_consensus_run_from_visible(self):
+        if self.backend is None or not hasattr(self.backend, "create_consensus_run"):
+            QMessageBox.information(self.window, "Consensus Unavailable", "Consensus runs are not available for the current workflow.")
+            return
+        source_run_ids = self._consensus_source_run_ids()
+        if len(source_run_ids) < 2:
+            QMessageBox.information(self.window, "Need Runs", "Create at least two detector runs in the current workflow before building consensus.")
+            return
+        strategy = self._choose_consensus_strategy()
+        if strategy is None:
+            return
+        try:
+            run = self.backend.create_consensus_run(run_ids=source_run_ids, strategy=strategy)
+        except ValueError as exc:
+            QMessageBox.warning(self.window, "Consensus Failed", str(exc))
+            return
+        self.message_handler(f"Created {strategy} consensus run from {len(source_run_ids)} runs: {run.summary.get('num_events', 0)} events")
+        self._set_workflow_message("Consensus run created")
+        self.refresh_run_dependent_views()
 
     def handle_run_table_click(self, row, column):
         if column != 0:

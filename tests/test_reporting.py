@@ -4,6 +4,7 @@ import numpy as np
 
 from src.hfo_app import HFO_App
 from src.hfo_feature import HFO_Feature
+from src.param.param_classifier import ParamClassifier
 from src.param.param_detector import ParamDetector, ParamMNI, ParamSTE
 from src.param.param_filter import ParamFilter
 from src.utils.analysis_session import DetectionRun
@@ -39,6 +40,12 @@ def _build_backend():
     backend.eeg_data = np.zeros((2, 4000))
 
     first_run = _build_hfo_run("STE", [[10, 20], [30, 40]], ["A1Ref", "A2Ref"])
+    first_run.param_classifier = ParamClassifier(
+        artifact_card="roychowdhuryresearch/HFO-artifact",
+        source_preference="huggingface",
+        use_spike=False,
+        use_ehfo=False,
+    )
     second_run = _build_hfo_run("MNI", [[10, 20], [80, 100]], ["A1Ref", "A1Ref"])
     backend.analysis_session.add_run(first_run)
     backend.analysis_session.add_run(second_run)
@@ -73,6 +80,8 @@ def test_export_analysis_report_creates_shareable_bundle(tmp_path):
     metadata = json.loads((assets_dir / "metadata.json").read_text(encoding="utf-8"))
     assert metadata["selected_run"]["detector_name"] == "STE"
     assert metadata["summary"]["run_count"] == 2
+    assert metadata["model_reproducibility"]["source_preference"] == "huggingface"
+    assert metadata["model_reproducibility"]["models"]["artifact"]["huggingface_card"] == "roychowdhuryresearch/HFO-artifact"
 
 
 def test_export_analysis_report_adds_html_suffix_when_missing(tmp_path):

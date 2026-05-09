@@ -157,6 +157,8 @@ class SpindleFeature(object):
 
     def get_prediction_scope_options(self):
         options = ["All"]
+        if len(self.annotated) == self.num_spindle and np.any(self.annotated == 0):
+            options.append("Unreviewed")
         if not self.artifact_predicted:
             return options
         options.extend(["Artifact", "Non-artifact"])
@@ -167,7 +169,11 @@ class SpindleFeature(object):
     def _matches_prediction_scope(self, index, scope):
         if scope in (None, "", "All"):
             return True
-        if not self.artifact_predicted or index < 0 or index >= self.num_spindle:
+        if index < 0 or index >= self.num_spindle:
+            return False
+        if scope == "Unreviewed":
+            return len(self.annotated) > index and self.annotated[index] == 0
+        if not self.artifact_predicted:
             return False
 
         artifact_prediction = self.artifact_predictions[index]

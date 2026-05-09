@@ -129,7 +129,7 @@ class Annotation(QtWidgets.QMainWindow):
         card_layout.setSpacing(6)
 
         header_layout = QtWidgets.QHBoxLayout()
-        self.prediction_scope_label = QtWidgets.QLabel("Prediction Scope", self.prediction_scope_card)
+        self.prediction_scope_label = QtWidgets.QLabel("Review Scope", self.prediction_scope_card)
         self.prediction_scope_label.setProperty("fieldLabel", True)
         self.PredictionScopeBox = QtWidgets.QComboBox(self.prediction_scope_card)
         self.PredictionScopeBox.setMinimumWidth(132)
@@ -668,7 +668,7 @@ class Annotation(QtWidgets.QMainWindow):
     def _navigate_to_matching_event(self, direction):
         scope = self.get_current_prediction_scope()
         if scope == self.default_prediction_scope:
-            self._show_message("Choose a prediction scope before using match navigation.")
+            self._show_message("Choose a review scope before using match navigation.")
             return
         event_features = getattr(self.backend, "event_features", None)
         if event_features is None:
@@ -755,13 +755,13 @@ class Annotation(QtWidgets.QMainWindow):
         self.UnannotatedOnlyCheckBox.setEnabled(len(options) > 1)
 
         if len(options) <= 1:
-            self.match_summary_label.setText("Run classification to jump by prediction bucket.")
+            self.match_summary_label.setText("No scoped review queues are available.")
             self.PrevMatchButton.setEnabled(False)
             self.NextMatchButton.setEnabled(False)
             return
 
         if scope == self.default_prediction_scope:
-            self.match_summary_label.setText("Select a prediction scope to jump among matching events.")
+            self.match_summary_label.setText("Select a review scope to jump among matching events.")
             self.PrevMatchButton.setEnabled(False)
             self.NextMatchButton.setEnabled(False)
             return

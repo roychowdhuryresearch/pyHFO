@@ -16,9 +16,9 @@ PyHFO is a desktop EEG review workspace for high-frequency oscillation (HFO) ana
 - Load EEG recordings from EDF, BrainVision, FIF, and FIF.GZ files.
 - Run HFO detection with STE, MNI, or HIL detectors.
 - Run spindle detection with YASA when the optional dependency is available.
-- Review runs side by side, compare overlap, and accept a preferred run.
+- Review runs side by side, compare overlap, create consensus runs, and accept a preferred run.
 - Classify events with artifact, spkHFO, and eHFO models.
-- Open a dedicated annotation window for event-by-event review.
+- Open a dedicated annotation window for event-by-event review, including unreviewed-event queues.
 - Save and restore full analysis sessions.
 - Export Excel summaries, event tables, and shareable HTML report bundles.
 
@@ -60,8 +60,9 @@ Typical HFO workflow:
 3. Run one or more detectors such as STE, MNI, or HIL.
 4. Optionally classify the active run with artifact, spkHFO, and eHFO models.
 5. Review events in the annotation window.
-6. Accept the preferred run.
-7. Save a session or export a report.
+6. Optionally open Run Stats and create a union, majority, or intersection consensus run from visible runs.
+7. Accept the preferred run.
+8. Save a session or export a report.
 
 ### 2. Quick Detection
 
@@ -80,7 +81,13 @@ The main workspace supports multiple biomarker modes:
 
 - `HFO`: full detection, classification, review, and export workflow
 - `Spindle`: YASA-based detection plus artifact/spike review workflow
-- `Spike`: review/import-oriented workflow; automated spike detection is not the current focus
+- `Spike`: RMS/LL detection plus accepted/artifact review and export workflow
+
+### 4. Batch Projects And Protocol Presets
+
+The backend can build a resumable batch project manifest from a folder of `.edf`, `.vhdr`, `.fif`, and `.fif.gz` recordings. Each case gets a stable output folder, status, attempt count, error field, and result metadata so long folder runs can resume after failures.
+
+Protocol presets can be exported from the active setup and restored later. Presets preserve the biomarker type, filter parameters, detector parameters, classifier sources, and notes for reproducible lab workflows.
 
 ## Classification models
 
@@ -93,6 +100,8 @@ The default presets are configured around:
 - `roychowdhuryresearch/HFO-eHFO`
 
 If you use the hosted presets, the first run may download model assets from Hugging Face.
+
+Reports include classifier reproducibility metadata: source preference, hosted model cards, local model paths, local file existence, and SHA-256 hashes for local model files.
 
 ## Installation
 

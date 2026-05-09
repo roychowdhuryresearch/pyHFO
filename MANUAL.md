@@ -161,12 +161,13 @@ This mode supports:
 
 ### Spike
 
-Use `Spike` when you want a review-oriented workflow for spike-related events.
+Use `Spike` when you want RMS/LL spike candidate detection plus review-oriented workflows for spike-related events.
 
 Current expectation for `Spike` mode:
 
-- session and review workflows are available
-- automated spike detection is not the main supported path in this release
+- RMS/LL automated spike candidate detection is available
+- accepted/artifact review labels are available
+- session save and export workflows are available
 
 ## 4. Installation And Launch
 
@@ -1110,14 +1111,15 @@ Recommended spindle review pattern:
 
 ## 12. Spike Workflow
 
-Use `Spike` mode mainly for review-oriented work.
+Use `Spike` mode for RMS/LL spike candidate detection and review-oriented work.
 
 What to expect:
 
 - waveform review is available
 - session loading and saving are available
 - export pipeline is available
-- automated spike detection is not the primary release target in `3.0.2`
+- RMS/LL automated spike candidate detection is available
+- accepted/artifact labels drive spike overlay review
 
 ## 13. Quick Detection Workflow
 

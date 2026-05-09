@@ -1769,6 +1769,99 @@ def test_report_and_run_stats_actions_follow_the_first_detected_run(monkeypatch,
         _process_events(qapp)
 
 
+def test_run_stats_consensus_button_creates_majority_run(monkeypatch, qapp, tiny_fif_path):
+    window = _create_window(monkeypatch, qapp)
+    try:
+        monkeypatch.setattr(
+            "src.models.main_window_model.QInputDialog.getItem",
+            lambda *args, **kwargs: ("Majority - supported by most visible runs", True),
+        )
+        _load_recording(window, tiny_fif_path, qapp)
+        backend = window.model.backend
+        channel_name = str(backend.channel_names[0])
+        for detector_name, interval in (
+            ("STE", np.array([[10, 20]])),
+            ("MNI", np.array([[12, 24]])),
+        ):
+            feature = HFO_Feature(
+                np.array([channel_name]),
+                interval,
+                sample_freq=int(backend.sample_freq),
+            )
+            run = DetectionRun.create(
+                biomarker_type="HFO",
+                detector_name=detector_name,
+                selected_channels=list(backend.channel_names),
+                param_filter=getattr(backend, "param_filter", None),
+                param_detector=getattr(backend, "param_detector", None),
+                param_classifier=getattr(backend, "param_classifier", None),
+                event_features=feature,
+                classified=False,
+            )
+            backend.analysis_session.add_run(run)
+
+        window.model.refresh_run_dependent_views()
+        assert window.run_stats_consensus_button.isEnabled() is True
+
+        window.model.show_run_comparison()
+        window.run_stats_consensus_button.click()
+        _process_events(qapp, cycles=8)
+
+        active_run = backend.analysis_session.get_active_run()
+        assert active_run.detector_name == "Consensus Majority"
+        assert active_run.summary["num_events"] == 1
+        assert len(backend.get_run_summaries()) == 3
+        assert window.active_run_selector.currentText().startswith("HFO • Consensus Majority")
+    finally:
+        window.close()
+        _process_events(qapp)
+
+
+def test_run_stats_consensus_button_respects_intersection_strategy(monkeypatch, qapp, tiny_fif_path):
+    window = _create_window(monkeypatch, qapp)
+    try:
+        monkeypatch.setattr(
+            "src.models.main_window_model.QInputDialog.getItem",
+            lambda *args, **kwargs: ("Intersection - require all visible runs", True),
+        )
+        _load_recording(window, tiny_fif_path, qapp)
+        backend = window.model.backend
+        channel_name = str(backend.channel_names[0])
+        for detector_name, interval in (
+            ("STE", np.array([[10, 20]])),
+            ("MNI", np.array([[12, 24]])),
+        ):
+            feature = HFO_Feature(
+                np.array([channel_name]),
+                interval,
+                sample_freq=int(backend.sample_freq),
+            )
+            run = DetectionRun.create(
+                biomarker_type="HFO",
+                detector_name=detector_name,
+                selected_channels=list(backend.channel_names),
+                param_filter=getattr(backend, "param_filter", None),
+                param_detector=getattr(backend, "param_detector", None),
+                param_classifier=getattr(backend, "param_classifier", None),
+                event_features=feature,
+                classified=False,
+            )
+            backend.analysis_session.add_run(run)
+
+        window.model.refresh_run_dependent_views()
+        window.model.show_run_comparison()
+        window.run_stats_consensus_button.click()
+        _process_events(qapp, cycles=8)
+
+        active_run = backend.analysis_session.get_active_run()
+        assert active_run.detector_name == "Consensus Intersection"
+        assert active_run.event_features.starts.tolist() == [12]
+        assert active_run.event_features.ends.tolist() == [20]
+    finally:
+        window.close()
+        _process_events(qapp)
+
+
 def test_open_review_guard_disables_stale_review_button_when_active_run_has_no_events(monkeypatch, qapp, tiny_fif_path):
     window = _create_window(monkeypatch, qapp)
     try:

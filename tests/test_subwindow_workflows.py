@@ -320,11 +320,11 @@ def test_annotation_review_actions_only_enable_when_selection_is_valid(qapp):
         _process_events(qapp)
 
         assert window.Accept.isEnabled() is False
-        assert window.PredictionScopeBox.isEnabled() is False
-        assert window.UnannotatedOnlyCheckBox.isEnabled() is False
+        assert window.PredictionScopeBox.isEnabled() is True
+        assert window.UnannotatedOnlyCheckBox.isEnabled() is True
         assert window.PrevMatchButton.isEnabled() is False
         assert window.NextMatchButton.isEnabled() is False
-        assert window.match_summary_label.text() == "Run classification to jump by prediction bucket."
+        assert window.match_summary_label.text() == "Select a review scope to jump among matching events."
 
         window.select_annotation_option("Artifact")
         _process_events(qapp)

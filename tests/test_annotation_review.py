@@ -2,6 +2,7 @@ import numpy as np
 from PyQt5 import QtCore, QtTest
 
 from src.hfo_feature import HFO_Feature
+from src.spike_feature import SpikeFeature
 from src.spindle_feature import SpindleFeature
 from src.ui.annotation import Annotation
 from src.ui.annotation_plot import AnnotationPlot, FFTPlot
@@ -87,6 +88,9 @@ def test_unannotated_navigation_skips_reviewed_events():
     )
     feature.doctor_annotation("Artifact")
 
+    assert feature.get_prediction_scope_options() == ["All", "Unreviewed"]
+    assert feature.get_matching_indexes("Unreviewed").tolist() == [1, 2]
+
     next_event = feature.get_next_unannotated()
     assert next_event == ("A1", 30, 40)
     assert feature.index == 1
@@ -109,7 +113,7 @@ def test_hfo_prediction_scope_navigation_tracks_match_groups():
         np.array([0, 0, 1, 1]),
     )
 
-    assert feature.get_prediction_scope_options() == ["All", "Artifact", "Non-artifact", "spkHFO", "eHFO"]
+    assert feature.get_prediction_scope_options() == ["All", "Unreviewed", "Artifact", "Non-artifact", "spkHFO", "eHFO"]
     assert feature.get_matching_indexes("Artifact").tolist() == [0]
     assert feature.get_matching_indexes("spkHFO").tolist() == [1, 3]
     assert feature.get_matching_indexes("eHFO").tolist() == [2, 3]
@@ -154,13 +158,27 @@ def test_spindle_prediction_scope_navigation_tracks_spike_matches():
     )
     feature.update_pred(np.array([0, 1, 1]), np.array([0, 1, 0]))
 
-    assert feature.get_prediction_scope_options() == ["All", "Artifact", "Non-artifact", "Spike"]
+    assert feature.get_prediction_scope_options() == ["All", "Unreviewed", "Artifact", "Non-artifact", "Spike"]
+    assert feature.get_matching_indexes("Unreviewed").tolist() == [0, 1, 2]
     assert feature.get_matching_indexes("Artifact").tolist() == [0]
     assert feature.get_matching_indexes("Spike").tolist() == [1]
 
     next_event = feature.get_next_matching("Spike")
     assert next_event == ("A2", 30, 40)
     assert feature.index == 1
+
+
+def test_spike_review_scope_exposes_unreviewed_queue():
+    feature = SpikeFeature(
+        np.array(["A1", "A2", "A3"]),
+        np.array([10, 30, 50]),
+        np.array([20, 40, 60]),
+        sample_freq=2000,
+    )
+    feature.doctor_annotation("Accepted")
+
+    assert feature.get_prediction_scope_options() == ["All", "Unreviewed"]
+    assert feature.get_matching_indexes("Unreviewed").tolist() == [1, 2]
 
 
 def test_annotation_window_uses_saved_annotation_in_review_dropdown(qapp):
@@ -196,7 +214,7 @@ def test_annotation_window_prediction_scope_navigates_matching_events(qapp):
     window = Annotation(backend=backend, close_signal=carrier.destroyed)
 
     options = [window.PredictionScopeBox.itemText(i) for i in range(window.PredictionScopeBox.count())]
-    assert options == ["All", "Artifact", "Non-artifact", "spkHFO", "eHFO"]
+    assert options == ["All", "Unreviewed", "Artifact", "Non-artifact", "spkHFO", "eHFO"]
 
     window.PredictionScopeBox.setCurrentText("eHFO")
     assert window.match_summary_label.text() == "Scope: eHFO | 1 matches | current event outside scope"

@@ -9,6 +9,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from src.utils.model_metadata import describe_classifier_sources
+
 
 def export_clinical_summary_workbook(
     output_path,
@@ -46,6 +48,11 @@ def export_clinical_summary_workbook(
         "accepted_biomarker": getattr(accepted_run, "biomarker_type", ""),
         "exported_biomarker": getattr(exported_run, "biomarker_type", ""),
         "exported_display_name": getattr(exported_run, "display_name", ""),
+        "classifier_source_preference": getattr(getattr(exported_run, "param_classifier", None), "source_preference", ""),
+        "model_reproducibility": json.dumps(
+            describe_classifier_sources(getattr(exported_run, "param_classifier", None)),
+            sort_keys=True,
+        ),
     }
     if decision_overrides:
         decision_row.update(dict(decision_overrides))
@@ -134,6 +141,9 @@ def export_analysis_report(
                 "detector": _param_to_dict(getattr(selected_run, "param_detector", None)),
                 "classifier": _param_to_dict(getattr(selected_run, "param_classifier", None)),
             }
+        ),
+        "model_reproducibility": _json_safe(
+            describe_classifier_sources(getattr(selected_run, "param_classifier", None))
         ),
         "artifacts": artifact_links,
         "summary": {

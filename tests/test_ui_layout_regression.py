@@ -402,6 +402,7 @@ def test_run_statistics_dialog_layout_stays_stable_across_supported_window_sizes
                 [
                     window.run_stats_activate_button,
                     window.run_stats_accept_button,
+                    window.run_stats_consensus_button,
                     window.run_stats_export_button,
                     window.run_stats_report_button,
                 ]
@@ -411,6 +412,7 @@ def test_run_statistics_dialog_layout_stays_stable_across_supported_window_sizes
                 [
                     window.run_stats_activate_button,
                     window.run_stats_accept_button,
+                    window.run_stats_consensus_button,
                     window.run_stats_export_button,
                     window.run_stats_report_button,
                 ],

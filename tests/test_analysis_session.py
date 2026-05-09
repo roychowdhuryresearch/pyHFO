@@ -129,6 +129,80 @@ def test_channel_ranking_and_run_comparison_support_decision_workflow():
     assert comparison["pairwise_overlap"][0]["right_only"] == 1
 
 
+def test_analysis_session_creates_majority_consensus_run_from_source_runs():
+    session = AnalysisSession("HFO")
+    first = _build_hfo_run("STE", [[10, 20], [100, 120]], ["A1", "A1"])
+    second = _build_hfo_run("MNI", [[12, 24], [200, 220]], ["A1", "A1"])
+    third = _build_hfo_run("MNI", [[14, 22], [105, 125]], ["A1", "A1"])
+    session.add_run(first)
+    session.add_run(second)
+    session.add_run(third)
+
+    consensus = session.create_consensus_run(
+        run_ids=[first.run_id, second.run_id, third.run_id],
+        strategy="majority",
+    )
+
+    assert consensus.detector_name == "Consensus Majority"
+    assert session.get_active_run().run_id == consensus.run_id
+    assert session.is_run_visible(consensus.run_id)
+    assert consensus.summary["num_events"] == 2
+    assert consensus.summary["consensus_source_runs"] == 3
+    assert consensus.summary["consensus_min_support"] == 2
+    assert consensus.event_features.starts.tolist() == [10, 100]
+    assert consensus.event_features.ends.tolist() == [24, 125]
+    assert consensus.detector_output["source_run_ids"] == [first.run_id, second.run_id, third.run_id]
+
+
+def test_consensus_run_supports_union_and_intersection_strategies():
+    first = _build_hfo_run("STE", [[10, 20], [100, 120]], ["A1", "A1"])
+    second = _build_hfo_run("MNI", [[15, 25], [130, 140]], ["A1", "A1"])
+
+    union = AnalysisSession("HFO")
+    union.add_run(first)
+    union.add_run(second)
+    union_run = union.create_consensus_run(strategy="union")
+
+    intersection = AnalysisSession("HFO")
+    intersection.add_run(first)
+    intersection.add_run(second)
+    intersection_run = intersection.create_consensus_run(strategy="intersection")
+
+    assert union_run.summary["num_events"] == 3
+    assert union_run.event_features.starts.tolist() == [10, 100, 130]
+    assert union_run.event_features.ends.tolist() == [25, 120, 140]
+    assert intersection_run.summary["num_events"] == 1
+    assert intersection_run.event_features.starts.tolist() == [15]
+    assert intersection_run.event_features.ends.tolist() == [20]
+
+
+def test_consensus_run_round_trip_preserves_metadata(tmp_path):
+    session = AnalysisSession("HFO")
+    session.add_run(_build_hfo_run("STE", [[10, 20]], ["A1"]))
+    session.add_run(_build_hfo_run("MNI", [[12, 22]], ["A1"]))
+    consensus = session.create_consensus_run(strategy="majority")
+
+    checkpoint = {
+        "app_state_version": 3,
+        "biomarker_type": "HFO",
+        "sample_freq": 2000,
+        "channel_names": np.array(["A1"]),
+        "analysis_session": session.to_dict(),
+    }
+    path = tmp_path / "consensus.pybrain"
+    save_session_checkpoint(path, checkpoint)
+
+    loaded = load_session_checkpoint(path)
+    restored = AnalysisSession.from_dict(loaded["analysis_session"])
+    restored_consensus = restored.get_run(consensus.run_id)
+
+    assert restored_consensus is not None
+    assert restored_consensus.detector_name == "Consensus Majority"
+    assert restored_consensus.summary["consensus_strategy"] == "majority"
+    assert restored_consensus.summary["consensus_source_runs"] == 2
+    assert restored_consensus.event_features.consensus_metadata["min_support"] == 2
+
+
 def test_decision_summary_prefers_accepted_run_context():
     session = AnalysisSession("HFO")
     first = _build_hfo_run("STE", [[10, 20], [30, 40]], ["A1", "A2"])

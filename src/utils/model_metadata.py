@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping
 from copy import deepcopy
+from pathlib import Path
 from typing import Any
 
 
@@ -104,3 +106,59 @@ def _normalize_preprocessing_dict(
 
 def _has_required_keys(data: Mapping[str, Any]) -> bool:
     return _REQUIRED_KEYS.issubset(data.keys())
+
+
+def describe_classifier_sources(param) -> dict[str, Any]:
+    if param is None:
+        return {}
+    models = {
+        "artifact": _describe_model_source(
+            param,
+            "artifact_path",
+            "artifact_card",
+            enabled=True,
+        ),
+        "spike": _describe_model_source(
+            param,
+            "spike_path",
+            "spike_card",
+            enabled=bool(getattr(param, "use_spike", False)),
+        ),
+        "ehfo": _describe_model_source(
+            param,
+            "ehfo_path",
+            "ehfo_card",
+            enabled=bool(getattr(param, "use_ehfo", False)),
+        ),
+    }
+    return {
+        "source_preference": getattr(param, "source_preference", "auto"),
+        "model_type": getattr(param, "model_type", ""),
+        "device": getattr(param, "device", ""),
+        "batch_size": getattr(param, "batch_size", ""),
+        "models": models,
+    }
+
+
+def _describe_model_source(param, path_attr: str, card_attr: str, *, enabled: bool):
+    local_path = str(getattr(param, path_attr, "") or "")
+    huggingface_card = str(getattr(param, card_attr, "") or "")
+    source_kind, source_value = param.preferred_model_source(local_path, huggingface_card)
+    local_exists = bool(local_path and Path(local_path).exists())
+    return {
+        "enabled": bool(enabled),
+        "preferred_source_kind": source_kind or "",
+        "preferred_source": source_value or "",
+        "local_path": local_path,
+        "local_exists": local_exists,
+        "local_sha256": _sha256_file(local_path) if local_exists else "",
+        "huggingface_card": huggingface_card,
+    }
+
+
+def _sha256_file(path: str) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()

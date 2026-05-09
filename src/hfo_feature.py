@@ -503,6 +503,8 @@ class HFO_Feature:
 
     def get_prediction_scope_options(self):
         options = ["All"]
+        if len(self.annotated) == self.get_raw_event_count() and np.any(self.annotated == 0):
+            options.append("Unreviewed")
         if self.artifact_predicted:
             options.extend(["Artifact", "Non-artifact"])
             if self.spike_predicted and len(self.spike_predictions) == self.get_raw_event_count():
@@ -518,6 +520,8 @@ class HFO_Feature:
             return True
         if index < 0 or index >= self.get_raw_event_count():
             return False
+        if scope == "Unreviewed":
+            return len(self.annotated) > index and self.annotated[index] == 0
         if scope == "Overlap tagged":
             return len(self.overlap_tagged) > index and self.overlap_tagged[index] > 0
         if not self.artifact_predicted:

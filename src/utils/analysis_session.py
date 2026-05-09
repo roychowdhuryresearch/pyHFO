@@ -50,6 +50,7 @@ def _restore_event_features(biomarker_type: str, payload: dict | None):
         feature.artifact_annotations = np.array(payload.get("artifact_annotations", getattr(feature, "artifact_annotations", np.array([]))))
         feature.accepted_annotations = np.array(payload.get("accepted_annotations", getattr(feature, "accepted_annotations", np.array([]))))
         feature.annotated = np.array(payload.get("annotated", getattr(feature, "annotated", np.array([]))))
+        feature.consensus_metadata = dict(payload.get("consensus_metadata", {}))
         feature._refresh_annotation_counts()
         return feature
     if biomarker_type == "Spindle":
@@ -60,6 +61,7 @@ def _restore_event_features(biomarker_type: str, payload: dict | None):
         feature.artifact_annotations = np.array(payload.get("artifact_annotations", getattr(feature, "artifact_annotations", np.array([]))))
         feature.spike_annotations = np.array(payload.get("spike_annotations", getattr(feature, "spike_annotations", np.array([]))))
         feature.annotated = np.array(payload.get("annotated", getattr(feature, "annotated", np.array([]))))
+        feature.consensus_metadata = dict(payload.get("consensus_metadata", {}))
         return feature
 
     feature = HFO_Feature.from_dict(payload)
@@ -71,6 +73,7 @@ def _restore_event_features(biomarker_type: str, payload: dict | None):
     feature.pathological_annotations = np.array(payload.get("pathological_annotations", getattr(feature, "pathological_annotations", np.array([]))))
     feature.physiological_annotations = np.array(payload.get("physiological_annotations", getattr(feature, "physiological_annotations", np.array([]))))
     feature.annotated = np.array(payload.get("annotated", getattr(feature, "annotated", np.array([]))))
+    feature.consensus_metadata = dict(payload.get("consensus_metadata", {}))
     return feature
 
 
@@ -79,6 +82,8 @@ def serialize_event_features(biomarker_type: str, event_features):
         return None
     payload = event_features.to_dict()
     payload["annotated"] = np.array(getattr(event_features, "annotated", np.array([])))
+    if getattr(event_features, "consensus_metadata", None):
+        payload["consensus_metadata"] = dict(event_features.consensus_metadata)
     if biomarker_type == "Spike":
         payload["artifact_annotations"] = np.array(getattr(event_features, "artifact_annotations", np.array([])))
         payload["accepted_annotations"] = np.array(getattr(event_features, "accepted_annotations", np.array([])))
@@ -160,6 +165,22 @@ def _feature_event_rows(event_features):
     return rows
 
 
+def _feature_sample_freq(event_features):
+    try:
+        sample_freq = float(getattr(event_features, "sample_freq", 0) or 0)
+    except (TypeError, ValueError):
+        sample_freq = 0.0
+    return sample_freq if sample_freq > 0 else 1.0
+
+
+def _feature_constructor_kwargs(event_features):
+    return {
+        "freq_range": getattr(event_features, "freq_range", None),
+        "time_range": getattr(event_features, "time_range", None),
+        "feature_size": getattr(event_features, "feature_size", None),
+    }
+
+
 def _events_temporally_overlap(left_event: dict[str, Any], right_event: dict[str, Any]) -> bool:
     return (
         min(left_event["end_seconds"], right_event["end_seconds"])
@@ -226,6 +247,15 @@ def summarize_event_features(event_features):
             summary.update(event_features.get_overlap_review_summary())
         except Exception:
             pass
+    consensus_metadata = getattr(event_features, "consensus_metadata", None)
+    if consensus_metadata:
+        summary.update(
+            {
+                "consensus_strategy": consensus_metadata.get("strategy"),
+                "consensus_source_runs": len(consensus_metadata.get("source_run_ids", [])),
+                "consensus_min_support": consensus_metadata.get("min_support"),
+            }
+        )
     return summary
 
 
@@ -276,6 +306,199 @@ def build_run_comparison(selected_runs: list["DetectionRun"]):
                 }
             )
     return {"runs": run_summaries, "pairwise_overlap": pairwise}
+
+
+def _consensus_support_threshold(strategy: str, run_count: int, min_support: int | None = None):
+    normalized = str(strategy or "majority").strip().lower()
+    if normalized in {"all", "unanimous"}:
+        normalized = "intersection"
+    if normalized not in {"union", "majority", "intersection"}:
+        raise ValueError("Consensus strategy must be one of: union, majority, intersection.")
+    if run_count < 2:
+        raise ValueError("Consensus requires at least two source runs.")
+    if min_support is not None:
+        threshold = int(min_support)
+    elif normalized == "union":
+        threshold = 1
+    elif normalized == "intersection":
+        threshold = run_count
+    else:
+        threshold = (run_count // 2) + 1
+    threshold = max(1, min(threshold, run_count))
+    return normalized, threshold
+
+
+def _cluster_consensus_events(selected_runs: list["DetectionRun"], strategy: str, min_support: int):
+    rows_by_channel = defaultdict(list)
+    for run in selected_runs:
+        for event_row in _feature_event_rows(run.event_features):
+            row = dict(event_row)
+            row["run_id"] = run.run_id
+            row["detector_name"] = run.detector_name
+            rows_by_channel[row["channel_name"]].append(row)
+
+    consensus_rows = []
+    for channel_name in sorted(rows_by_channel):
+        channel_rows = sorted(
+            rows_by_channel[channel_name],
+            key=lambda row: (row["start_seconds"], row["end_seconds"], row["run_id"]),
+        )
+        current_cluster = []
+        current_end = None
+        clusters = []
+        for row in channel_rows:
+            if current_cluster and row["start_seconds"] >= current_end:
+                clusters.append(current_cluster)
+                current_cluster = []
+                current_end = None
+            current_cluster.append(row)
+            current_end = row["end_seconds"] if current_end is None else max(current_end, row["end_seconds"])
+        if current_cluster:
+            clusters.append(current_cluster)
+
+        for cluster in clusters:
+            source_run_ids = sorted({row["run_id"] for row in cluster})
+            support_count = len(source_run_ids)
+            if support_count < min_support:
+                continue
+
+            if strategy == "intersection":
+                start_seconds = max(row["start_seconds"] for row in cluster)
+                end_seconds = min(row["end_seconds"] for row in cluster)
+                if end_seconds <= start_seconds:
+                    continue
+            else:
+                start_seconds = min(row["start_seconds"] for row in cluster)
+                end_seconds = max(row["end_seconds"] for row in cluster)
+
+            consensus_rows.append(
+                {
+                    "channel_name": channel_name,
+                    "start_seconds": start_seconds,
+                    "end_seconds": end_seconds,
+                    "support_count": support_count,
+                    "source_run_ids": source_run_ids,
+                    "source_detectors": sorted({row["detector_name"] for row in cluster}),
+                }
+            )
+    consensus_rows.sort(key=lambda row: (row["channel_name"], row["start_seconds"], row["end_seconds"]))
+    return consensus_rows
+
+
+def _construct_consensus_features(
+    biomarker_type: str,
+    detector_label: str,
+    sample_freq: float,
+    source_features,
+    consensus_rows,
+    metadata,
+):
+    channel_names = np.array([row["channel_name"] for row in consensus_rows])
+    starts = np.array([round(row["start_seconds"] * sample_freq) for row in consensus_rows], dtype=int)
+    ends = np.array([round(row["end_seconds"] * sample_freq) for row in consensus_rows], dtype=int)
+    valid_mask = ends > starts
+    channel_names = channel_names[valid_mask]
+    starts = starts[valid_mask]
+    ends = ends[valid_mask]
+    intervals = np.array([starts, ends]).T if len(starts) else np.empty((0, 2), dtype=int)
+
+    source_kwargs = _feature_constructor_kwargs(source_features)
+    freq_range = source_kwargs["freq_range"]
+    time_range = source_kwargs["time_range"]
+    feature_size = source_kwargs["feature_size"]
+
+    if biomarker_type == "Spike":
+        feature = SpikeFeature(
+            channel_names,
+            starts,
+            ends,
+            np.array([]),
+            detector_label,
+            sample_freq,
+            freq_range if freq_range is not None else [1, 80],
+            time_range if time_range is not None else [0, 1000],
+            feature_size if feature_size is not None else 224,
+        )
+    elif biomarker_type == "Spindle":
+        feature = SpindleFeature(
+            channel_names,
+            starts,
+            ends,
+            np.array([]),
+            detector_label,
+            sample_freq,
+            freq_range if freq_range is not None else [10, 500],
+            time_range if time_range is not None else [0, 1000],
+            feature_size if feature_size is not None else 224,
+        )
+    else:
+        feature = HFO_Feature(
+            channel_names,
+            intervals,
+            np.array([]),
+            detector_label,
+            sample_freq,
+            freq_range if freq_range is not None else [10, 500],
+            time_range if time_range is not None else [0, 1000],
+            feature_size if feature_size is not None else 224,
+        )
+
+    feature.consensus_metadata = dict(metadata)
+    return feature
+
+
+def build_consensus_run(
+    selected_runs: list["DetectionRun"],
+    strategy: str = "majority",
+    min_support: int | None = None,
+) -> "DetectionRun":
+    selected_runs = [run for run in selected_runs if run is not None and run.event_features is not None]
+    strategy, support_threshold = _consensus_support_threshold(strategy, len(selected_runs), min_support)
+    biomarker_types = {run.biomarker_type for run in selected_runs}
+    if len(biomarker_types) != 1:
+        raise ValueError("Consensus can only be created from runs with the same biomarker type.")
+
+    biomarker_type = selected_runs[0].biomarker_type
+    source_features = selected_runs[0].event_features
+    sample_freq = _feature_sample_freq(source_features)
+    consensus_rows = _cluster_consensus_events(selected_runs, strategy, support_threshold)
+    detector_label = f"Consensus {strategy.title()}"
+    metadata = {
+        "strategy": strategy,
+        "min_support": support_threshold,
+        "source_run_ids": [run.run_id for run in selected_runs],
+        "source_detectors": [run.detector_name for run in selected_runs],
+        "source_run_count": len(selected_runs),
+    }
+    feature = _construct_consensus_features(
+        biomarker_type,
+        detector_label,
+        sample_freq,
+        source_features,
+        consensus_rows,
+        metadata,
+    )
+    detector_output = {
+        "consensus": True,
+        "strategy": strategy,
+        "min_support": support_threshold,
+        "source_run_ids": list(metadata["source_run_ids"]),
+        "events": consensus_rows,
+    }
+    selected_channels = sorted({channel for run in selected_runs for channel in run.selected_channels})
+    run = DetectionRun.create(
+        biomarker_type=biomarker_type,
+        detector_name=detector_label,
+        selected_channels=selected_channels,
+        param_filter=selected_runs[0].param_filter,
+        param_detector=None,
+        param_classifier=None,
+        event_features=feature,
+        detector_output=detector_output,
+        classified=False,
+    )
+    run.display_name = f"{detector_label} from {len(selected_runs)} runs {run.created_at.replace('T', ' ').replace('Z', ' UTC')}"
+    return run
 
 
 @dataclass
@@ -474,6 +697,18 @@ class AnalysisSession:
     def compare_runs(self, run_ids: list[str] | None = None):
         selected_runs = [self.runs[run_id] for run_id in (run_ids or list(self.runs.keys())) if run_id in self.runs]
         return build_run_comparison(selected_runs)
+
+    def create_consensus_run(
+        self,
+        run_ids: list[str] | None = None,
+        strategy: str = "majority",
+        min_support: int | None = None,
+    ) -> DetectionRun:
+        selected_run_ids = run_ids or list(self.visible_run_ids) or list(self.runs.keys())
+        selected_runs = [self.runs[run_id] for run_id in selected_run_ids if run_id in self.runs]
+        run = build_consensus_run(selected_runs, strategy=strategy, min_support=min_support)
+        self.add_run(run)
+        return run
 
     def to_dict(self):
         return {

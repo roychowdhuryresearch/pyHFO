@@ -22,6 +22,13 @@ from src.utils.utils_montage import (
 from src.utils.utils_plotting import plot_feature
 from src.utils.app_state import build_base_checkpoint, checkpoint_array, checkpoint_get
 from src.utils.analysis_session import AnalysisSession, DetectionRun
+from src.utils.batch_project import create_batch_project
+from src.utils.protocol_presets import (
+    build_protocol_preset,
+    load_protocol_preset,
+    restore_protocol_params,
+    save_protocol_preset,
+)
 from src.utils.reporting import export_clinical_summary_workbook
 from src.utils.session_store import load_session_checkpoint, save_session_checkpoint
 
@@ -106,9 +113,10 @@ class SpindleApp(object):
         # print("channel names: ", self.channel_names)
         # print("Loading COMPLETE!")
 
-    def load_database(self):
-        # @TODO; load database
-        pass
+    def load_database(self, input_dir=None, output_dir=None, recursive=True):
+        if input_dir is None:
+            raise ValueError("input_dir is required to create a batch project.")
+        return create_batch_project(input_dir, output_dir, recursive=recursive)
 
     def get_edf_info(self):
         return self.edf_param
@@ -740,6 +748,38 @@ class SpindleApp(object):
 
     def compare_runs(self, run_ids=None):
         return self.analysis_session.compare_runs(run_ids)
+
+    def create_consensus_run(self, run_ids=None, strategy="majority", min_support=None):
+        run = self.analysis_session.create_consensus_run(
+            run_ids=run_ids,
+            strategy=strategy,
+            min_support=min_support,
+        )
+        self.activate_run(run.run_id)
+        return run
+
+    def export_protocol_preset(self, path, name=None, notes=""):
+        run = self.analysis_session.get_active_run()
+        preset = build_protocol_preset(
+            name=name or f"{self.biomarker_type} {getattr(self.param_detector, 'detector_type', 'Protocol')}",
+            biomarker_type=self.biomarker_type,
+            param_filter=self.param_filter,
+            param_detector=self.param_detector,
+            param_classifier=self.param_classifier,
+            notes=notes,
+            metadata={"source_run_id": run.run_id if run else ""},
+        )
+        return save_protocol_preset(path, preset)
+
+    def apply_protocol_preset(self, path_or_preset):
+        preset = load_protocol_preset(path_or_preset) if isinstance(path_or_preset, (str, os.PathLike)) else dict(path_or_preset)
+        params = restore_protocol_params(preset)
+        if params["biomarker_type"] != self.biomarker_type:
+            raise ValueError(f"Protocol preset is for {params['biomarker_type']}, not {self.biomarker_type}.")
+        self.param_filter = params["param_filter"]
+        self.param_detector = params["param_detector"]
+        self.param_classifier = params["param_classifier"]
+        return params
 
     def export_clinical_summary(self, path, run_id=None):
         run = self.analysis_session.get_run(run_id) if run_id else (self.analysis_session.get_accepted_run() or self.analysis_session.get_active_run())

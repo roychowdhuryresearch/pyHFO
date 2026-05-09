@@ -178,10 +178,15 @@ class SpikeFeature:
         return self.get_jump(prev_index)
 
     def get_prediction_scope_options(self):
-        return ["All"]
+        options = ["All"]
+        if len(self.annotated) == self.get_num_biomarker() and np.any(self.annotated == 0):
+            options.append("Unreviewed")
+        return options
 
     def get_matching_indexes(self, scope="All", unannotated_only=False):
-        if scope not in (None, "", "All"):
+        if scope == "Unreviewed":
+            unannotated_only = True
+        elif scope not in (None, "", "All"):
             return np.array([], dtype=int)
         indexes = [
             idx for idx in range(self.get_num_biomarker())
