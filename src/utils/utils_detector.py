@@ -45,6 +45,213 @@ def set_HIL_detector(args):
     return detector
 
 
+class LocalThresholdDetectorMixin:
+    def _window_samples(self, seconds, *, minimum=1):
+        return max(int(round(float(seconds) * self.sample_freq)), int(minimum))
+
+    def _coerce_multi_channel_input(self, data, channel_names):
+        data = np.asarray(data, dtype=float)
+        if data.ndim == 1:
+            data = data.reshape(1, -1)
+        channel_names = np.asarray(channel_names if np.ndim(channel_names) > 0 else [channel_names], dtype=object)
+        if channel_names.size != data.shape[0]:
+            channel_names = np.asarray([f"Ch{index + 1}" for index in range(data.shape[0])], dtype=object)
+        return data, channel_names
+
+    def _robust_center_scale(self, values):
+        values = np.asarray(values, dtype=float)
+        finite = values[np.isfinite(values)]
+        if finite.size == 0:
+            return 0.0, 1.0
+        center = float(np.median(finite))
+        mad = float(np.median(np.abs(finite - center)))
+        scale = mad * 1.4826
+        if not np.isfinite(scale) or scale <= 1e-12:
+            scale = float(np.std(finite))
+        if not np.isfinite(scale) or scale <= 1e-12:
+            scale = 1.0
+        return center, scale
+
+    def _moving_average(self, values, window_samples):
+        values = np.asarray(values, dtype=float)
+        if values.size == 0:
+            return np.asarray([], dtype=float)
+        window_samples = max(1, int(window_samples))
+        kernel = np.ones(window_samples, dtype=float) / float(window_samples)
+        return np.convolve(values, kernel, mode="same")
+
+    def _moving_rms(self, values, window_samples):
+        return np.sqrt(np.maximum(self._moving_average(np.square(np.asarray(values, dtype=float)), window_samples), 0.0))
+
+    def _moving_line_length(self, values, window_samples):
+        values = np.asarray(values, dtype=float)
+        if values.size == 0:
+            return np.asarray([], dtype=float)
+        diffs = np.abs(np.diff(values, prepend=float(values[0])))
+        return self._moving_average(diffs, window_samples)
+
+    def _mask_to_intervals(self, mask):
+        mask = np.asarray(mask, dtype=bool)
+        if mask.size == 0 or not np.any(mask):
+            return np.empty((0, 2), dtype=int)
+        padded = np.concatenate([[False], mask, [False]])
+        changes = np.diff(padded.astype(int))
+        starts = np.where(changes == 1)[0]
+        ends = np.where(changes == -1)[0]
+        return np.column_stack([starts, ends]).astype(int)
+
+    def _merge_close_intervals(self, intervals, gap_samples):
+        intervals = np.asarray(intervals, dtype=int)
+        if intervals.size == 0:
+            return np.empty((0, 2), dtype=int)
+        merged = []
+        for start, end in sorted(intervals.tolist()):
+            if not merged or start - merged[-1][1] > gap_samples:
+                merged.append([int(start), int(end)])
+            else:
+                merged[-1][1] = max(int(end), merged[-1][1])
+        return np.asarray(merged, dtype=int)
+
+    def _filter_by_duration(self, intervals, min_samples, max_samples=None):
+        intervals = np.asarray(intervals, dtype=int)
+        if intervals.size == 0:
+            return np.empty((0, 2), dtype=int)
+        durations = intervals[:, 1] - intervals[:, 0]
+        keep = durations >= int(min_samples)
+        if max_samples is not None:
+            keep &= durations <= int(max_samples)
+        return intervals[keep]
+
+    def _bandpass_filter(self, values, freq_range):
+        values = np.asarray(values, dtype=float)
+        if values.size == 0:
+            return values
+        finite = np.isfinite(values)
+        if not finite.all():
+            fill_value = float(np.median(values[finite])) if finite.any() else 0.0
+            values = np.where(finite, values, fill_value)
+        low, high = [float(value) for value in freq_range]
+        nyquist = self.sample_freq / 2.0
+        high = min(high, nyquist * 0.99)
+        low = max(low, 0.01)
+        if low >= high or nyquist <= 0:
+            return values
+        sos = signal.butter(4, [low, high], btype="bandpass", fs=self.sample_freq, output="sos")
+        try:
+            return signal.sosfiltfilt(sos, values)
+        except ValueError:
+            return signal.sosfilt(sos, values)
+
+
+class HFOThresholdDetector(LocalThresholdDetectorMixin):
+    def __init__(
+        self,
+        *,
+        sample_freq,
+        filter_freq,
+        metric,
+        metric_window,
+        threshold,
+        peak_threshold,
+        min_window,
+        max_window,
+        min_gap,
+        n_jobs=1,
+        front_num=1,
+    ):
+        self.sample_freq = float(sample_freq)
+        self.filter_freq = list(filter_freq)
+        self.metric = str(metric)
+        self.metric_window = float(metric_window)
+        self.threshold = float(threshold)
+        self.peak_threshold = float(peak_threshold)
+        self.min_window = float(min_window)
+        self.max_window = float(max_window)
+        self.min_gap = float(min_gap)
+        self.n_jobs = int(n_jobs)
+        self.front_num = int(front_num)
+
+    def _metric_values(self, data):
+        window_samples = self._window_samples(self.metric_window)
+        if self.metric == "line_length":
+            return self._moving_line_length(data, window_samples)
+        return self._moving_rms(data, window_samples)
+
+    def detect_channel(self, channel_data, *, filtered=True):
+        data = np.asarray(channel_data, dtype=float)
+        if data.size == 0 or not np.any(np.isfinite(data)):
+            return np.empty((0, 2), dtype=int)
+        work_data = data if filtered else self._bandpass_filter(data, self.filter_freq)
+        metric_values = self._metric_values(work_data)
+        metric_center, metric_scale = self._robust_center_scale(metric_values)
+        metric_z = (metric_values - metric_center) / metric_scale
+        mask = metric_z >= self.threshold
+
+        intervals = self._mask_to_intervals(mask)
+        min_samples = self._window_samples(self.min_window, minimum=2)
+        max_samples = max(min_samples, self._window_samples(self.max_window, minimum=2))
+        gap_samples = self._window_samples(self.min_gap, minimum=1)
+        intervals = self._merge_close_intervals(intervals, gap_samples)
+        intervals = self._filter_by_duration(intervals, min_samples, max_samples)
+        if intervals.size == 0:
+            return intervals
+
+        abs_data = np.abs(work_data)
+        peak_center, peak_scale = self._robust_center_scale(abs_data)
+        peak_level = peak_center + (self.peak_threshold * peak_scale)
+        peak_filtered = []
+        for start, end in intervals.tolist():
+            if np.max(abs_data[start:end]) >= peak_level:
+                peak_filtered.append([start, end])
+        if not peak_filtered:
+            return np.empty((0, 2), dtype=int)
+        return np.asarray(peak_filtered, dtype=int)
+
+    def detect_multi_channels(self, data, channel_names, filtered=True):
+        data, channel_names = self._coerce_multi_channel_input(data, channel_names)
+        event_channel_names = []
+        event_intervals = []
+        for channel_index, channel_name in enumerate(channel_names):
+            intervals = self.detect_channel(data[channel_index], filtered=filtered)
+            if len(intervals) == 0:
+                continue
+            event_channel_names.append(channel_name)
+            event_intervals.append(intervals)
+        return np.asarray(event_channel_names, dtype=object), event_intervals
+
+
+def set_HFO_RMS_detector(args):
+    return HFOThresholdDetector(
+        sample_freq=args.sample_freq,
+        filter_freq=[args.pass_band, args.stop_band],
+        metric="rms",
+        metric_window=args.rms_window,
+        threshold=args.threshold,
+        peak_threshold=args.peak_threshold,
+        min_window=args.min_window,
+        max_window=args.max_window,
+        min_gap=args.min_gap,
+        n_jobs=args.n_jobs,
+        front_num=1,
+    )
+
+
+def set_HFO_line_length_detector(args):
+    return HFOThresholdDetector(
+        sample_freq=args.sample_freq,
+        filter_freq=[args.pass_band, args.stop_band],
+        metric="line_length",
+        metric_window=args.ll_window,
+        threshold=args.threshold,
+        peak_threshold=args.peak_threshold,
+        min_window=args.min_window,
+        max_window=args.max_window,
+        min_gap=args.min_gap,
+        n_jobs=args.n_jobs,
+        front_num=1,
+    )
+
+
 def set_YASA_detector(args):
     if yasa is None:
         raise ImportError("YASA is required for spindle detection but is not installed.")
@@ -67,7 +274,119 @@ def set_LSM_spindle_detector(args):
     )
 
 
-class SpikeRMSLLDetector:
+class SpindleThresholdDetector(LocalThresholdDetectorMixin):
+    def __init__(
+        self,
+        *,
+        sample_freq,
+        method,
+        freq_sp,
+        duration,
+        min_distance,
+        smooth_window,
+        rms_threshold,
+        freq_broad=None,
+        relative_power_threshold=0.0,
+        correlation_threshold=0.0,
+        n_jobs=1,
+    ):
+        self.sample_freq = float(sample_freq)
+        self.method = str(method).upper()
+        self.freq_sp = tuple(float(value) for value in freq_sp)
+        self.freq_broad = tuple(float(value) for value in (freq_broad or (1, 30)))
+        self.duration = tuple(float(value) for value in duration)
+        self.min_distance = float(min_distance)
+        self.smooth_window = float(smooth_window)
+        self.rms_threshold = float(rms_threshold)
+        self.relative_power_threshold = float(relative_power_threshold)
+        self.correlation_threshold = float(correlation_threshold)
+        self.n_jobs = int(n_jobs)
+
+    def _rolling_correlation(self, x, y, window_samples):
+        x = np.asarray(x, dtype=float)
+        y = np.asarray(y, dtype=float)
+        mean_x = self._moving_average(x, window_samples)
+        mean_y = self._moving_average(y, window_samples)
+        mean_xy = self._moving_average(x * y, window_samples)
+        mean_x2 = self._moving_average(x * x, window_samples)
+        mean_y2 = self._moving_average(y * y, window_samples)
+        numerator = mean_xy - (mean_x * mean_y)
+        denominator = np.sqrt(np.maximum(mean_x2 - mean_x * mean_x, 0.0) * np.maximum(mean_y2 - mean_y * mean_y, 0.0))
+        with np.errstate(divide="ignore", invalid="ignore"):
+            corr = numerator / denominator
+        return np.nan_to_num(corr, nan=0.0, posinf=0.0, neginf=0.0)
+
+    def detect_channel(self, channel_data):
+        data = np.asarray(channel_data, dtype=float)
+        if data.size == 0 or not np.any(np.isfinite(data)):
+            return np.empty((0, 2), dtype=int)
+
+        window_samples = self._window_samples(self.smooth_window, minimum=2)
+        sigma_data = self._bandpass_filter(data, self.freq_sp)
+        sigma_rms = self._moving_rms(sigma_data, window_samples)
+        center, scale = self._robust_center_scale(sigma_rms)
+        rms_z = (sigma_rms - center) / scale
+        mask = rms_z >= self.rms_threshold
+
+        if self.method == "A7":
+            broad_data = self._bandpass_filter(data, self.freq_broad)
+            sigma_power = self._moving_average(np.square(sigma_data), window_samples)
+            broad_power = self._moving_average(np.square(broad_data), window_samples)
+            relative_power = sigma_power / np.maximum(broad_power, 1e-20)
+            correlation = self._rolling_correlation(broad_data, sigma_data, window_samples)
+            mask &= relative_power >= self.relative_power_threshold
+            mask &= correlation >= self.correlation_threshold
+
+        intervals = self._mask_to_intervals(mask)
+        min_samples = self._window_samples(self.duration[0], minimum=2)
+        max_samples = max(min_samples, self._window_samples(self.duration[1], minimum=2))
+        gap_samples = self._window_samples(self.min_distance, minimum=1)
+        intervals = self._merge_close_intervals(intervals, gap_samples)
+        return self._filter_by_duration(intervals, min_samples, max_samples)
+
+    def detect_multi_channels(self, data, channel_names, filtered=False):
+        data, channel_names = self._coerce_multi_channel_input(data, channel_names)
+        event_channel_names = []
+        event_intervals = []
+        for channel_index, channel_name in enumerate(channel_names):
+            intervals = self.detect_channel(data[channel_index])
+            if len(intervals) == 0:
+                continue
+            event_channel_names.append(channel_name)
+            event_intervals.append(intervals)
+        return np.asarray(event_channel_names, dtype=object), event_intervals
+
+
+def set_A7_spindle_detector(args):
+    return SpindleThresholdDetector(
+        sample_freq=args.sample_freq,
+        method="A7",
+        freq_sp=args.freq_sp,
+        freq_broad=args.freq_broad,
+        duration=args.duration,
+        min_distance=args.min_distance,
+        smooth_window=args.smooth_window,
+        rms_threshold=args.rms_threshold,
+        relative_power_threshold=args.relative_power_threshold,
+        correlation_threshold=args.correlation_threshold,
+        n_jobs=args.n_jobs,
+    )
+
+
+def set_spindle_rms_detector(args):
+    return SpindleThresholdDetector(
+        sample_freq=args.sample_freq,
+        method=getattr(args, "method", "MOLLE"),
+        freq_sp=args.freq_sp,
+        duration=args.duration,
+        min_distance=args.min_distance,
+        smooth_window=args.smooth_window,
+        rms_threshold=args.rms_threshold,
+        n_jobs=args.n_jobs,
+    )
+
+
+class SpikeRMSLLDetector(LocalThresholdDetectorMixin):
     def __init__(
         self,
         *,

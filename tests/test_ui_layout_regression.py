@@ -319,8 +319,8 @@ def test_main_window_layout_regression_covers_dynamic_sections(monkeypatch, qapp
             _assert_container_layout(window, container)
 
         workflow_matrix = (
-            (window.new_hfo_run_action, ["STE", "MNI", "HIL"], ["Hugging Face CPU", "Hugging Face GPU", "Custom"]),
-            (window.new_spindle_run_action, ["YASA", "LSM"], ["Hugging Face CPU", "Hugging Face GPU", "Custom"]),
+            (window.new_hfo_run_action, ["STE", "MNI", "HIL", "RMS", "LineLength"], ["Hugging Face CPU", "Hugging Face GPU", "Custom"]),
+            (window.new_spindle_run_action, ["YASA", "LSM", "A7", "MOLLE"], ["Hugging Face CPU", "Hugging Face GPU", "Custom"]),
             (window.new_spike_run_action, ["RMS/LL"], ["Review only"]),
         )
 
@@ -443,11 +443,24 @@ def test_quick_detection_layout_regression_covers_detector_and_classifier_panels
             ("MNI", dialog.qd_MNI_detector),
             ("STE", dialog.qd_STE_detector),
             ("HIL", dialog.qd_HIL_detector),
+            ("RMS", dialog.quick_detector_pages["RMS"]),
+            ("LineLength", dialog.quick_detector_pages["LineLength"]),
         )
         for detector_name, panel in detector_panels:
             dialog.detectionTypeComboBox.setCurrentText(detector_name)
             _process_events(qapp, cycles=8)
             _assert_container_layout(dialog, panel)
+
+        for biomarker, detectors in (
+            ("Spindle", ("A7", "MOLLE")),
+            ("Spike", ("RMS/LL",)),
+        ):
+            dialog.set_quick_biomarker_type(biomarker)
+            _process_events(qapp, cycles=8)
+            for detector_name in detectors:
+                dialog.detectionTypeComboBox.setCurrentText(detector_name)
+                _process_events(qapp, cycles=8)
+                _assert_container_layout(dialog, dialog.quick_detector_pages[detector_name])
     finally:
         dialog.close()
         _process_events(qapp)

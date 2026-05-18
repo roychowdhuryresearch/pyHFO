@@ -14,8 +14,8 @@ PyHFO is a desktop EEG review workspace for high-frequency oscillation (HFO) ana
 ## What the current app does
 
 - Load EEG recordings from EDF, BrainVision, FIF, and FIF.GZ files.
-- Run HFO detection with STE, MNI, or HIL detectors.
-- Run spindle detection with YASA or the Python Kramer LSM detector with bundled editable presets.
+- Run HFO detection with STE, MNI, HIL, local RMS, or local line-length detectors.
+- Run spindle detection with YASA, Python Kramer LSM bundled editable presets, A7-style thresholds, or Molle-style RMS thresholds.
 - Review runs side by side, compare overlap, create consensus runs, and accept a preferred run.
 - Classify events with artifact, spkHFO, and eHFO models.
 - Open a dedicated annotation window for event-by-event review, including unreviewed-event queues.
@@ -57,7 +57,7 @@ Typical HFO workflow:
 
 1. Open an EEG file.
 2. Filter the signal.
-3. Run one or more detectors such as STE, MNI, or HIL.
+3. Run one or more detectors such as STE, MNI, HIL, RMS, or LineLength.
 4. Optionally classify the active run with artifact, spkHFO, and eHFO models.
 5. Review events in the annotation window.
 6. Optionally open Run Stats and create a union, majority, or intersection consensus run from visible runs.
@@ -66,12 +66,14 @@ Typical HFO workflow:
 
 ### 2. Quick Detection
 
-Use Quick Detection for a faster HFO-only path when you want to open an EEG file, choose one detector, optionally run classification, and export results without using the full workspace.
+Use Quick Detection for a faster single-pass path when you want to open an EEG file, choose one biomarker and detector, and export results without using the full workspace.
 
 Quick Detection currently supports:
 
-- STE, MNI, and HIL detectors
-- Optional classifier execution
+- HFO detection with STE, MNI, HIL, RMS, or LineLength
+- Spindle detection with A7 or MOLLE
+- Spike detection with RMS/LL
+- Optional classifier execution for HFO quick runs
 - Excel export
 - Session export
 
@@ -79,8 +81,8 @@ Quick Detection currently supports:
 
 The main workspace supports multiple biomarker modes:
 
-- `HFO`: full detection, classification, review, and export workflow
-- `Spindle`: YASA or Kramer LSM detection plus artifact/spike review workflow
+- `HFO`: full detection, classification, review, and export workflow, including STE/MNI/HIL and local RMS/LineLength detector paths
+- `Spindle`: YASA, Kramer LSM, A7-style, or Molle-style detection plus artifact/spike review workflow
 - `Spike`: RMS/LL detection plus accepted/artifact review and export workflow
 
 ### 4. Batch Projects And Protocol Presets
@@ -243,7 +245,7 @@ pip install -r requirements.txt --force-reinstall
 
 ### Missing spindle detection
 
-YASA spindle detection depends on `yasa`. If it is missing, the UI will still load, but the YASA workflow will remain unavailable until that package is installed. Kramer LSM detection is implemented in Python and does not require `yasa`; it includes authorized JSON presets expanded from the Kramer detector parameter files, and the advanced panel lets users edit the model parameters directly or point to a compatible `.mat`/`.json` parameter file.
+YASA spindle detection depends on `yasa`. If it is missing, the UI will still load, but only the YASA workflow remains unavailable until that package is installed. Kramer LSM, A7-style spindle detection, Molle-style spindle RMS detection, HFO RMS detection, and HFO line-length detection are implemented locally in Python and do not add runtime dependencies. Kramer LSM includes authorized JSON presets expanded from the Kramer detector parameter files, and the advanced panel lets users edit the model parameters directly or point to a compatible `.mat`/`.json` parameter file.
 
 ### Hosted classifier download failures
 
@@ -286,7 +288,9 @@ If PyHFO is useful in your research, please cite:
 - [HFODetector](https://github.com/roychowdhuryresearch/HFO_Detector) - Python toolbox for fast HFO detection.
 - [HFO-Classification](https://github.com/roychowdhuryresearch/HFO-Classification) - Deep learning projects for HFO classification.
 - [EEG-Viz](https://github.com/jebbica/EEG-Viz) - EEG visualization toolkit.
-- [Spindle-Detector-Method](https://github.com/Mark-Kramer/Spindle-Detector-Method) - Kramer latent-state-model spindle detector method and parameter files. PyHFO includes expanded JSON presets derived from this method for the `LSM` spindle workflow.
+- [MNE-HFO](https://mne.tools/mne-hfo/stable/index.html) - Reference HFO detector family including RMS and line-length detector workflows. PyHFO includes local threshold-style RMS and line-length implementations without adding this dependency.
+- [Wonambi](https://wonambi-python.github.io/gui/methods.html) and [rsleep A7](https://rsleep.org/reference/a7.html) - Reference spindle detector families that informed the local A7-style and Molle-style threshold detector surfaces.
+- [Spindle-Detector-Method](https://github.com/Mark-Kramer/Spindle-Detector-Method) - Kramer latent-state-model spindle detector method and parameter files. PyHFO includes authorized expanded JSON presets derived from this method for the `LSM` spindle workflow.
 
 ## License
 

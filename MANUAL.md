@@ -142,20 +142,21 @@ Use `HFO` for the full HFO workflow:
 
 - filtering
 - detector configuration
-- HFO detection
+- HFO detection with STE, MNI, HIL, RMS, or LineLength paths
 - artifact / spkHFO / eHFO classification
 - annotation
 - workbook and report export
 
 ### Spindle
 
-Use `Spindle` for spindle workflows based on `YASA` or the Python Kramer LSM detector.
+Use `Spindle` for spindle workflows based on `YASA`, the Python Kramer LSM detector, A7-style thresholds, or Molle-style RMS thresholds.
 
 This mode supports:
 
 - spindle filter settings
 - YASA detector settings
 - Kramer LSM detector settings with bundled presets, external `.mat`/`.json` files, or manual model parameters
+- A7-style and Molle-style local threshold detector settings
 - artifact and spike review support
 - annotation
 - session save and export
@@ -218,7 +219,7 @@ These mean:
 
 - `Open File`: open a new EEG file from disk.
 - `Load Detection`: load an existing saved PyHFO session from `.pybrain` or `.npz`.
-- `Quick Detection`: open the smaller single-EEG-file HFO workflow.
+- `Quick Detection`: open the smaller single-EEG-file workflow for a one-pass HFO, spindle, or spike run.
 
 After loading an EEG file, the main workspace exposes:
 
@@ -260,14 +261,15 @@ Use this when you already saved a PyHFO session.
 3. Wait for waveform initialization to finish.
 4. Confirm the correct biomarker mode and run state were restored.
 
-### Scenario C: fast one-off HFO pass
+### Scenario C: fast one-off detector pass
 
 Use this when you only want a single detector run and exports, not the full multi-run workspace.
 
 1. Click `Quick Detection`.
 2. Load the EEG file inside the Quick Detection dialog.
-3. Select a detector.
-4. Run and export.
+3. Select `HFO`, `Spindle`, or `Spike`.
+4. Select a detector.
+5. Run and export.
 
 ## 5B. Action Paths And Expected Reactions
 
@@ -353,7 +355,7 @@ Typical use:
 
 - Start with `Open File` for a new case.
 - Use `Load Detection` to continue prior work.
-- Use `Quick Detection` when you want a compact one-pass HFO run instead of the full workspace.
+- Use `Quick Detection` when you want a compact one-pass HFO, spindle, or spike run instead of the full workspace.
 - Use `Shortcuts` when you want the in-app shortcut reference.
 
 ### 6.2 Biomarker selector
@@ -698,7 +700,7 @@ Before you click filter or detect, check:
 
 ## 8. Detector Parameters
 
-PyHFO currently supports `STE`, `MNI`, `HIL`, and `YASA` depending on the biomarker mode.
+PyHFO currently supports `STE`, `MNI`, `HIL`, `RMS`, `LineLength`, `YASA`, `LSM`, `A7`, `MOLLE`, and spike `RMS/LL` depending on the biomarker mode.
 
 ### 8.1 STE
 
@@ -803,7 +805,21 @@ Practical reading:
 - `sd_threshold`: standard deviation threshold for the Hilbert-envelope style detector
 - `min_window`: minimum accepted event duration
 
-### 8.4 YASA
+### 8.4 HFO RMS And LineLength
+
+In HFO mode, `RMS` and `LineLength` are local Python threshold detectors intended as lightweight alternatives to the external detector package paths.
+
+Both expose:
+
+- metric window: RMS or line-length calculation window
+- minimum and maximum event duration
+- minimum merge gap
+- metric threshold
+- peak threshold
+
+Use these when you want transparent, dependency-free HFO candidates for comparison runs. `RMS` is amplitude-envelope oriented; `LineLength` is more sensitive to fast waveform complexity.
+
+### 8.5 YASA
 
 In spindle mode, `YASA` exposes:
 
@@ -824,7 +840,7 @@ Practical reading:
 - `min_distance`: separation between spindle events
 - `corr`, `rel_pow`, `rms`: YASA threshold terms
 
-### 8.5 Kramer LSM
+### 8.6 Kramer LSM
 
 In spindle mode, `LSM` exposes:
 
@@ -838,6 +854,23 @@ In spindle mode, `LSM` exposes:
 - expandable `Model Parameters`: window/step duration, feature indexes, state means, state standard deviations, and transition matrix values
 
 The implementation is a Python rewrite of the Kramer latent-state-model workflow. PyHFO bundles authorized expanded JSON presets derived from the Kramer parameter files so users do not need to handle MATLAB `.mat` files for standard use.
+
+### 8.7 A7 And MOLLE
+
+In spindle mode, `A7` exposes:
+
+- spindle band
+- broad reference band
+- duration range
+- minimum event distance
+- smoothing window
+- RMS threshold
+- relative-power threshold
+- correlation threshold
+
+`MOLLE` exposes the same spindle band, duration, distance, smoothing, and RMS threshold controls without the A7 relative-power and correlation gates.
+
+Use `A7` when you want a Lacourse-style multi-criterion spindle threshold run. Use `MOLLE` when you want a simpler sigma-band RMS threshold run for comparison.
 
 ## 9. Classifier Configuration
 
@@ -1107,7 +1140,7 @@ Use this workflow when the case is a spindle review case.
 1. Open the EEG file.
 2. Switch biomarker mode to `Spindle`.
 3. Confirm the spindle filter settings.
-4. Review `YASA` parameters, or choose `LSM` and select a bundled preset or edit the advanced model parameters.
+4. Review `YASA`, `LSM`, `A7`, or `MOLLE` parameters. For `LSM`, select a bundled preset or edit the advanced model parameters.
 5. Run spindle detection.
 6. Open annotation if event review is needed.
 7. Save the session.
@@ -1117,6 +1150,7 @@ Important:
 
 - if `YASA` is unavailable, only the YASA path is disabled
 - if `LSM` is selected, detection can use a bundled preset, a compatible local `.mat`/`.json` parameter file, or manually entered model parameters
+- `A7` and `MOLLE` are local Python detectors and do not depend on `yasa`
 
 Recommended spindle review pattern:
 
@@ -1139,13 +1173,13 @@ What to expect:
 
 ## 13. Quick Detection Workflow
 
-Quick Detection is a compact HFO-only dialog for single-pass runs.
+Quick Detection is a compact single-pass dialog for HFO, spindle, or spike runs.
 
 It is useful when you want:
 
 - one EEG file
-- one detector
-- optional classifier
+- one biomarker and one detector
+- optional HFO classifier
 - immediate export
 
 Current Quick Detection dialog with a real EDF-derived HFO excerpt loaded:
@@ -1159,11 +1193,12 @@ This figure shows the compact workflow after a completed `MNI` run with workbook
 Quick Detection includes:
 
 - `Load EEG File`
+- biomarker selector
 - detector selector
 - `N Jobs`
 - filter section
-- detector-specific sections for `MNI`, `STE`, `HIL`
-- classifier section
+- detector-specific sections for `MNI`, `STE`, `HIL`, `RMS`, `LineLength`, `A7`, `MOLLE`, and `RMS/LL`
+- HFO classifier section
 - export section
 - `Run Detection`
 
@@ -1171,12 +1206,13 @@ Quick Detection includes:
 
 1. Open `Quick Detection`.
 2. Click `Load EEG File`.
-3. Pick one detector from the detector dropdown.
-4. Set filter parameters.
-5. Adjust detector-specific parameters if needed.
-6. Decide whether classifier mode should run.
-7. Choose export formats.
-8. Click `Run Detection`.
+3. Pick `HFO`, `Spindle`, or `Spike` from the biomarker dropdown.
+4. Pick one detector from the detector dropdown.
+5. Set filter parameters.
+6. Adjust detector-specific parameters if needed.
+7. For HFO only, decide whether classifier mode should run.
+8. Choose export formats.
+9. Click `Run Detection`.
 
 When Quick Detection is the right choice:
 

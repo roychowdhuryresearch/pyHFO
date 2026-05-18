@@ -7,8 +7,20 @@ import math
 from pathlib import Path
 from src.hfo_app import HFO_App
 from src.param.param_classifier import ParamClassifier
-from src.param.param_detector import ParamDetector, ParamSTE, ParamMNI, ParamHIL
-from src.param.param_filter import ParamFilter
+from src.param.param_detector import (
+    ParamDetector,
+    ParamHFOLineLength,
+    ParamHFORMS,
+    ParamHIL,
+    ParamMNI,
+    ParamSpindleA7,
+    ParamSpindleRMS,
+    ParamSpikeRMSLL,
+    ParamSTE,
+)
+from src.param.param_filter import ParamFilter, ParamFilterSpindle
+from src.spike_app import SpikeApp
+from src.spindle_app import SpindleApp
 from src.ui.ui_tokens import resolve_ui_density
 from src.utils.utils_gui import *
 
@@ -26,7 +38,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
         super(HFOQuickDetector, self).__init__()
         self.ui_density = resolve_ui_density(self.screen())
         self.ui = uic.loadUi(os.path.join(ROOT_DIR, 'quick_detection.ui'), self)
-        self.setWindowTitle("HFO Quick Detector")
+        self.setWindowTitle("Quick Detection")
         self.setWindowIcon(QtGui.QIcon(os.path.join(ROOT_DIR, 'images/icon1.png')))
         self.filename = None
         self.detector = ""
@@ -34,15 +46,23 @@ class HFOQuickDetector(QtWidgets.QDialog):
         self._run_result = None
         self._run_failed = False
         self.running = False
-        safe_connect_signal_slot(self.detectionTypeComboBox.currentIndexChanged['int'],
-                                 lambda: self.update_detector_tab(self.detectionTypeComboBox.currentText()))
-        self.detectionTypeComboBox.setCurrentIndex(2)
-        QtCore.QMetaObject.connectSlotsByName(self)
-        safe_connect_signal_slot(self.qd_loadEDF_button.clicked, self.open_file)
         if backend is None:
             self.backend = HFO_App()
+            self._managed_backend = True
         else:
             self.backend = backend
+            self._managed_backend = isinstance(backend, (HFO_App, SpindleApp, SpikeApp))
+        self.biomarker_type = self._infer_backend_biomarker(self.backend)
+        self.quick_detector_pages = {}
+        self.quick_detector_inputs = {}
+        self.quick_detector_specs = {}
+        self.quick_detector_page_indices = {}
+        self._build_programmatic_detector_pages()
+        safe_connect_signal_slot(self.detectionTypeComboBox.currentIndexChanged['int'],
+                                 lambda: self.update_detector_tab(self.detectionTypeComboBox.currentText()))
+        self._configure_detector_options(self.biomarker_type)
+        QtCore.QMetaObject.connectSlotsByName(self)
+        safe_connect_signal_slot(self.qd_loadEDF_button.clicked, self.open_file)
         self.init_default_filter_input_params()
         self.init_default_mni_input_params()
         self.init_default_ste_input_params()
@@ -70,14 +90,11 @@ class HFOQuickDetector(QtWidgets.QDialog):
         #classifier default buttons
         safe_connect_signal_slot(self.default_cpu_button.clicked, self.set_classifier_param_cpu_default)
         safe_connect_signal_slot(self.default_gpu_button.clicked, self.set_classifier_param_gpu_default)
-        if torch is None or not torch.cuda.is_available():
+        if torch is None or not torch.cuda.is_available() or not hasattr(self.backend, "set_default_gpu_classifier"):
             self.default_gpu_button.setEnabled(False)
-        if self.backend.get_classifier_param() is None:
-            self.backend.set_default_cpu_classifier()
-        self.classifier_source_preference = getattr(self.backend.get_classifier_param(), "source_preference", "auto")
-        self.set_classifier_param_display()
+        self._ensure_classifier_defaults()
         self.qd_npz_checkbox.setChecked(True)
-        self._update_classifier_controls_enabled(self.qd_use_classifier_checkbox.isChecked())
+        self._sync_classifier_availability()
         safe_connect_signal_slot(self.qd_excel_checkbox.toggled, self._refresh_run_setup_feedback)
         safe_connect_signal_slot(self.qd_npz_checkbox.toggled, self._refresh_run_setup_feedback)
 
@@ -93,6 +110,294 @@ class HFOQuickDetector(QtWidgets.QDialog):
         self._restore_detector_combo_palette()
         self._configure_input_conventions()
         self._refresh_run_setup_feedback()
+
+    def _infer_backend_biomarker(self, backend):
+        return self._normalize_biomarker_type(getattr(backend, "biomarker_type", "HFO"))
+
+    def _normalize_biomarker_type(self, biomarker_type):
+        normalized = str(biomarker_type or "").strip().lower()
+        if normalized in {"spindle", "spindles"}:
+            return "Spindle"
+        if normalized in {"spike", "spikes"}:
+            return "Spike"
+        return "HFO"
+
+    def _backend_factory_for_biomarker(self, biomarker_type):
+        normalized = self._normalize_biomarker_type(biomarker_type)
+        if normalized == "Spindle":
+            return SpindleApp
+        if normalized == "Spike":
+            return SpikeApp
+        return HFO_App
+
+    def _replace_managed_backend(self, biomarker_type):
+        factory = self._backend_factory_for_biomarker(biomarker_type)
+        current_fname = getattr(self, "fname", None)
+        n_jobs = int(self.n_jobs_spinbox.value()) if hasattr(self, "n_jobs_spinbox") else getattr(self.backend, "n_jobs", 1)
+        next_backend = factory()
+        next_backend.set_n_jobs(n_jobs)
+        if current_fname:
+            next_backend.load_edf(current_fname)
+        self.backend = next_backend
+
+    def set_quick_biomarker_type(self, biomarker_type):
+        next_biomarker = self._normalize_biomarker_type(biomarker_type)
+        previous_biomarker = self.biomarker_type
+        previous_backend = self.backend
+        self.biomarker_type = next_biomarker
+        try:
+            if self._managed_backend and self._infer_backend_biomarker(self.backend) != next_biomarker:
+                self._replace_managed_backend(next_biomarker)
+            elif hasattr(self.backend, "biomarker_type"):
+                self.backend.biomarker_type = next_biomarker
+        except Exception as exc:
+            self.biomarker_type = previous_biomarker
+            self.backend = previous_backend
+            self._sync_biomarker_combo_selection()
+            msg = build_themed_message_box(
+                self,
+                icon=QMessageBox.Warning,
+                title="Quick Detection",
+                text="Quick detection could not switch mode.",
+                informative_text=str(exc),
+            )
+            msg.exec_()
+            return
+
+        self._sync_biomarker_combo_selection()
+        self._configure_detector_options(next_biomarker)
+        self._sync_filter_inputs_from_param(self._recommended_filter_param())
+        self._ensure_classifier_defaults()
+        self._sync_classifier_availability()
+        if not self.running:
+            self._clear_run_feedback_state()
+            self._refresh_run_setup_feedback()
+
+    def _sync_biomarker_combo_selection(self):
+        combo = getattr(self, "quick_biomarker_combo", None)
+        if combo is None:
+            return
+        if combo.currentText() == self.biomarker_type:
+            return
+        combo.blockSignals(True)
+        combo.setCurrentText(self.biomarker_type)
+        combo.blockSignals(False)
+
+    def _supports_classifier(self):
+        return self.biomarker_type == "HFO"
+
+    def _ensure_classifier_defaults(self):
+        self.classifier_source_preference = getattr(self, "classifier_source_preference", "auto")
+        if not hasattr(self.backend, "get_classifier_param"):
+            return
+        classifier_param = self.backend.get_classifier_param()
+        if classifier_param is None and hasattr(self.backend, "set_default_cpu_classifier"):
+            self.backend.set_default_cpu_classifier()
+            classifier_param = self.backend.get_classifier_param()
+        if classifier_param is not None:
+            self.set_classifier_param_display()
+
+    def _sync_classifier_availability(self):
+        supports_classifier = self._supports_classifier()
+        if not supports_classifier and self.qd_use_classifier_checkbox.isChecked():
+            self.qd_use_classifier_checkbox.blockSignals(True)
+            self.qd_use_classifier_checkbox.setChecked(False)
+            self.qd_use_classifier_checkbox.blockSignals(False)
+        self.qd_use_classifier_checkbox.setEnabled(supports_classifier)
+        self.classifier_groupbox_4.setEnabled(supports_classifier)
+        self.classifier_groupbox_4.setToolTip(
+            "" if supports_classifier else "Classifier controls are only available for HFO quick detection."
+        )
+        self._refresh_backend_classifier_buttons()
+        self._update_classifier_controls_enabled(self.qd_use_classifier_checkbox.isChecked())
+
+    def _refresh_backend_classifier_buttons(self):
+        self.default_cpu_button.setEnabled(
+            self._supports_classifier() and self.qd_use_classifier_checkbox.isChecked()
+            and hasattr(self.backend, "set_default_cpu_classifier")
+        )
+        self.default_gpu_button.setEnabled(
+            self._supports_classifier() and self.qd_use_classifier_checkbox.isChecked()
+            and hasattr(self.backend, "set_default_gpu_classifier")
+            and torch is not None and torch.cuda.is_available()
+        )
+
+    def _dynamic_input_object_name(self, detector_name, key):
+        safe_detector = str(detector_name).lower().replace("/", "_").replace(" ", "_")
+        safe_key = str(key).lower().replace("/", "_").replace(" ", "_")
+        return f"qd_{safe_detector}_{safe_key}_input"
+
+    def _add_quick_detector_page(self, detector_name, title, field_specs):
+        groupbox = QtWidgets.QGroupBox(title, self.stackedWidget)
+        groupbox.setObjectName(f"qd_{str(detector_name).replace('/', '_')}_detector")
+        grid = QtWidgets.QGridLayout(groupbox)
+        grid.setContentsMargins(8, 8, 8, 8)
+        grid.setHorizontalSpacing(6)
+        grid.setVerticalSpacing(4)
+        grid.setColumnStretch(1, 1)
+        grid.setColumnStretch(4, 1)
+
+        self.quick_detector_inputs[detector_name] = {}
+        self.quick_detector_specs[detector_name] = {}
+        for index, spec in enumerate(field_specs):
+            row = index // 2
+            column = (index % 2) * 3
+            label = QtWidgets.QLabel(spec["label"], groupbox)
+            label.setProperty("fieldLabel", True)
+            label.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+            line_edit = QtWidgets.QLineEdit(groupbox)
+            line_edit.setObjectName(self._dynamic_input_object_name(detector_name, spec["key"]))
+            line_edit.setText(self._format_numeric_text(spec["default"]))
+            line_edit.setAlignment(QtCore.Qt.AlignCenter)
+            line_edit.setMaximumWidth(118)
+            line_edit.setMinimumHeight(self.ui_density.compact_input_height)
+            line_edit.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+            self._configure_numeric_line_edit(
+                line_edit,
+                integer=spec.get("integer", False),
+                minimum=spec.get("minimum", 0.0),
+                maximum=spec.get("maximum"),
+            )
+            safe_connect_signal_slot(line_edit.returnPressed, self._submit_run_from_fields)
+
+            grid.addWidget(label, row, column)
+            grid.addWidget(line_edit, row, column + 1)
+            unit_text = spec.get("unit", "")
+            if unit_text:
+                unit_label = QtWidgets.QLabel(unit_text, groupbox)
+                unit_label.setProperty("fieldUnit", True)
+                unit_label.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+                grid.addWidget(unit_label, row, column + 2)
+            self.quick_detector_inputs[detector_name][spec["key"]] = line_edit
+            self.quick_detector_specs[detector_name][spec["key"]] = spec
+
+        page_index = self.stackedWidget.addWidget(groupbox)
+        self.quick_detector_pages[detector_name] = groupbox
+        self.quick_detector_page_indices[detector_name] = page_index
+
+    def _build_programmatic_detector_pages(self):
+        hfo_rms = ParamHFORMS()
+        hfo_ll = ParamHFOLineLength()
+        spindle_a7 = ParamSpindleA7()
+        spindle_molle = ParamSpindleRMS()
+        spike = ParamSpikeRMSLL()
+        self._add_quick_detector_page(
+            "RMS",
+            "HFO RMS",
+            [
+                {"key": "rms_window", "label": "RMS window", "unit": "s", "default": hfo_rms.rms_window},
+                {"key": "min_window", "label": "Min duration", "unit": "s", "default": hfo_rms.min_window},
+                {"key": "max_window", "label": "Max duration", "unit": "s", "default": hfo_rms.max_window},
+                {"key": "min_gap", "label": "Merge gap", "unit": "s", "default": hfo_rms.min_gap},
+                {"key": "threshold", "label": "RMS threshold", "default": hfo_rms.threshold},
+                {"key": "peak_threshold", "label": "Peak threshold", "default": hfo_rms.peak_threshold},
+            ],
+        )
+        self._add_quick_detector_page(
+            "LineLength",
+            "HFO Line Length",
+            [
+                {"key": "ll_window", "label": "LL window", "unit": "s", "default": hfo_ll.ll_window},
+                {"key": "min_window", "label": "Min duration", "unit": "s", "default": hfo_ll.min_window},
+                {"key": "max_window", "label": "Max duration", "unit": "s", "default": hfo_ll.max_window},
+                {"key": "min_gap", "label": "Merge gap", "unit": "s", "default": hfo_ll.min_gap},
+                {"key": "threshold", "label": "LL threshold", "default": hfo_ll.threshold},
+                {"key": "peak_threshold", "label": "Peak threshold", "default": hfo_ll.peak_threshold},
+            ],
+        )
+        self._add_quick_detector_page(
+            "A7",
+            "Spindle A7",
+            [
+                {"key": "freq_sp_low", "label": "Spindle low", "unit": "Hz", "default": spindle_a7.freq_sp[0]},
+                {"key": "freq_sp_high", "label": "Spindle high", "unit": "Hz", "default": spindle_a7.freq_sp[1]},
+                {"key": "freq_broad_low", "label": "Broad low", "unit": "Hz", "default": spindle_a7.freq_broad[0]},
+                {"key": "freq_broad_high", "label": "Broad high", "unit": "Hz", "default": spindle_a7.freq_broad[1]},
+                {"key": "duration_low", "label": "Duration min", "unit": "s", "default": spindle_a7.duration[0]},
+                {"key": "duration_high", "label": "Duration max", "unit": "s", "default": spindle_a7.duration[1]},
+                {"key": "min_distance", "label": "Min distance", "unit": "s", "default": spindle_a7.min_distance},
+                {"key": "smooth_window", "label": "Smooth window", "unit": "s", "default": spindle_a7.smooth_window},
+                {"key": "rms_threshold", "label": "RMS threshold", "default": spindle_a7.rms_threshold},
+                {"key": "relative_power_threshold", "label": "Rel power", "default": spindle_a7.relative_power_threshold},
+                {"key": "correlation_threshold", "label": "Correlation", "default": spindle_a7.correlation_threshold},
+            ],
+        )
+        self._add_quick_detector_page(
+            "MOLLE",
+            "Spindle RMS",
+            [
+                {"key": "freq_sp_low", "label": "Spindle low", "unit": "Hz", "default": spindle_molle.freq_sp[0]},
+                {"key": "freq_sp_high", "label": "Spindle high", "unit": "Hz", "default": spindle_molle.freq_sp[1]},
+                {"key": "duration_low", "label": "Duration min", "unit": "s", "default": spindle_molle.duration[0]},
+                {"key": "duration_high", "label": "Duration max", "unit": "s", "default": spindle_molle.duration[1]},
+                {"key": "min_distance", "label": "Min distance", "unit": "s", "default": spindle_molle.min_distance},
+                {"key": "smooth_window", "label": "Smooth window", "unit": "s", "default": spindle_molle.smooth_window},
+                {"key": "rms_threshold", "label": "RMS threshold", "default": spindle_molle.rms_threshold},
+            ],
+        )
+        self._add_quick_detector_page(
+            "RMS/LL",
+            "Spike RMS/LL",
+            [
+                {"key": "rms_window", "label": "RMS window", "unit": "s", "default": spike.rms_window},
+                {"key": "ll_window", "label": "LL window", "unit": "s", "default": spike.ll_window},
+                {"key": "min_window", "label": "Min duration", "unit": "s", "default": spike.min_window},
+                {"key": "max_window", "label": "Max duration", "unit": "s", "default": spike.max_window},
+                {"key": "min_gap", "label": "Merge gap", "unit": "s", "default": spike.min_gap},
+                {"key": "rms_thres", "label": "RMS threshold", "default": spike.rms_thres},
+                {"key": "ll_thres", "label": "LL threshold", "default": spike.ll_thres},
+                {"key": "peak_thres", "label": "Peak threshold", "default": spike.peak_thres},
+            ],
+        )
+
+    def _detector_options_for_biomarker(self, biomarker_type):
+        normalized = self._normalize_biomarker_type(biomarker_type)
+        if normalized == "Spindle":
+            return ["A7", "MOLLE"]
+        if normalized == "Spike":
+            return ["RMS/LL"]
+        return ["MNI", "STE", "HIL", "RMS", "LineLength"]
+
+    def _default_detector_for_biomarker(self, biomarker_type):
+        normalized = self._normalize_biomarker_type(biomarker_type)
+        if normalized == "Spindle":
+            return "A7"
+        if normalized == "Spike":
+            return "RMS/LL"
+        return "HIL"
+
+    def _normalize_detector_name(self, detector_name):
+        raw_value = str(detector_name or "").strip()
+        normalized = raw_value.lower().replace(" ", "").replace("_", "").replace("-", "")
+        lookup = {
+            "mni": "MNI",
+            "ste": "STE",
+            "hil": "HIL",
+            "rms": "RMS",
+            "hforms": "RMS",
+            "linelength": "LineLength",
+            "ll": "LineLength",
+            "hfoll": "LineLength",
+            "a7": "A7",
+            "molle": "MOLLE",
+            "fasst": "MOLLE",
+            "spindlerms": "MOLLE",
+            "rms/ll": "RMS/LL",
+            "rmsll": "RMS/LL",
+            "spikermsll": "RMS/LL",
+        }
+        return lookup.get(normalized, raw_value)
+
+    def _configure_detector_options(self, biomarker_type):
+        options = self._detector_options_for_biomarker(biomarker_type)
+        current = self._normalize_detector_name(self.detector)
+        selected = current if current in options else self._default_detector_for_biomarker(biomarker_type)
+        self.detectionTypeComboBox.blockSignals(True)
+        self.detectionTypeComboBox.clear()
+        self.detectionTypeComboBox.addItems(options)
+        self.detectionTypeComboBox.setCurrentText(selected)
+        self.detectionTypeComboBox.blockSignals(False)
+        self.update_detector_tab(selected)
 
     def _apply_dialog_theme(self):
         self.ui_density = resolve_ui_density(self.screen())
@@ -165,6 +470,8 @@ class HFOQuickDetector(QtWidgets.QDialog):
         self._tighten_groupbox(self.qd_MNI_detector, title="MNI")
         self._tighten_groupbox(self.qd_STE_detector, title="STE")
         self._tighten_groupbox(self.qd_HIL_detector, title="HIL")
+        for detector_name, groupbox in self.quick_detector_pages.items():
+            self._tighten_groupbox(groupbox, title=groupbox.title() or detector_name)
         self._tighten_groupbox(self.classifier_groupbox_4, title="Classifier")
         self._tighten_groupbox(self.qd_saveAs, title="Export")
 
@@ -259,6 +566,25 @@ class HFOQuickDetector(QtWidgets.QDialog):
         self.qd_loadEDF_button.show()
         setup_card_layout.addWidget(self.qd_loadEDF_button)
 
+        biomarker_row = QtWidgets.QFrame(setup_card)
+        biomarker_layout = QtWidgets.QVBoxLayout(biomarker_row)
+        biomarker_layout.setContentsMargins(0, 0, 0, 0)
+        biomarker_layout.setSpacing(4)
+        biomarker_label = QtWidgets.QLabel("Biomarker", biomarker_row)
+        biomarker_label.setProperty("fieldLabel", True)
+        self.quick_biomarker_combo = QtWidgets.QComboBox(biomarker_row)
+        self.quick_biomarker_combo.addItems(["HFO", "Spindle", "Spike"])
+        self.quick_biomarker_combo.setCurrentText(self.biomarker_type)
+        self.quick_biomarker_combo.setMinimumHeight(self.ui_density.compact_input_height)
+        self.quick_biomarker_combo.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+        safe_connect_signal_slot(
+            self.quick_biomarker_combo.currentTextChanged,
+            self.set_quick_biomarker_type,
+        )
+        biomarker_layout.addWidget(biomarker_label)
+        biomarker_layout.addWidget(self.quick_biomarker_combo)
+        setup_card_layout.addWidget(biomarker_row)
+
         detector_row = QtWidgets.QFrame(setup_card)
         detector_layout = QtWidgets.QVBoxLayout(detector_row)
         detector_layout.setContentsMargins(0, 0, 0, 0)
@@ -324,8 +650,8 @@ class HFOQuickDetector(QtWidgets.QDialog):
             getattr(self, "detector", ""),
             getattr(self.detectionTypeComboBox, "currentText", lambda: "")(),
         ):
-            normalized = str(candidate or "").strip().upper()
-            if normalized in {"MNI", "STE", "HIL"}:
+            normalized = self._normalize_detector_name(candidate)
+            if normalized in self._detector_options_for_biomarker(self.biomarker_type):
                 return normalized
         return ""
 
@@ -341,7 +667,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
         self._run_result = None
         self._run_failed = False
         if not self.running:
-            self.setWindowTitle("HFO Quick Detector")
+            self.setWindowTitle("Quick Detection")
 
     def _parse_float_input(self, raw_value, field_label, *, positive=False, non_negative=False):
         text = str(raw_value).strip()
@@ -586,6 +912,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
             checkbox.setMinimumHeight(max(checkbox.sizeHint().height(), checkbox.minimumSizeHint().height()))
 
     def _update_classifier_controls_enabled(self, enabled):
+        effective_enabled = bool(enabled) and self._supports_classifier()
         classifier_controls = (
             self.default_cpu_button,
             self.default_gpu_button,
@@ -603,7 +930,13 @@ class HFOQuickDetector(QtWidgets.QDialog):
             self.qd_classifier_batch_size_input,
         )
         for widget in classifier_controls:
-            widget.setEnabled(bool(enabled))
+            widget.setEnabled(effective_enabled)
+        self.default_cpu_button.setEnabled(effective_enabled and hasattr(self.backend, "set_default_cpu_classifier"))
+        self.default_gpu_button.setEnabled(
+            effective_enabled
+            and hasattr(self.backend, "set_default_gpu_classifier")
+            and torch is not None and torch.cuda.is_available()
+        )
 
     def _compact_export_group(self):
         layout = self.qd_saveAs.layout()
@@ -710,8 +1043,15 @@ class HFOQuickDetector(QtWidgets.QDialog):
             return str(int(numeric_value))
         return f"{numeric_value:g}"
 
+    def _default_filter_param_for_biomarker(self):
+        if self.biomarker_type == "Spindle":
+            return ParamFilterSpindle()
+        if self.biomarker_type == "Spike":
+            return ParamFilter(fp=4, fs=80)
+        return ParamFilter()
+
     def _recommended_filter_param(self):
-        default_param = ParamFilter()
+        default_param = self._default_filter_param_for_biomarker()
         sample_freq = self._recording_sample_frequency()
         if sample_freq <= 0:
             return default_param
@@ -770,15 +1110,16 @@ class HFOQuickDetector(QtWidgets.QDialog):
             raise ValueError(f"Filter stop band must stay below {stop_band_limit:.2f} Hz for this EEG signal.")
         if fp >= fs:
             raise ValueError("Filter pass band must be lower than the stop band.")
-        return ParamFilter().from_dict(
-            {
-                "fp": fp,
-                "fs": fs,
-                "rp": rp,
-                "rs": rs,
-                "sample_freq": self._recording_sample_frequency() or None,
-            }
-        )
+        param_dict = {
+            "fp": fp,
+            "fs": fs,
+            "rp": rp,
+            "rs": rs,
+            "sample_freq": self._recording_sample_frequency() or None,
+        }
+        if self.biomarker_type == "Spindle":
+            return ParamFilterSpindle.from_dict(param_dict)
+        return ParamFilter.from_dict(param_dict)
 
     def _submit_run_from_fields(self):
         if self.run_button.isEnabled():
@@ -946,15 +1287,19 @@ class HFOQuickDetector(QtWidgets.QDialog):
 
 
     def update_detector_tab(self, index):
-        if index == "MNI":
+        detector_name = self._normalize_detector_name(index)
+        if detector_name == "MNI":
             self.stackedWidget.setCurrentIndex(0)
             self.detector = "MNI"
-        elif index == "STE":
+        elif detector_name == "STE":
             self.stackedWidget.setCurrentIndex(1)
             self.detector = "STE"
-        elif index == "HIL":
+        elif detector_name == "HIL":
             self.stackedWidget.setCurrentIndex(2)
             self.detector = "HIL"
+        elif detector_name in self.quick_detector_page_indices:
+            self.stackedWidget.setCurrentIndex(self.quick_detector_page_indices[detector_name])
+            self.detector = detector_name
         else:
             self.detector = ""
         if not self.running:
@@ -1078,7 +1423,136 @@ class HFOQuickDetector(QtWidgets.QDialog):
         }
         detector_params = {"detector_type": "HIL", "detector_param": param_dict}
         return ParamDetector.from_dict(detector_params)
-        
+
+    def _detector_sample_frequency(self):
+        return self._recording_sample_frequency() or float(getattr(self.backend, "sample_freq", 0) or 2000)
+
+    def _quick_detector_field(self, detector_name, key):
+        try:
+            return self.quick_detector_inputs[detector_name][key]
+        except KeyError:
+            raise ValueError(f"{detector_name} detector field '{key}' is unavailable.")
+
+    def _quick_field_label(self, detector_name, key):
+        return self.quick_detector_specs.get(detector_name, {}).get(key, {}).get("label", key)
+
+    def _quick_field_float(self, detector_name, key, *, positive=True, non_negative=False):
+        widget = self._quick_detector_field(detector_name, key)
+        return self._parse_float_input(
+            widget.text(),
+            self._quick_field_label(detector_name, key),
+            positive=positive,
+            non_negative=non_negative,
+        )
+
+    def _quick_range(self, detector_name, low_key, high_key, label):
+        low_value = self._quick_field_float(detector_name, low_key, positive=True)
+        high_value = self._quick_field_float(detector_name, high_key, positive=True)
+        if low_value >= high_value:
+            raise ValueError(f"{label} low value must be lower than the high value.")
+        return (low_value, high_value)
+
+    def get_hfo_rms_params(self):
+        param_dict = {
+            "sample_freq": self._detector_sample_frequency(),
+            "pass_band": self._parse_float_input(self.qd_fp_input.text(), "Filter pass band", positive=True),
+            "stop_band": self._parse_float_input(self.qd_fs_input.text(), "Filter stop band", positive=True),
+            "rms_window": self._quick_field_float("RMS", "rms_window"),
+            "threshold": self._quick_field_float("RMS", "threshold"),
+            "peak_threshold": self._quick_field_float("RMS", "peak_threshold"),
+            "min_window": self._quick_field_float("RMS", "min_window"),
+            "max_window": self._quick_field_float("RMS", "max_window"),
+            "min_gap": self._quick_field_float("RMS", "min_gap", positive=False, non_negative=True),
+            "n_jobs": self.backend.n_jobs,
+        }
+        if param_dict["min_window"] > param_dict["max_window"]:
+            raise ValueError("Min duration must be lower than max duration.")
+        return ParamDetector.from_dict({"detector_type": "RMS", "detector_param": param_dict})
+
+    def get_hfo_line_length_params(self):
+        param_dict = {
+            "sample_freq": self._detector_sample_frequency(),
+            "pass_band": self._parse_float_input(self.qd_fp_input.text(), "Filter pass band", positive=True),
+            "stop_band": self._parse_float_input(self.qd_fs_input.text(), "Filter stop band", positive=True),
+            "ll_window": self._quick_field_float("LineLength", "ll_window"),
+            "threshold": self._quick_field_float("LineLength", "threshold"),
+            "peak_threshold": self._quick_field_float("LineLength", "peak_threshold"),
+            "min_window": self._quick_field_float("LineLength", "min_window"),
+            "max_window": self._quick_field_float("LineLength", "max_window"),
+            "min_gap": self._quick_field_float("LineLength", "min_gap", positive=False, non_negative=True),
+            "n_jobs": self.backend.n_jobs,
+        }
+        if param_dict["min_window"] > param_dict["max_window"]:
+            raise ValueError("Min duration must be lower than max duration.")
+        return ParamDetector.from_dict({"detector_type": "LineLength", "detector_param": param_dict})
+
+    def get_spindle_a7_params(self):
+        param_dict = {
+            "sample_freq": self._detector_sample_frequency(),
+            "freq_sp": self._quick_range("A7", "freq_sp_low", "freq_sp_high", "Spindle band"),
+            "freq_broad": self._quick_range("A7", "freq_broad_low", "freq_broad_high", "Broad band"),
+            "duration": self._quick_range("A7", "duration_low", "duration_high", "Duration"),
+            "min_distance": self._quick_field_float("A7", "min_distance", positive=False, non_negative=True),
+            "rms_threshold": self._quick_field_float("A7", "rms_threshold"),
+            "relative_power_threshold": self._quick_field_float("A7", "relative_power_threshold", positive=False, non_negative=True),
+            "correlation_threshold": self._quick_field_float("A7", "correlation_threshold", positive=False, non_negative=True),
+            "smooth_window": self._quick_field_float("A7", "smooth_window"),
+            "n_jobs": self.backend.n_jobs,
+        }
+        return ParamDetector.from_dict({"detector_type": "A7", "detector_param": param_dict})
+
+    def get_spindle_molle_params(self):
+        param_dict = {
+            "sample_freq": self._detector_sample_frequency(),
+            "method": "MOLLE",
+            "freq_sp": self._quick_range("MOLLE", "freq_sp_low", "freq_sp_high", "Spindle band"),
+            "duration": self._quick_range("MOLLE", "duration_low", "duration_high", "Duration"),
+            "min_distance": self._quick_field_float("MOLLE", "min_distance", positive=False, non_negative=True),
+            "smooth_window": self._quick_field_float("MOLLE", "smooth_window"),
+            "rms_threshold": self._quick_field_float("MOLLE", "rms_threshold"),
+            "n_jobs": self.backend.n_jobs,
+        }
+        return ParamDetector.from_dict({"detector_type": "MOLLE", "detector_param": param_dict})
+
+    def get_spike_rms_ll_params(self):
+        param_dict = {
+            "sample_freq": self._detector_sample_frequency(),
+            "pass_band": self._parse_float_input(self.qd_fp_input.text(), "Filter pass band", positive=True),
+            "stop_band": self._parse_float_input(self.qd_fs_input.text(), "Filter stop band", positive=True),
+            "rms_window": self._quick_field_float("RMS/LL", "rms_window"),
+            "ll_window": self._quick_field_float("RMS/LL", "ll_window"),
+            "rms_thres": self._quick_field_float("RMS/LL", "rms_thres"),
+            "ll_thres": self._quick_field_float("RMS/LL", "ll_thres"),
+            "peak_thres": self._quick_field_float("RMS/LL", "peak_thres"),
+            "min_window": self._quick_field_float("RMS/LL", "min_window"),
+            "max_window": self._quick_field_float("RMS/LL", "max_window"),
+            "min_gap": self._quick_field_float("RMS/LL", "min_gap", positive=False, non_negative=True),
+            "n_jobs": self.backend.n_jobs,
+        }
+        if param_dict["min_window"] > param_dict["max_window"]:
+            raise ValueError("Min duration must be lower than max duration.")
+        return ParamDetector.from_dict({"detector_type": "RMS/LL", "detector_param": param_dict})
+
+    def get_selected_detector_params(self):
+        detector_name = self._selected_detector_name()
+        if detector_name == "MNI":
+            return self.get_mni_params()
+        if detector_name == "STE":
+            return self.get_ste_params()
+        if detector_name == "HIL":
+            return self.get_hil_params()
+        if detector_name == "RMS":
+            return self.get_hfo_rms_params()
+        if detector_name == "LineLength":
+            return self.get_hfo_line_length_params()
+        if detector_name == "A7":
+            return self.get_spindle_a7_params()
+        if detector_name == "MOLLE":
+            return self.get_spindle_molle_params()
+        if detector_name == "RMS/LL":
+            return self.get_spike_rms_ll_params()
+        raise ValueError("Select a detector before running quick detection.")
+
     def get_classifier_param(self):
         artifact_path = self._get_model_path(self.qd_classifier_artifact_filename_display)
         spike_path = self._get_model_path(self.qd_classifier_spike_filename_display)
@@ -1119,7 +1593,11 @@ class HFOQuickDetector(QtWidgets.QDialog):
                 "seconds_before": seconds_before, "seconds_after": seconds_after}
     
     def set_classifier_param_display(self):
+        if not hasattr(self.backend, "get_classifier_param"):
+            return
         classifier_param = self.backend.get_classifier_param()
+        if classifier_param is None:
+            return
         self.classifier_source_preference = getattr(classifier_param, "source_preference", "auto")
 
         #set also the input fields
@@ -1132,12 +1610,16 @@ class HFOQuickDetector(QtWidgets.QDialog):
         self.qd_classifier_batch_size_input.setText(str(classifier_param.batch_size))
 
     def set_classifier_param_gpu_default(self):
-        self.backend.set_default_gpu_classifier()
-        self.set_classifier_param_display()
+        if hasattr(self.backend, "set_default_gpu_classifier"):
+            self.backend.set_default_gpu_classifier()
+            self.set_classifier_param_display()
+        self._sync_classifier_availability()
     
     def set_classifier_param_cpu_default(self):
-        self.backend.set_default_cpu_classifier()
-        self.set_classifier_param_display()
+        if hasattr(self.backend, "set_default_cpu_classifier"):
+            self.backend.set_default_cpu_classifier()
+            self.set_classifier_param_display()
+        self._sync_classifier_availability()
 
     def choose_model_file(self, model_type):
         dialog = self._create_file_dialog("Open file", ".tar files (*.tar)")
@@ -1176,6 +1658,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
     def build_output_path(self, extension):
         recording_path = Path(self.fname)
         detector_name = (self._selected_detector_name() or "quick").lower()
+        detector_name = detector_name.replace("/", "_").replace(" ", "_")
         output_stem = f"{self.get_output_stem()}_{detector_name}"
         candidate = recording_path.with_name(f"{output_stem}{extension}")
         suffix_index = 2
@@ -1187,15 +1670,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
     def collect_run_configuration(self):
         n_jobs = int(self.n_jobs_spinbox.value())
         filter_param = self.get_filter_param()
-
-        if self.detector == "MNI":
-            detector_param = self.get_mni_params()
-        elif self.detector == "STE":
-            detector_param = self.get_ste_params()
-        elif self.detector == "HIL":
-            detector_param = self.get_hil_params()
-        else:
-            raise ValueError("Select a detector before running quick detection.")
+        detector_param = self.get_selected_detector_params()
 
         detector_param.detector_param.n_jobs = n_jobs
 
@@ -1205,11 +1680,12 @@ class HFOQuickDetector(QtWidgets.QDialog):
             raise ValueError("Select at least one output format.")
 
         classifier_config = None
-        if self.qd_use_classifier_checkbox.isChecked():
+        if self._supports_classifier() and self.qd_use_classifier_checkbox.isChecked():
             classifier_config = self.get_classifier_param()
 
         return {
             "n_jobs": n_jobs,
+            "biomarker_type": self.biomarker_type,
             "filter_param": filter_param,
             "detector_param": detector_param,
             "classifier": classifier_config,

@@ -4228,30 +4228,50 @@ class MainWindowView(QObject):
             page_ste = self.create_detection_parameter_page_ste('Detection Parameters (STE)')
             page_mni = self.create_detection_parameter_page_mni('Detection Parameters (MNI)')
             page_hil = self.create_detection_parameter_page_hil('Detection Parameters (HIL)')
+            page_rms = self.create_detection_parameter_page_hfo_threshold('Detection Parameters (RMS)', 'RMS', 'RMS Window (s)')
+            page_line_length = self.create_detection_parameter_page_hfo_threshold(
+                'Detection Parameters (LineLength)',
+                'LineLength',
+                'LL Window (s)',
+            )
             self.window.stacked_widget_detection_param.addWidget(page_ste)
             self.window.stacked_widget_detection_param.addWidget(page_mni)
             self.window.stacked_widget_detection_param.addWidget(page_hil)
+            self.window.stacked_widget_detection_param.addWidget(page_rms)
+            self.window.stacked_widget_detection_param.addWidget(page_line_length)
 
             self.window.detector_subtabs.clear()
             tab_ste = self.create_detection_parameter_tab_ste()
             tab_mni = self.create_detection_parameter_tab_mni()
             tab_hil = self.create_detection_parameter_tab_hil()
+            tab_rms = self.create_detection_parameter_tab_hfo_threshold('RMS', 'RMS window')
+            tab_line_length = self.create_detection_parameter_tab_hfo_threshold('LineLength', 'LL window')
             self.window.detector_subtabs.addTab(tab_ste, 'STE')
             self.window.detector_subtabs.addTab(tab_mni, 'MNI')
             self.window.detector_subtabs.addTab(tab_hil, 'HIL')
+            self.window.detector_subtabs.addTab(tab_rms, 'RMS')
+            self.window.detector_subtabs.addTab(tab_line_length, 'LineLength')
 
         elif biomarker_type == 'Spindle':
             clear_stacked_widget(self.window.stacked_widget_detection_param)
             page_yasa = self.create_detection_parameter_page_yasa('Detection Parameters (YASA)')
             page_lsm = self.create_detection_parameter_page_lsm('Detection Parameters (LSM)')
+            page_a7 = self.create_detection_parameter_page_spindle_threshold('Detection Parameters (A7)', 'A7', include_a7=True)
+            page_molle = self.create_detection_parameter_page_spindle_threshold('Detection Parameters (MOLLE)', 'MOLLE')
             self.window.stacked_widget_detection_param.addWidget(page_yasa)
             self.window.stacked_widget_detection_param.addWidget(page_lsm)
+            self.window.stacked_widget_detection_param.addWidget(page_a7)
+            self.window.stacked_widget_detection_param.addWidget(page_molle)
 
             self.window.detector_subtabs.clear()
             tab_yasa = self.create_detection_parameter_tab_yasa()
             tab_lsm = self.create_detection_parameter_tab_lsm()
+            tab_a7 = self.create_detection_parameter_tab_spindle_threshold('A7', include_a7=True)
+            tab_molle = self.create_detection_parameter_tab_spindle_threshold('MOLLE')
             self.window.detector_subtabs.addTab(tab_yasa, 'YASA')
             self.window.detector_subtabs.addTab(tab_lsm, 'LSM')
+            self.window.detector_subtabs.addTab(tab_a7, 'A7')
+            self.window.detector_subtabs.addTab(tab_molle, 'MOLLE')
         elif biomarker_type == 'Spike':
             clear_stacked_widget(self.window.stacked_widget_detection_param)
             page_spike = self.create_detection_parameter_page_spike('Detection Parameters (RMS/LL)')
@@ -4272,8 +4292,19 @@ class MainWindowView(QObject):
     def update_setup_mode_controls(self, biomarker_type):
         if hasattr(self.window, "detector_mode_combo"):
             detector_options = {
-                "HFO": [("STE", "Short-term energy detector"), ("MNI", "Montreal detector"), ("HIL", "Hilbert detector")],
-                "Spindle": [("YASA", "YASA spindle detector"), ("LSM", "Kramer latent-state-model spindle detector")],
+                "HFO": [
+                    ("STE", "Short-term energy detector"),
+                    ("MNI", "Montreal detector"),
+                    ("HIL", "Hilbert detector"),
+                    ("RMS", "Local RMS threshold HFO detector"),
+                    ("LineLength", "Local line-length HFO detector"),
+                ],
+                "Spindle": [
+                    ("YASA", "YASA spindle detector"),
+                    ("LSM", "Kramer latent-state-model spindle detector"),
+                    ("A7", "Lacourse A7-style spindle detector"),
+                    ("MOLLE", "Molle-style RMS spindle detector"),
+                ],
                 "Spike": [("RMS/LL", "RMS and line-length spike candidate detector")],
             }
             blocker = QSignalBlocker(self.window.detector_mode_combo)
@@ -4524,6 +4555,65 @@ class MainWindowView(QObject):
         page.setLayout(layout)
         return page
 
+    def _threshold_control_bucket(self, family, detector_type):
+        attr_name = f"{family}_threshold_controls"
+        if not hasattr(self.window, attr_name):
+            setattr(self.window, attr_name, {})
+        controls = getattr(self.window, attr_name)
+        return controls.setdefault(detector_type, {})
+
+    def create_detection_parameter_page_hfo_threshold(self, groupbox_title, detector_type, window_label_text):
+        page = QWidget()
+        layout = QGridLayout()
+
+        groupbox = QGroupBox(groupbox_title)
+        parameter_layout = QGridLayout(groupbox)
+        clear_layout(parameter_layout)
+
+        labels = [
+            QLabel(window_label_text),
+            QLabel('Min Duration (s)'),
+            QLabel('Max Duration (s)'),
+            QLabel('Min Gap (s)'),
+            QLabel('Metric Threshold'),
+            QLabel('Peak Threshold'),
+        ]
+        for label in labels:
+            label.setProperty("fieldLabel", True)
+
+        controls = self._threshold_control_bucket("hfo", detector_type)
+        displays = {
+            "window": QLabel(),
+            "min_duration": QLabel(),
+            "max_duration": QLabel(),
+            "min_gap": QLabel(),
+            "threshold": QLabel(),
+            "peak_threshold": QLabel(),
+        }
+        for display in displays.values():
+            style_value_badge(display, alignment=Qt.AlignCenter)
+        run_button = QPushButton('Run')
+        controls["display"] = displays
+        controls["run_button"] = run_button
+
+        parameter_layout.addWidget(labels[0], 0, 0)
+        parameter_layout.addWidget(labels[1], 0, 1)
+        parameter_layout.addWidget(displays["window"], 1, 0)
+        parameter_layout.addWidget(displays["min_duration"], 1, 1)
+        parameter_layout.addWidget(labels[2], 2, 0)
+        parameter_layout.addWidget(labels[3], 2, 1)
+        parameter_layout.addWidget(displays["max_duration"], 3, 0)
+        parameter_layout.addWidget(displays["min_gap"], 3, 1)
+        parameter_layout.addWidget(labels[4], 4, 0)
+        parameter_layout.addWidget(labels[5], 4, 1)
+        parameter_layout.addWidget(displays["threshold"], 5, 0)
+        parameter_layout.addWidget(displays["peak_threshold"], 5, 1)
+        parameter_layout.addWidget(run_button, 6, 1)
+
+        layout.addWidget(groupbox)
+        page.setLayout(layout)
+        return page
+
     def create_detection_parameter_page_yasa(self, groupbox_title):
         page = QWidget()
         layout = QGridLayout()
@@ -4643,6 +4733,70 @@ class MainWindowView(QObject):
         lsm_parameter_layout.addWidget(self.window.lsm_detect_button, 6, 1)
 
         layout.addWidget(detection_groupbox_lsm)
+        page.setLayout(layout)
+        return page
+
+    def create_detection_parameter_page_spindle_threshold(self, groupbox_title, detector_type, include_a7=False):
+        page = QWidget()
+        layout = QGridLayout()
+
+        groupbox = QGroupBox(groupbox_title)
+        parameter_layout = QGridLayout(groupbox)
+        clear_layout(parameter_layout)
+
+        labels = [
+            QLabel('Spindle Band (Hz)'),
+            QLabel('Duration (s)'),
+            QLabel('Min Distance (s)'),
+            QLabel('Smooth Window (s)'),
+            QLabel('RMS Threshold'),
+            QLabel('Broad Band (Hz)' if include_a7 else 'Method'),
+            QLabel('Rel Power' if include_a7 else ''),
+            QLabel('Correlation' if include_a7 else ''),
+        ]
+        for label in labels:
+            label.setProperty("fieldLabel", True)
+
+        controls = self._threshold_control_bucket("spindle", detector_type)
+        displays = {
+            "freq_sp": QLabel(),
+            "duration": QLabel(),
+            "min_distance": QLabel(),
+            "smooth_window": QLabel(),
+            "rms_threshold": QLabel(),
+            "freq_broad": QLabel(),
+            "relative_power_threshold": QLabel(),
+            "correlation_threshold": QLabel(),
+        }
+        for display in displays.values():
+            style_value_badge(display, alignment=Qt.AlignCenter)
+        run_button = QPushButton('Run')
+        controls["display"] = displays
+        controls["run_button"] = run_button
+
+        parameter_layout.addWidget(labels[0], 0, 0)
+        parameter_layout.addWidget(labels[1], 0, 1)
+        parameter_layout.addWidget(displays["freq_sp"], 1, 0)
+        parameter_layout.addWidget(displays["duration"], 1, 1)
+        parameter_layout.addWidget(labels[2], 2, 0)
+        parameter_layout.addWidget(labels[3], 2, 1)
+        parameter_layout.addWidget(displays["min_distance"], 3, 0)
+        parameter_layout.addWidget(displays["smooth_window"], 3, 1)
+        parameter_layout.addWidget(labels[4], 4, 0)
+        parameter_layout.addWidget(labels[5], 4, 1)
+        parameter_layout.addWidget(displays["rms_threshold"], 5, 0)
+        parameter_layout.addWidget(displays["freq_broad"], 5, 1)
+        if include_a7:
+            parameter_layout.addWidget(labels[6], 6, 0)
+            parameter_layout.addWidget(labels[7], 6, 1)
+            parameter_layout.addWidget(displays["relative_power_threshold"], 7, 0)
+            parameter_layout.addWidget(displays["correlation_threshold"], 7, 1)
+            parameter_layout.addWidget(run_button, 8, 1)
+        else:
+            displays["freq_broad"].setText(detector_type)
+            parameter_layout.addWidget(run_button, 6, 1)
+
+        layout.addWidget(groupbox)
         page.setLayout(layout)
         return page
 
@@ -4786,6 +4940,40 @@ class MainWindowView(QObject):
                 ("Epoch length", self.window.hil_epoch_time_input, "sec", "det_hil_epoch_length", "advanced"),
             ],
             self.window.HIL_save_button,
+        )
+
+    def create_detection_parameter_tab_hfo_threshold(self, detector_type, window_label_text):
+        controls = self._threshold_control_bucket("hfo", detector_type)
+        inputs = {
+            "window": QLineEdit(),
+            "min_duration": QLineEdit(),
+            "max_duration": QLineEdit(),
+            "min_gap": QLineEdit(),
+            "threshold": QLineEdit(),
+            "peak_threshold": QLineEdit(),
+        }
+        save_button = QPushButton('Apply')
+        save_button.setVisible(False)
+        for widget in inputs.values():
+            widget.setAlignment(Qt.AlignCenter)
+        defaults = {
+            "RMS": {"window": "0.003", "min_duration": "0.006", "max_duration": "0.2", "min_gap": "0.01", "threshold": "5.0", "peak_threshold": "3.0"},
+            "LineLength": {"window": "0.01", "min_duration": "0.006", "max_duration": "0.2", "min_gap": "0.01", "threshold": "5.0", "peak_threshold": "3.0"},
+        }.get(detector_type, {})
+        for key, value in defaults.items():
+            inputs[key].setText(value)
+        controls["input"] = inputs
+        controls["save_button"] = save_button
+        return self._create_compact_parameter_tab(
+            [
+                (window_label_text, inputs["window"], "sec", f"det_hfo_{detector_type.lower()}_window", "essential"),
+                ("Min duration", inputs["min_duration"], "sec", f"det_hfo_{detector_type.lower()}_min_duration", "essential"),
+                ("Max duration", inputs["max_duration"], "sec", f"det_hfo_{detector_type.lower()}_max_duration", "standard"),
+                ("Min gap", inputs["min_gap"], "sec", f"det_hfo_{detector_type.lower()}_min_gap", "standard"),
+                ("Threshold", inputs["threshold"], "", f"det_hfo_{detector_type.lower()}_threshold", "essential"),
+                ("Peak thresh.", inputs["peak_threshold"], "", f"det_hfo_{detector_type.lower()}_peak_threshold", "advanced"),
+            ],
+            save_button,
         )
 
     def create_detection_parameter_tab_yasa(self):
@@ -5067,6 +5255,139 @@ class MainWindowView(QObject):
 
         self.window.lsm_preset_combo.currentIndexChanged.connect(apply_lsm_preset)
         apply_lsm_preset(self.window.lsm_preset_combo.currentIndex())
+        return tab
+
+    def create_detection_parameter_tab_spindle_threshold(self, detector_type, include_a7=False):
+        controls = self._threshold_control_bucket("spindle", detector_type)
+        inputs = {
+            "freq_low": QLineEdit(),
+            "freq_high": QLineEdit(),
+            "duration_low": QLineEdit(),
+            "duration_high": QLineEdit(),
+            "min_distance": QLineEdit(),
+            "smooth_window": QLineEdit(),
+            "rms_threshold": QLineEdit(),
+            "broad_low": QLineEdit(),
+            "broad_high": QLineEdit(),
+            "relative_power_threshold": QLineEdit(),
+            "correlation_threshold": QLineEdit(),
+        }
+        save_button = QPushButton('Apply')
+        save_button.setVisible(False)
+        for widget in inputs.values():
+            widget.setAlignment(Qt.AlignCenter)
+        defaults = {
+            "A7": {
+                "freq_low": "11",
+                "freq_high": "16",
+                "duration_low": "0.5",
+                "duration_high": "2.5",
+                "min_distance": "0.5",
+                "smooth_window": "0.2",
+                "rms_threshold": "1.5",
+                "broad_low": "1",
+                "broad_high": "30",
+                "relative_power_threshold": "0.2",
+                "correlation_threshold": "0.65",
+            },
+            "MOLLE": {
+                "freq_low": "12",
+                "freq_high": "15",
+                "duration_low": "0.5",
+                "duration_high": "3.0",
+                "min_distance": "0.5",
+                "smooth_window": "0.2",
+                "rms_threshold": "1.5",
+            },
+        }.get(detector_type, {})
+        for key, value in defaults.items():
+            inputs[key].setText(value)
+        controls["input"] = inputs
+        controls["save_button"] = save_button
+
+        fields = [
+            ("Spindle band", inputs["freq_low"], inputs["freq_high"], "Hz", f"det_spindle_{detector_type.lower()}_band", "essential"),
+            ("Duration", inputs["duration_low"], inputs["duration_high"], "sec", f"det_spindle_{detector_type.lower()}_duration", "essential"),
+        ]
+
+        tab = QWidget()
+        tab.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        groupbox = QGroupBox("")
+        groupbox.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        parameter_layout = QGridLayout(groupbox)
+        self._configure_compact_form_grid(parameter_layout)
+
+        row = 0
+        for label_text, low_widget, high_widget, unit_text, option_id, density in fields:
+            parameter_layout.addWidget(
+                self._create_compact_range_field_block(
+                    label_text,
+                    low_widget,
+                    high_widget,
+                    unit_text,
+                    option_id=option_id,
+                    density=density,
+                ),
+                row, 0, 1, 6,
+            )
+            row += 1
+
+        self._add_compact_field_to_grid(
+            parameter_layout,
+            row,
+            0,
+            self._create_compact_field_block("Min distance", inputs["min_distance"], "sec", option_id=f"det_spindle_{detector_type.lower()}_min_distance", density="standard"),
+        )
+        self._add_compact_field_to_grid(
+            parameter_layout,
+            row,
+            1,
+            self._create_compact_field_block("Smooth window", inputs["smooth_window"], "sec", option_id=f"det_spindle_{detector_type.lower()}_smooth_window", density="advanced"),
+        )
+        row += 1
+        self._add_compact_field_to_grid(
+            parameter_layout,
+            row,
+            0,
+            self._create_compact_field_block("RMS thresh.", inputs["rms_threshold"], "", option_id=f"det_spindle_{detector_type.lower()}_rms_threshold", density="essential"),
+        )
+        if include_a7:
+            self._add_compact_field_to_grid(
+                parameter_layout,
+                row,
+                1,
+                self._create_compact_range_field_block(
+                    "Broad band",
+                    inputs["broad_low"],
+                    inputs["broad_high"],
+                    "Hz",
+                    option_id=f"det_spindle_{detector_type.lower()}_broad_band",
+                    density="standard",
+                ),
+            )
+            row += 1
+            self._add_compact_field_to_grid(
+                parameter_layout,
+                row,
+                0,
+                self._create_compact_field_block("Rel power", inputs["relative_power_threshold"], "", option_id=f"det_spindle_{detector_type.lower()}_rel_power", density="standard"),
+            )
+            self._add_compact_field_to_grid(
+                parameter_layout,
+                row,
+                1,
+                self._create_compact_field_block("Correlation", inputs["correlation_threshold"], "", option_id=f"det_spindle_{detector_type.lower()}_correlation", density="advanced"),
+            )
+            row += 1
+        else:
+            row += 1
+
+        parameter_layout.addWidget(save_button, row, 3, 1, 3, alignment=Qt.AlignRight)
+        layout.addWidget(groupbox)
         return tab
 
     def create_detection_parameter_tab_spike(self):

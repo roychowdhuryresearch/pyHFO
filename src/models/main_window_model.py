@@ -23,7 +23,18 @@ from src.spike_app import SpikeApp
 from src.spindle_app import SpindleApp
 from src.ui.channels_selection import ChannelSelectionWindow
 from src.param.param_classifier import ParamClassifier
-from src.param.param_detector import ParamDetector, ParamSTE, ParamMNI, ParamHIL, ParamYASA, ParamSpikeRMSLL
+from src.param.param_detector import (
+    ParamDetector,
+    ParamHFOLineLength,
+    ParamHFORMS,
+    ParamHIL,
+    ParamMNI,
+    ParamSpindleA7,
+    ParamSpindleRMS,
+    ParamSpikeRMSLL,
+    ParamSTE,
+    ParamYASA,
+)
 from src.param.param_filter import ParamFilter, ParamFilterSpindle
 from src.ui.bipolar_channel_selection import BipolarChannelSelectionWindow
 from src.ui.annotation import Annotation
@@ -356,6 +367,16 @@ class MainWindowModel(QObject):
             self._configure_numeric_line_edit(widget, **kwargs)
             if widget is not None and hasattr(widget, "returnPressed"):
                 safe_connect_signal_slot(widget.returnPressed, self._submit_detector_from_fields)
+        for controls in getattr(self.window, "hfo_threshold_controls", {}).values():
+            for widget in (controls.get("input") or {}).values():
+                self._configure_numeric_line_edit(widget, minimum=0.0)
+                if widget is not None and hasattr(widget, "returnPressed"):
+                    safe_connect_signal_slot(widget.returnPressed, self._submit_detector_from_fields)
+        for controls in getattr(self.window, "spindle_threshold_controls", {}).values():
+            for widget in (controls.get("input") or {}).values():
+                self._configure_numeric_line_edit(widget, minimum=0.0)
+                if widget is not None and hasattr(widget, "returnPressed"):
+                    safe_connect_signal_slot(widget.returnPressed, self._submit_detector_from_fields)
 
         classifier_submit_fields = (
             "overview_ignore_before_input",
@@ -590,6 +611,12 @@ class MainWindowModel(QObject):
             "YASA": getattr(self.window, "yasa_detect_button", None),
             "RMS/LL": getattr(self.window, "spike_detect_button", None),
         }
+        hfo_controls = getattr(self.window, "hfo_threshold_controls", {})
+        spindle_controls = getattr(self.window, "spindle_threshold_controls", {})
+        if detector_name in hfo_controls:
+            legacy_mapping[detector_name] = hfo_controls[detector_name].get("run_button")
+        if detector_name in spindle_controls:
+            legacy_mapping[detector_name] = spindle_controls[detector_name].get("run_button")
         return self._unique_alive_widgets(
             [
                 sender_button,
@@ -3068,6 +3095,15 @@ class MainWindowModel(QObject):
             self.window.ste_detect_button.setEnabled(False)
             safe_connect_signal_slot(self.window.hil_detect_button.clicked, self.detect_HFOs)
             self.window.hil_detect_button.setEnabled(False)
+            for detector_name, controls in getattr(self.window, "hfo_threshold_controls", {}).items():
+                run_button = controls.get("run_button")
+                save_button = controls.get("save_button")
+                if run_button is not None:
+                    safe_connect_signal_slot(run_button.clicked, self.detect_HFOs)
+                    run_button.setEnabled(False)
+                if save_button is not None:
+                    safe_connect_signal_slot(save_button.clicked, lambda _checked=False, name=detector_name: self.save_hfo_threshold_params(name))
+                    save_button.setEnabled(False)
 
             safe_connect_signal_slot(self.window.STE_save_button.clicked, self.save_ste_params)
             safe_connect_signal_slot(self.window.MNI_save_button.clicked, self.save_mni_params)
@@ -3085,6 +3121,15 @@ class MainWindowModel(QObject):
             self.window.yasa_detect_button.setEnabled(False)
             safe_connect_signal_slot(self.window.lsm_detect_button.clicked, self.detect_Spindles)
             self.window.lsm_detect_button.setEnabled(False)
+            for detector_name, controls in getattr(self.window, "spindle_threshold_controls", {}).items():
+                run_button = controls.get("run_button")
+                save_button = controls.get("save_button")
+                if run_button is not None:
+                    safe_connect_signal_slot(run_button.clicked, self.detect_Spindles)
+                    run_button.setEnabled(False)
+                if save_button is not None:
+                    safe_connect_signal_slot(save_button.clicked, lambda _checked=False, name=detector_name: self.save_spindle_threshold_params(name))
+                    save_button.setEnabled(False)
 
             safe_connect_signal_slot(self.window.YASA_save_button.clicked, self.save_yasa_params)
             safe_connect_signal_slot(self.window.LSM_save_button.clicked, self.save_lsm_params)
@@ -3961,9 +4006,25 @@ class MainWindowModel(QObject):
     def _selected_detector_name(self):
         combo = getattr(self.window, "detector_mode_combo", None)
         if combo is not None and combo.count() > 0:
-            return combo.currentText().strip().upper()
+            return combo.currentText().strip()
         if self.backend is not None and getattr(self.backend, "param_detector", None) is not None:
-            return str(self.backend.param_detector.detector_type).strip().upper()
+            detector_type = str(self.backend.param_detector.detector_type).strip()
+            label_map = {
+                "ste": "STE",
+                "mni": "MNI",
+                "hil": "HIL",
+                "rms": "RMS",
+                "linelength": "LineLength",
+                "line length": "LineLength",
+                "ll": "LineLength",
+                "yasa": "YASA",
+                "lsm": "LSM",
+                "kramer lsm": "LSM",
+                "a7": "A7",
+                "molle": "MOLLE",
+                "rms/ll": "RMS/LL",
+            }
+            return label_map.get(detector_type.lower(), detector_type.upper())
         return ""
 
     def update_setup_action_state(self):
@@ -4025,8 +4086,12 @@ class MainWindowModel(QObject):
             ("HFO", "STE"): self.save_ste_params,
             ("HFO", "MNI"): self.save_mni_params,
             ("HFO", "HIL"): self.save_hil_params,
+            ("HFO", "RMS"): lambda: self.save_hfo_threshold_params("RMS"),
+            ("HFO", "LineLength"): lambda: self.save_hfo_threshold_params("LineLength"),
             ("Spindle", "YASA"): self.save_yasa_params,
             ("Spindle", "LSM"): self.save_lsm_params,
+            ("Spindle", "A7"): lambda: self.save_spindle_threshold_params("A7"),
+            ("Spindle", "MOLLE"): lambda: self.save_spindle_threshold_params("MOLLE"),
             ("Spike", "RMS/LL"): self.save_spike_params,
         }
         handler = handlers.get((self.biomarker_type, detector_name))
@@ -4043,7 +4108,9 @@ class MainWindowModel(QObject):
         after_type = ""
         if getattr(self.backend, "param_detector", None) is not None:
             after_type = str(self.backend.param_detector.detector_type).upper()
-        success = bool(handler_succeeded) and after_type == detector_name and bool(after_type)
+        canonical_after = after_type.replace(" ", "").upper()
+        canonical_selected = str(detector_name).replace(" ", "").upper()
+        success = bool(handler_succeeded) and canonical_after == canonical_selected and bool(after_type)
         if success and show_feedback:
             self.message_handler(f"{detector_name} parameters applied")
             self._set_workflow_message(f"{detector_name} settings ready")
@@ -4299,7 +4366,22 @@ class MainWindowModel(QObject):
             return
         detector_name = ""
         if self.backend is not None and getattr(self.backend, "param_detector", None) is not None:
-            detector_name = str(self.backend.param_detector.detector_type).upper()
+            raw_detector_name = str(self.backend.param_detector.detector_type)
+            detector_name = {
+                "ste": "STE",
+                "mni": "MNI",
+                "hil": "HIL",
+                "rms": "RMS",
+                "linelength": "LineLength",
+                "line length": "LineLength",
+                "ll": "LineLength",
+                "yasa": "YASA",
+                "lsm": "LSM",
+                "kramer lsm": "LSM",
+                "a7": "A7",
+                "molle": "MOLLE",
+                "rms/ll": "RMS/LL",
+            }.get(raw_detector_name.lower(), raw_detector_name.upper())
         blocker = QSignalBlocker(combo)
         index = combo.findText(detector_name) if detector_name else 0
         combo.setCurrentIndex(index if index >= 0 else 0)
@@ -5358,10 +5440,15 @@ class MainWindowModel(QObject):
                 self.backend.set_filter_parameter(self._recommended_filter_param())
             self._sync_filter_inputs_from_param(self.backend.param_filter)
 
-            if self.backend.param_detector is None and has_yasa():
-                default_params = ParamYASA(self.backend.sample_freq)
+            if self.backend.param_detector is None:
+                if has_yasa():
+                    default_params = ParamYASA(self.backend.sample_freq)
+                    detector_type = "YASA"
+                else:
+                    default_params = ParamSpindleA7(self.backend.sample_freq)
+                    detector_type = "A7"
                 default_params.n_jobs = self.backend.n_jobs
-                detector_params = {"detector_type": "YASA", "detector_param": default_params.to_dict()}
+                detector_params = {"detector_type": detector_type, "detector_param": default_params.to_dict()}
                 self.backend.set_detector(ParamDetector.from_dict(detector_params))
 
             if self.backend.param_classifier is None:
@@ -5371,7 +5458,7 @@ class MainWindowModel(QObject):
             self.set_classifier_param_display()
             self.update_spindle_capability_state()
         except Exception as exc:
-            print(f"Warning: Could not set default YASA parameters: {exc}")
+            print(f"Warning: Could not set default spindle parameters: {exc}")
 
     def _apply_default_spike_configuration(self):
         try:
@@ -5691,12 +5778,22 @@ class MainWindowModel(QObject):
             self.window.mni_detect_button.setEnabled(True)
             self.window.HIL_save_button.setEnabled(True)
             self.window.hil_detect_button.setEnabled(True)
+            for controls in getattr(self.window, "hfo_threshold_controls", {}).values():
+                if controls.get("save_button") is not None:
+                    controls["save_button"].setEnabled(True)
+                if controls.get("run_button") is not None:
+                    controls["run_button"].setEnabled(True)
             self.window.is_data_filtered = True
             self.window.show_filtered = True
             self._set_filtered_toggle_state(True)
             self.window.waveform_plot.set_filtered(True)
             self.window.save_npz_button.setEnabled(True)
         elif self.biomarker_type == 'Spindle':
+            for controls in getattr(self.window, "spindle_threshold_controls", {}).values():
+                if controls.get("save_button") is not None:
+                    controls["save_button"].setEnabled(True)
+                if controls.get("run_button") is not None:
+                    controls["run_button"].setEnabled(True)
             self.window.is_data_filtered = True
             self.window.show_filtered = True
             self._set_filtered_toggle_state(True)
@@ -5886,8 +5983,14 @@ class MainWindowModel(QObject):
         self.window.mni_detect_button.setEnabled(False)
         self.window.ste_detect_button.setEnabled(False)
         self.window.hil_detect_button.setEnabled(False)
+        for controls in getattr(self.window, "hfo_threshold_controls", {}).values():
+            if controls.get("run_button") is not None:
+                controls["run_button"].setEnabled(False)
         if hasattr(self.window, "yasa_detect_button"):
             self.window.yasa_detect_button.setEnabled(False)
+        for controls in getattr(self.window, "spindle_threshold_controls", {}).values():
+            if controls.get("run_button") is not None:
+                controls["run_button"].setEnabled(False)
         if hasattr(self.window, "spike_detect_button"):
             self.window.spike_detect_button.setEnabled(False)
         self.window.detect_all_button.setEnabled(False)
@@ -5900,8 +6003,14 @@ class MainWindowModel(QObject):
         self.window.STE_save_button.setEnabled(False)
         self.window.MNI_save_button.setEnabled(False)
         self.window.HIL_save_button.setEnabled(False)
+        for controls in getattr(self.window, "hfo_threshold_controls", {}).values():
+            if controls.get("save_button") is not None:
+                controls["save_button"].setEnabled(False)
         if hasattr(self.window, "YASA_save_button"):
             self.window.YASA_save_button.setEnabled(False)
+        for controls in getattr(self.window, "spindle_threshold_controls", {}).values():
+            if controls.get("save_button") is not None:
+                controls["save_button"].setEnabled(False)
         if hasattr(self.window, "SPIKE_save_button"):
             self.window.SPIKE_save_button.setEnabled(False)
         self.window.Filter60Button.setEnabled(False)
@@ -6316,6 +6425,174 @@ class MainWindowModel(QObject):
             self.window.lsm_detect_button.setEnabled(False)
             return False
 
+    def _get_threshold_controls(self, family, detector_type):
+        controls = getattr(self.window, f"{family}_threshold_controls", {})
+        return controls.get(detector_type, {})
+
+    def _set_threshold_display_text(self, controls, values):
+        displays = controls.get("display", {}) if controls else {}
+        for key, value in values.items():
+            display = displays.get(key)
+            if display is not None:
+                display.setText(str(value))
+
+    def save_hfo_threshold_params(self, detector_type):
+        controls = self._get_threshold_controls("hfo", detector_type)
+        inputs = controls.get("input", {})
+        try:
+            window_raw = inputs["window"].text()
+            min_duration_raw = inputs["min_duration"].text()
+            max_duration_raw = inputs["max_duration"].text()
+            min_gap_raw = inputs["min_gap"].text()
+            threshold_raw = inputs["threshold"].text()
+            peak_threshold_raw = inputs["peak_threshold"].text()
+
+            min_duration = self._parse_float_input(min_duration_raw, f"{detector_type} minimum duration", positive=True)
+            max_duration = self._parse_float_input(max_duration_raw, f"{detector_type} maximum duration", positive=True)
+            if min_duration >= max_duration:
+                raise ValueError(f"{detector_type} maximum duration must be greater than the minimum duration.")
+
+            base_param = {
+                "sample_freq": self.backend.sample_freq or 2000,
+                "pass_band": float(getattr(getattr(self.backend, "param_filter", None), "fp", 80)),
+                "stop_band": float(getattr(getattr(self.backend, "param_filter", None), "fs", 500)),
+                "threshold": self._parse_float_input(threshold_raw, f"{detector_type} threshold", positive=True),
+                "peak_threshold": self._parse_float_input(peak_threshold_raw, f"{detector_type} peak threshold", positive=True),
+                "min_window": min_duration,
+                "max_window": max_duration,
+                "min_gap": self._parse_float_input(min_gap_raw, f"{detector_type} minimum gap", non_negative=True),
+                "n_jobs": self.backend.n_jobs,
+            }
+            if detector_type == "LineLength":
+                base_param["ll_window"] = self._parse_float_input(window_raw, "LineLength window", positive=True)
+                param = ParamHFOLineLength.from_dict(base_param)
+            else:
+                base_param["rms_window"] = self._parse_float_input(window_raw, "RMS window", positive=True)
+                param = ParamHFORMS.from_dict(base_param)
+
+            self.backend.set_detector(ParamDetector(param, detector_type=detector_type))
+            self._set_threshold_display_text(
+                controls,
+                {
+                    "window": window_raw,
+                    "min_duration": min_duration_raw,
+                    "max_duration": max_duration_raw,
+                    "min_gap": min_gap_raw,
+                    "threshold": threshold_raw,
+                    "peak_threshold": peak_threshold_raw,
+                },
+            )
+            self.update_detector_tab(detector_type)
+            if controls.get("run_button") is not None:
+                controls["run_button"].setEnabled(True)
+            return True
+        except (KeyError, TypeError, ValueError) as exc:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setText("Error!")
+            msg.setInformativeText(f"{detector_type} detector could not be constructed given the parameters. {exc}")
+            msg.setWindowTitle("Detector Construction Failed")
+            msg.exec_()
+            if controls.get("run_button") is not None:
+                controls["run_button"].setEnabled(False)
+            return False
+
+    def save_spindle_threshold_params(self, detector_type):
+        controls = self._get_threshold_controls("spindle", detector_type)
+        inputs = controls.get("input", {})
+        try:
+            freq_low_raw = inputs["freq_low"].text()
+            freq_high_raw = inputs["freq_high"].text()
+            duration_low_raw = inputs["duration_low"].text()
+            duration_high_raw = inputs["duration_high"].text()
+            min_distance_raw = inputs["min_distance"].text()
+            smooth_window_raw = inputs["smooth_window"].text()
+            rms_threshold_raw = inputs["rms_threshold"].text()
+
+            freq_sp = (
+                self._parse_float_input(freq_low_raw, f"{detector_type} spindle band low", positive=True),
+                self._parse_float_input(freq_high_raw, f"{detector_type} spindle band high", positive=True),
+            )
+            duration = (
+                self._parse_float_input(duration_low_raw, f"{detector_type} duration low", positive=True),
+                self._parse_float_input(duration_high_raw, f"{detector_type} duration high", positive=True),
+            )
+            if freq_sp[0] >= freq_sp[1]:
+                raise ValueError(f"{detector_type} spindle band high must be greater than low.")
+            if duration[0] >= duration[1]:
+                raise ValueError(f"{detector_type} duration high must be greater than low.")
+
+            base_param = {
+                "sample_freq": self.backend.sample_freq or 2000,
+                "freq_sp": freq_sp,
+                "duration": duration,
+                "min_distance": self._parse_float_input(min_distance_raw, f"{detector_type} minimum distance", non_negative=True),
+                "smooth_window": self._parse_float_input(smooth_window_raw, f"{detector_type} smooth window", positive=True),
+                "rms_threshold": self._parse_float_input(rms_threshold_raw, f"{detector_type} RMS threshold", positive=True),
+                "n_jobs": self.backend.n_jobs,
+            }
+
+            display_values = {
+                "freq_sp": f"{freq_low_raw} - {freq_high_raw}",
+                "duration": f"{duration_low_raw} - {duration_high_raw}",
+                "min_distance": min_distance_raw,
+                "smooth_window": smooth_window_raw,
+                "rms_threshold": rms_threshold_raw,
+            }
+            if detector_type == "A7":
+                broad_low_raw = inputs["broad_low"].text()
+                broad_high_raw = inputs["broad_high"].text()
+                freq_broad = (
+                    self._parse_float_input(broad_low_raw, "A7 broad band low", positive=True),
+                    self._parse_float_input(broad_high_raw, "A7 broad band high", positive=True),
+                )
+                if freq_broad[0] >= freq_broad[1]:
+                    raise ValueError("A7 broad band high must be greater than low.")
+                base_param.update(
+                    {
+                        "freq_broad": freq_broad,
+                        "relative_power_threshold": self._parse_float_input(
+                            inputs["relative_power_threshold"].text(),
+                            "A7 relative power threshold",
+                            non_negative=True,
+                        ),
+                        "correlation_threshold": self._parse_float_input(
+                            inputs["correlation_threshold"].text(),
+                            "A7 correlation threshold",
+                            non_negative=True,
+                        ),
+                    }
+                )
+                param = ParamSpindleA7.from_dict(base_param)
+                display_values.update(
+                    {
+                        "freq_broad": f"{broad_low_raw} - {broad_high_raw}",
+                        "relative_power_threshold": inputs["relative_power_threshold"].text(),
+                        "correlation_threshold": inputs["correlation_threshold"].text(),
+                    }
+                )
+            else:
+                base_param["method"] = detector_type
+                param = ParamSpindleRMS.from_dict(base_param)
+                display_values["freq_broad"] = detector_type
+
+            self.backend.set_detector(ParamDetector(param, detector_type=detector_type))
+            self._set_threshold_display_text(controls, display_values)
+            self.update_detector_tab(detector_type)
+            if controls.get("run_button") is not None:
+                controls["run_button"].setEnabled(True)
+            return True
+        except (KeyError, TypeError, ValueError) as exc:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setText("Error!")
+            msg.setInformativeText(f"{detector_type} spindle detector could not be constructed given the parameters. {exc}")
+            msg.setWindowTitle("Detector Construction Failed")
+            msg.exec_()
+            if controls.get("run_button") is not None:
+                controls["run_button"].setEnabled(False)
+            return False
+
     def save_spike_params(self):
         rms_window_raw = self.window.spike_rms_window_input.text()
         ll_window_raw = self.window.spike_ll_window_input.text()
@@ -6408,10 +6685,18 @@ class MainWindowModel(QObject):
             self.window.stacked_widget_detection_param.setCurrentIndex(1)
         elif index == "HIL":
             self.window.stacked_widget_detection_param.setCurrentIndex(2)
+        elif index == "RMS":
+            self.window.stacked_widget_detection_param.setCurrentIndex(3)
+        elif index == "LineLength":
+            self.window.stacked_widget_detection_param.setCurrentIndex(4)
         elif index == "YASA":
             self.window.stacked_widget_detection_param.setCurrentIndex(0)
         elif index == "LSM":
             self.window.stacked_widget_detection_param.setCurrentIndex(1 if self.biomarker_type == "Spindle" else 0)
+        elif index == "A7":
+            self.window.stacked_widget_detection_param.setCurrentIndex(2)
+        elif index == "MOLLE":
+            self.window.stacked_widget_detection_param.setCurrentIndex(3)
         elif index == "RMS/LL":
             self.window.stacked_widget_detection_param.setCurrentIndex(0)
 
@@ -6552,6 +6837,27 @@ class MainWindowModel(QObject):
         self.update_detector_tab("HIL")
         self.window.detector_subtabs.setCurrentIndex(2)
 
+    def update_hfo_threshold_params(self, detector_type, params):
+        controls = self._get_threshold_controls("hfo", detector_type)
+        inputs = controls.get("input", {})
+        if not inputs:
+            return
+        window_key = "ll_window" if detector_type == "LineLength" else "rms_window"
+        values = {
+            "window": str(params[window_key]),
+            "min_duration": str(params["min_window"]),
+            "max_duration": str(params["max_window"]),
+            "min_gap": str(params["min_gap"]),
+            "threshold": str(params["threshold"]),
+            "peak_threshold": str(params["peak_threshold"]),
+        }
+        for key, value in values.items():
+            inputs[key].setText(value)
+        self._set_threshold_display_text(controls, values)
+        self.update_detector_tab(detector_type)
+        target_index = 3 if detector_type == "RMS" else 4
+        self.window.detector_subtabs.setCurrentIndex(target_index)
+
     def update_spike_params(self, spike_params):
         rms_window = str(spike_params["rms_window"])
         ll_window = str(spike_params["ll_window"])
@@ -6582,6 +6888,53 @@ class MainWindowModel(QObject):
 
         self.update_detector_tab("RMS/LL")
         self.window.detector_subtabs.setCurrentIndex(0)
+
+    def update_spindle_threshold_params(self, detector_type, params):
+        controls = self._get_threshold_controls("spindle", detector_type)
+        inputs = controls.get("input", {})
+        if not inputs:
+            return
+        freq_sp = params["freq_sp"]
+        duration = params["duration"]
+        values = {
+            "freq_low": str(freq_sp[0]),
+            "freq_high": str(freq_sp[1]),
+            "duration_low": str(duration[0]),
+            "duration_high": str(duration[1]),
+            "min_distance": str(params["min_distance"]),
+            "smooth_window": str(params["smooth_window"]),
+            "rms_threshold": str(params["rms_threshold"]),
+        }
+        for key, value in values.items():
+            inputs[key].setText(value)
+        display_values = {
+            "freq_sp": f"{values['freq_low']} - {values['freq_high']}",
+            "duration": f"{values['duration_low']} - {values['duration_high']}",
+            "min_distance": values["min_distance"],
+            "smooth_window": values["smooth_window"],
+            "rms_threshold": values["rms_threshold"],
+            "freq_broad": detector_type,
+        }
+        if detector_type == "A7":
+            freq_broad = params.get("freq_broad", (1, 30))
+            a7_values = {
+                "broad_low": str(freq_broad[0]),
+                "broad_high": str(freq_broad[1]),
+                "relative_power_threshold": str(params["relative_power_threshold"]),
+                "correlation_threshold": str(params["correlation_threshold"]),
+            }
+            for key, value in a7_values.items():
+                inputs[key].setText(value)
+            display_values.update(
+                {
+                    "freq_broad": f"{a7_values['broad_low']} - {a7_values['broad_high']}",
+                    "relative_power_threshold": a7_values["relative_power_threshold"],
+                    "correlation_threshold": a7_values["correlation_threshold"],
+                }
+            )
+        self._set_threshold_display_text(controls, display_values)
+        self.update_detector_tab(detector_type)
+        self.window.detector_subtabs.setCurrentIndex(2 if detector_type == "A7" else 3)
 
     def update_lsm_params(self, lsm_params):
         parameter_file = str(lsm_params.get("parameter_file", ""))
@@ -6664,10 +7017,18 @@ class MainWindowModel(QObject):
             self.update_mni_params(detector_params.detector_param.to_dict())
         elif detector_type == "hil":
             self.update_hil_params(detector_params.detector_param.to_dict())
+        elif detector_type == "rms":
+            self.update_hfo_threshold_params("RMS", detector_params.detector_param.to_dict())
+        elif detector_type in ("linelength", "line length", "ll"):
+            self.update_hfo_threshold_params("LineLength", detector_params.detector_param.to_dict())
         elif detector_type == "yasa":
             self.window.detector_subtabs.setCurrentIndex(0)
         elif detector_type in ("lsm", "kramer lsm"):
             self.update_lsm_params(detector_params.detector_param.to_dict())
+        elif detector_type == "a7":
+            self.update_spindle_threshold_params("A7", detector_params.detector_param.to_dict())
+        elif detector_type in ("molle", "fasst", "spindle rms"):
+            self.update_spindle_threshold_params("MOLLE", detector_params.detector_param.to_dict())
         elif detector_type == "rms/ll":
             self.update_spike_params(detector_params.detector_param.to_dict())
         self.refresh_detector_mode_ui()

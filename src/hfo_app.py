@@ -9,7 +9,13 @@ import scipy.signal as signal
 from src.hfo_feature import HFO_Feature
 from src.utils.utils_feature import *
 from src.utils.utils_filter import construct_filter, filter_data
-from src.utils.utils_detector import set_STE_detector, set_MNI_detector, set_HIL_detector
+from src.utils.utils_detector import (
+    set_HFO_RMS_detector,
+    set_HFO_line_length_detector,
+    set_HIL_detector,
+    set_MNI_detector,
+    set_STE_detector,
+)
 from src.utils.utils_io import get_edf_info, read_eeg_data, dump_to_npz, load_mne_raw
 from src.utils.utils_montage import (
     bipolar_channel_name,
@@ -403,7 +409,11 @@ class HFO_App(object):
         elif param.detector_type.lower() == "mni":
             self.detector = set_MNI_detector(param.detector_param)
         elif param.detector_type.lower() == "hil":
-            self.detector = set_HIL_detector(param.detector_param)          
+            self.detector = set_HIL_detector(param.detector_param)
+        elif param.detector_type.lower() in ("rms", "hfo rms"):
+            self.detector = set_HFO_RMS_detector(param.detector_param)
+        elif param.detector_type.lower() in ("linelength", "line length", "ll", "hfo ll"):
+            self.detector = set_HFO_line_length_detector(param.detector_param)
     def detect_biomarker(self, param_filter:ParamFilter =None, param_detector:ParamDetector=None):
         '''
         This the function should be linked to the detect button in the overview window, 

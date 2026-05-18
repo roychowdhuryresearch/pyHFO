@@ -15,10 +15,18 @@ class ParamDetector:
             param.detector_param = ParamMNI.from_dict(param_dict['detector_param'])
         elif detector_type.lower() == 'hil':
             param.detector_param = ParamHIL.from_dict(param_dict['detector_param'])
+        elif detector_type.lower() in ('rms', 'hfo rms'):
+            param.detector_param = ParamHFORMS.from_dict(param_dict['detector_param'])
+        elif detector_type.lower() in ('linelength', 'line length', 'll', 'hfo ll'):
+            param.detector_param = ParamHFOLineLength.from_dict(param_dict['detector_param'])
         elif detector_type.lower() == 'yasa':
             param.detector_param = ParamYASA.from_dict(param_dict['detector_param'])
         elif detector_type.lower() in ('lsm', 'kramer lsm'):
             param.detector_param = ParamSpindleLSM.from_dict(param_dict['detector_param'])
+        elif detector_type.lower() == 'a7':
+            param.detector_param = ParamSpindleA7.from_dict(param_dict['detector_param'])
+        elif detector_type.lower() in ('molle', 'fasst', 'spindle rms'):
+            param.detector_param = ParamSpindleRMS.from_dict(param_dict['detector_param'])
         elif detector_type.lower() == 'rms/ll':
             param.detector_param = ParamSpikeRMSLL.from_dict(param_dict['detector_param'])
         return param
@@ -160,6 +168,116 @@ class ParamHIL:
         )
 
 
+class ParamHFORMS:
+    def __init__(
+        self,
+        sample_freq=2000,
+        pass_band=80,
+        stop_band=500,
+        rms_window=0.003,
+        threshold=5.0,
+        peak_threshold=3.0,
+        min_window=0.006,
+        max_window=0.2,
+        min_gap=0.01,
+        n_jobs=32,
+    ):
+        self.sample_freq = sample_freq
+        self.pass_band = pass_band
+        self.stop_band = stop_band
+        self.rms_window = rms_window
+        self.threshold = threshold
+        self.peak_threshold = peak_threshold
+        self.min_window = min_window
+        self.max_window = max_window
+        self.min_gap = min_gap
+        self.n_jobs = n_jobs
+
+    def to_dict(self):
+        return {
+            "sample_freq": self.sample_freq,
+            "pass_band": self.pass_band,
+            "stop_band": self.stop_band,
+            "rms_window": self.rms_window,
+            "threshold": self.threshold,
+            "peak_threshold": self.peak_threshold,
+            "min_window": self.min_window,
+            "max_window": self.max_window,
+            "min_gap": self.min_gap,
+            "n_jobs": self.n_jobs,
+        }
+
+    @staticmethod
+    def from_dict(d):
+        return ParamHFORMS(
+            sample_freq=d.get("sample_freq", 2000),
+            pass_band=d.get("pass_band", 80),
+            stop_band=d.get("stop_band", 500),
+            rms_window=d.get("rms_window", 0.003),
+            threshold=d.get("threshold", d.get("rms_thres", 5.0)),
+            peak_threshold=d.get("peak_threshold", d.get("peak_thres", 3.0)),
+            min_window=d.get("min_window", 0.006),
+            max_window=d.get("max_window", 0.2),
+            min_gap=d.get("min_gap", 0.01),
+            n_jobs=d.get("n_jobs", 32),
+        )
+
+
+class ParamHFOLineLength:
+    def __init__(
+        self,
+        sample_freq=2000,
+        pass_band=80,
+        stop_band=500,
+        ll_window=0.01,
+        threshold=5.0,
+        peak_threshold=3.0,
+        min_window=0.006,
+        max_window=0.2,
+        min_gap=0.01,
+        n_jobs=32,
+    ):
+        self.sample_freq = sample_freq
+        self.pass_band = pass_band
+        self.stop_band = stop_band
+        self.ll_window = ll_window
+        self.threshold = threshold
+        self.peak_threshold = peak_threshold
+        self.min_window = min_window
+        self.max_window = max_window
+        self.min_gap = min_gap
+        self.n_jobs = n_jobs
+
+    def to_dict(self):
+        return {
+            "sample_freq": self.sample_freq,
+            "pass_band": self.pass_band,
+            "stop_band": self.stop_band,
+            "ll_window": self.ll_window,
+            "threshold": self.threshold,
+            "peak_threshold": self.peak_threshold,
+            "min_window": self.min_window,
+            "max_window": self.max_window,
+            "min_gap": self.min_gap,
+            "n_jobs": self.n_jobs,
+        }
+
+    @staticmethod
+    def from_dict(d):
+        return ParamHFOLineLength(
+            sample_freq=d.get("sample_freq", 2000),
+            pass_band=d.get("pass_band", 80),
+            stop_band=d.get("stop_band", 500),
+            ll_window=d.get("ll_window", 0.01),
+            threshold=d.get("threshold", d.get("ll_thres", 5.0)),
+            peak_threshold=d.get("peak_threshold", d.get("peak_thres", 3.0)),
+            min_window=d.get("min_window", 0.006),
+            max_window=d.get("max_window", 0.2),
+            min_gap=d.get("min_gap", 0.01),
+            n_jobs=d.get("n_jobs", 32),
+        )
+
+
 class ParamYASA:
     def __init__(self, sample_freq=2000, freq_sp=(12, 15), freq_broad=(1, 30), duration=(0.5, 2),
                  min_distance=500, corr=0.65, rel_pow=0.2, rms=1.5, n_jobs=8):
@@ -201,6 +319,108 @@ class ParamYASA:
             d["rel_pow"],
             d["rms"],
             d["n_jobs"]
+        )
+
+
+class ParamSpindleA7:
+    def __init__(
+        self,
+        sample_freq=2000,
+        freq_sp=(11, 16),
+        freq_broad=(1, 30),
+        duration=(0.5, 2.5),
+        min_distance=0.5,
+        rms_threshold=1.5,
+        relative_power_threshold=0.2,
+        correlation_threshold=0.65,
+        smooth_window=0.2,
+        n_jobs=8,
+    ):
+        self.sample_freq = sample_freq
+        self.freq_sp = freq_sp
+        self.freq_broad = freq_broad
+        self.duration = duration
+        self.min_distance = min_distance
+        self.rms_threshold = rms_threshold
+        self.relative_power_threshold = relative_power_threshold
+        self.correlation_threshold = correlation_threshold
+        self.smooth_window = smooth_window
+        self.n_jobs = n_jobs
+
+    def to_dict(self):
+        return {
+            "sample_freq": self.sample_freq,
+            "freq_sp": self.freq_sp,
+            "freq_broad": self.freq_broad,
+            "duration": self.duration,
+            "min_distance": self.min_distance,
+            "rms_threshold": self.rms_threshold,
+            "relative_power_threshold": self.relative_power_threshold,
+            "correlation_threshold": self.correlation_threshold,
+            "smooth_window": self.smooth_window,
+            "n_jobs": self.n_jobs,
+        }
+
+    @staticmethod
+    def from_dict(d):
+        return ParamSpindleA7(
+            sample_freq=d.get("sample_freq", 2000),
+            freq_sp=d.get("freq_sp", (11, 16)),
+            freq_broad=d.get("freq_broad", (1, 30)),
+            duration=d.get("duration", (0.5, 2.5)),
+            min_distance=d.get("min_distance", 0.5),
+            rms_threshold=d.get("rms_threshold", d.get("rms", 1.5)),
+            relative_power_threshold=d.get("relative_power_threshold", d.get("rel_pow", 0.2)),
+            correlation_threshold=d.get("correlation_threshold", d.get("corr", 0.65)),
+            smooth_window=d.get("smooth_window", 0.2),
+            n_jobs=d.get("n_jobs", 8),
+        )
+
+
+class ParamSpindleRMS:
+    def __init__(
+        self,
+        sample_freq=2000,
+        method="MOLLE",
+        freq_sp=(12, 15),
+        duration=(0.5, 3.0),
+        min_distance=0.5,
+        smooth_window=0.2,
+        rms_threshold=1.5,
+        n_jobs=8,
+    ):
+        self.sample_freq = sample_freq
+        self.method = method
+        self.freq_sp = freq_sp
+        self.duration = duration
+        self.min_distance = min_distance
+        self.smooth_window = smooth_window
+        self.rms_threshold = rms_threshold
+        self.n_jobs = n_jobs
+
+    def to_dict(self):
+        return {
+            "sample_freq": self.sample_freq,
+            "method": self.method,
+            "freq_sp": self.freq_sp,
+            "duration": self.duration,
+            "min_distance": self.min_distance,
+            "smooth_window": self.smooth_window,
+            "rms_threshold": self.rms_threshold,
+            "n_jobs": self.n_jobs,
+        }
+
+    @staticmethod
+    def from_dict(d):
+        return ParamSpindleRMS(
+            sample_freq=d.get("sample_freq", 2000),
+            method=d.get("method", "MOLLE"),
+            freq_sp=d.get("freq_sp", (12, 15)),
+            duration=d.get("duration", (0.5, 3.0)),
+            min_distance=d.get("min_distance", 0.5),
+            smooth_window=d.get("smooth_window", 0.2),
+            rms_threshold=d.get("rms_threshold", d.get("rms", 1.5)),
+            n_jobs=d.get("n_jobs", 8),
         )
 
 

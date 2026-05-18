@@ -9,7 +9,12 @@ import scipy.signal as signal
 from src.spindle_feature import SpindleFeature
 from src.utils.utils_feature import *
 from src.utils.utils_filter import construct_filter, filter_data
-from src.utils.utils_detector import set_LSM_spindle_detector, set_YASA_detector
+from src.utils.utils_detector import (
+    set_A7_spindle_detector,
+    set_LSM_spindle_detector,
+    set_YASA_detector,
+    set_spindle_rms_detector,
+)
 from src.utils.utils_io import get_edf_info, read_eeg_data, dump_to_npz, load_mne_raw
 from src.utils.utils_montage import (
     bipolar_channel_name,
@@ -399,6 +404,10 @@ class SpindleApp(object):
             self.detector = set_YASA_detector(param.detector_param)
         elif param.detector_type.lower() in ("lsm", "kramer lsm"):
             self.detector = set_LSM_spindle_detector(param.detector_param)
+        elif param.detector_type.lower() == "a7":
+            self.detector = set_A7_spindle_detector(param.detector_param)
+        elif param.detector_type.lower() in ("molle", "fasst", "spindle rms"):
+            self.detector = set_spindle_rms_detector(param.detector_param)
         else:
             print('To be continued')
 

@@ -7,6 +7,14 @@ from PyQt5 import QtCore, QtTest, QtWidgets
 
 from src.hfo_feature import HFO_Feature
 from src.param.param_classifier import ParamClassifier
+from src.param.param_detector import (
+    ParamHFOLineLength,
+    ParamHFORMS,
+    ParamSpindleA7,
+    ParamSpindleRMS,
+    ParamSpikeRMSLL,
+)
+from src.param.param_filter import ParamFilterSpindle
 from src.ui.annotation import Annotation
 from src.ui.bipolar_channel_selection import BipolarChannelSelectionWindow
 from src.ui.channels_selection import ChannelSelectionWindow
@@ -228,6 +236,71 @@ def test_quick_detection_clamps_filter_defaults_below_nyquist(qapp):
         validator = dialog.qd_fs_input.validator()
         assert validator is not None
         assert validator.top() < nyquist
+    finally:
+        dialog.close()
+        _process_events(qapp)
+
+
+def test_quick_detection_collects_hfo_spindle_and_spike_detector_params(qapp, tmp_path):
+    dialog = HFOQuickDetector(backend=_DummyQuickDetectionBackend())
+    try:
+        dialog.show()
+        _process_events(qapp)
+        _prepare_quick_detection_dialog(dialog, tmp_path, qapp)
+
+        assert [dialog.detectionTypeComboBox.itemText(i) for i in range(dialog.detectionTypeComboBox.count())] == [
+            "MNI",
+            "STE",
+            "HIL",
+            "RMS",
+            "LineLength",
+        ]
+
+        dialog.detectionTypeComboBox.setCurrentText("RMS")
+        _process_events(qapp)
+        hfo_rms_config = dialog.collect_run_configuration()
+        assert hfo_rms_config["biomarker_type"] == "HFO"
+        assert hfo_rms_config["detector_param"].detector_type == "RMS"
+        assert isinstance(hfo_rms_config["detector_param"].detector_param, ParamHFORMS)
+
+        dialog.detectionTypeComboBox.setCurrentText("LineLength")
+        _process_events(qapp)
+        hfo_ll_config = dialog.collect_run_configuration()
+        assert hfo_ll_config["detector_param"].detector_type == "LineLength"
+        assert isinstance(hfo_ll_config["detector_param"].detector_param, ParamHFOLineLength)
+
+        dialog.qd_use_classifier_checkbox.setChecked(True)
+        dialog.set_quick_biomarker_type("Spindle")
+        _process_events(qapp)
+        assert dialog.biomarker_type == "Spindle"
+        assert [dialog.detectionTypeComboBox.itemText(i) for i in range(dialog.detectionTypeComboBox.count())] == [
+            "A7",
+            "MOLLE",
+        ]
+        assert dialog.qd_use_classifier_checkbox.isChecked() is False
+        assert dialog.qd_use_classifier_checkbox.isEnabled() is False
+        spindle_config = dialog.collect_run_configuration()
+        assert isinstance(spindle_config["filter_param"], ParamFilterSpindle)
+        assert spindle_config["detector_param"].detector_type == "A7"
+        assert isinstance(spindle_config["detector_param"].detector_param, ParamSpindleA7)
+        assert spindle_config["classifier"] is None
+
+        dialog.detectionTypeComboBox.setCurrentText("MOLLE")
+        _process_events(qapp)
+        molle_config = dialog.collect_run_configuration()
+        assert molle_config["detector_param"].detector_type == "MOLLE"
+        assert isinstance(molle_config["detector_param"].detector_param, ParamSpindleRMS)
+
+        dialog.set_quick_biomarker_type("Spike")
+        _process_events(qapp)
+        assert [dialog.detectionTypeComboBox.itemText(i) for i in range(dialog.detectionTypeComboBox.count())] == [
+            "RMS/LL",
+        ]
+        spike_config = dialog.collect_run_configuration()
+        assert spike_config["biomarker_type"] == "Spike"
+        assert spike_config["detector_param"].detector_type == "RMS/LL"
+        assert isinstance(spike_config["detector_param"].detector_param, ParamSpikeRMSLL)
+        assert Path(spike_config["npz_output"]).name == "sample_raw_rms_ll.npz"
     finally:
         dialog.close()
         _process_events(qapp)

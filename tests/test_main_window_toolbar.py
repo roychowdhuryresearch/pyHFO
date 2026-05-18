@@ -1668,9 +1668,9 @@ def test_new_run_actions_keep_workflow_selections_stable_across_biomarkers(monke
         ]
 
         workflow_matrix = (
-            ("Spindle", window.new_spindle_run_action, ["YASA", "LSM"], True, ["Hugging Face CPU", "Hugging Face GPU", "Custom"], True),
+            ("Spindle", window.new_spindle_run_action, ["YASA", "LSM", "A7", "MOLLE"], True, ["Hugging Face CPU", "Hugging Face GPU", "Custom"], True),
             ("Spike", window.new_spike_run_action, ["RMS/LL"], False, ["Review only"], False),
-            ("HFO", window.new_hfo_run_action, ["STE", "MNI", "HIL"], True, ["Hugging Face CPU", "Hugging Face GPU", "Custom"], True),
+            ("HFO", window.new_hfo_run_action, ["STE", "MNI", "HIL", "RMS", "LineLength"], True, ["Hugging Face CPU", "Hugging Face GPU", "Custom"], True),
         )
 
         for biomarker, action, detector_items, detector_enabled, classifier_items, classifier_enabled in workflow_matrix:
@@ -1729,7 +1729,7 @@ def test_detector_and_classifier_selections_stay_in_sync_with_active_workflow(mo
         window.new_hfo_run_action.trigger()
         _process_events(qapp, cycles=30)
 
-        assert [window.detector_subtabs.tabText(i) for i in range(window.detector_subtabs.count())] == ["STE", "MNI", "HIL"]
+        assert [window.detector_subtabs.tabText(i) for i in range(window.detector_subtabs.count())] == ["STE", "MNI", "HIL", "RMS", "LineLength"]
         assert [window.classifier_mode_combo.itemText(i) for i in range(window.classifier_mode_combo.count())] == [
             "Hugging Face CPU",
             "Hugging Face GPU",
@@ -2155,12 +2155,12 @@ def test_detector_and_classifier_action_paths_apply_all_main_workflow_modes(monk
     try:
         _load_recording(window, tiny_fif_path, qapp)
 
-        for detector_name in ["STE", "MNI", "HIL"]:
+        for detector_name in ["STE", "MNI", "HIL", "RMS", "LineLength"]:
             window.detector_mode_combo.setCurrentText(detector_name)
             _process_events(qapp, cycles=6)
             window.detector_apply_button.click()
             _process_events(qapp, cycles=6)
-            assert window.model.backend.param_detector.detector_type.upper() == detector_name
+            assert window.model.backend.param_detector.detector_type.upper() == detector_name.upper()
             assert window.detector_run_button.text() == f"Run {detector_name}"
 
         for classifier_mode in ["Hugging Face CPU", "Hugging Face GPU", "Custom"]:
@@ -2182,6 +2182,14 @@ def test_detector_and_classifier_action_paths_apply_all_main_workflow_modes(monk
         window.detector_apply_button.click()
         _process_events(qapp, cycles=6)
         assert window.model.backend.param_detector.detector_type.upper() == "YASA"
+
+        for detector_name in ["A7", "MOLLE"]:
+            window.detector_mode_combo.setCurrentText(detector_name)
+            _process_events(qapp, cycles=6)
+            window.detector_apply_button.click()
+            _process_events(qapp, cycles=6)
+            assert window.model.backend.param_detector.detector_type.upper() == detector_name
+            assert window.detector_run_button.text() == f"Run {detector_name}"
 
         window.classifier_mode_combo.setCurrentText("Custom")
         _process_events(qapp, cycles=6)
