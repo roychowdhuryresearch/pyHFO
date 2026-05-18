@@ -320,7 +320,7 @@ def test_main_window_layout_regression_covers_dynamic_sections(monkeypatch, qapp
 
         workflow_matrix = (
             (window.new_hfo_run_action, ["STE", "MNI", "HIL"], ["Hugging Face CPU", "Hugging Face GPU", "Custom"]),
-            (window.new_spindle_run_action, ["YASA"], ["Hugging Face CPU", "Hugging Face GPU", "Custom"]),
+            (window.new_spindle_run_action, ["YASA", "LSM"], ["Hugging Face CPU", "Hugging Face GPU", "Custom"]),
             (window.new_spike_run_action, ["RMS/LL"], ["Review only"]),
         )
 

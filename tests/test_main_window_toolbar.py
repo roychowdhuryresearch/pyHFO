@@ -2,6 +2,7 @@ import json
 
 import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets, QtTest
+from scipy.io import savemat
 
 from src.hfo_feature import HFO_Feature
 from src.models.main_window_model import MainWindowModel
@@ -56,6 +57,38 @@ def _load_recording(window, tiny_fif_path, qapp):
     results = window.model.read_edf(str(tiny_fif_path), None)
     window.model.update_edf_info(results)
     _process_events(qapp, cycles=20)
+
+
+def _write_lsm_parameter_file(path):
+    savemat(
+        path,
+        {
+            "params": {
+                "window_duration": 0.5,
+                "step_duration": 0.1,
+                "theta_index": 7,
+                "nine_15_index": np.array([12, 14], dtype=np.uint8),
+            },
+            "mu": {
+                "log_P_theta1": 0.0,
+                "log_P_theta0": 0.0,
+                "log_P_9_15_1": 0.0,
+                "log_P_9_15_0": 0.0,
+                "F1": 0.0,
+                "F0": 0.0,
+            },
+            "sigma": {
+                "log_P_theta1": 1e6,
+                "log_P_theta0": 1e18,
+                "log_P_9_15_1": 1e6,
+                "log_P_9_15_0": 1e18,
+                "F1": 1e6,
+                "F0": 1e18,
+            },
+            "transition_matrix": np.array([[0.99, 0.01], [0.01, 0.99]], dtype=float),
+        },
+    )
+    return path
 
 
 def _run_hfo_detector(window, detector_name, qapp):
@@ -1635,7 +1668,7 @@ def test_new_run_actions_keep_workflow_selections_stable_across_biomarkers(monke
         ]
 
         workflow_matrix = (
-            ("Spindle", window.new_spindle_run_action, ["YASA"], False, ["Hugging Face CPU", "Hugging Face GPU", "Custom"], True),
+            ("Spindle", window.new_spindle_run_action, ["YASA", "LSM"], True, ["Hugging Face CPU", "Hugging Face GPU", "Custom"], True),
             ("Spike", window.new_spike_run_action, ["RMS/LL"], False, ["Review only"], False),
             ("HFO", window.new_hfo_run_action, ["STE", "MNI", "HIL"], True, ["Hugging Face CPU", "Hugging Face GPU", "Custom"], True),
         )
@@ -2167,6 +2200,70 @@ def test_detector_and_classifier_action_paths_apply_all_main_workflow_modes(monk
         window.detector_apply_button.click()
         _process_events(qapp, cycles=6)
         assert window.model.backend.param_detector.detector_type.upper() == "RMS/LL"
+    finally:
+        window.close()
+        _process_events(qapp)
+
+
+def test_spindle_lsm_parameters_apply_from_main_workflow(monkeypatch, qapp, tiny_fif_path, tmp_path):
+    window = _create_window(monkeypatch, qapp)
+    try:
+        parameter_file = _write_lsm_parameter_file(tmp_path / "lsm_params.mat")
+        _load_recording(window, tiny_fif_path, qapp)
+
+        window.new_spindle_run_action.trigger()
+        _process_events(qapp, cycles=30)
+        window.detector_mode_combo.setCurrentText("LSM")
+        _process_events(qapp, cycles=8)
+
+        window.lsm_parameter_file_input.setText(str(parameter_file))
+        window.lsm_probability_input.setText("0.8")
+        window.lsm_min_duration_input.setText("0.3")
+        window.lsm_separation_input.setText("0.5")
+        window.lsm_min_prominence_input.setText("0.01")
+        window.detector_apply_button.click()
+        _process_events(qapp, cycles=8)
+
+        assert window.model.backend.param_detector.detector_type.upper() == "LSM"
+        assert window.model.backend.param_detector.detector_param.parameter_file == str(parameter_file)
+        assert window.lsm_parameter_file_display.text() == "lsm_params.mat"
+        assert window.detector_run_button.text() == "Run LSM"
+    finally:
+        window.close()
+        _process_events(qapp)
+
+
+def test_spindle_lsm_bundled_preset_and_manual_panel_apply(monkeypatch, qapp, tiny_fif_path):
+    window = _create_window(monkeypatch, qapp)
+    try:
+        _load_recording(window, tiny_fif_path, qapp)
+
+        window.new_spindle_run_action.trigger()
+        _process_events(qapp, cycles=30)
+        window.detector_mode_combo.setCurrentText("LSM")
+        _process_events(qapp, cycles=8)
+
+        assert window.lsm_preset_combo.count() >= 4
+        assert "AllAges" in window.lsm_preset_combo.currentText()
+        assert window.lsm_window_duration_input.text() == "0.5"
+        assert window.lsm_theta_index_input.text() == "7"
+
+        window.detector_apply_button.click()
+        _process_events(qapp, cycles=8)
+        assert window.model.backend.param_detector.detector_type.upper() == "LSM"
+        assert window.model.backend.param_detector.detector_param.parameter_file.endswith("all_ages_kwon_2023.json")
+        assert window.model.backend.param_detector.detector_param.model_parameters == {}
+
+        window.lsm_model_parameters_group.setChecked(True)
+        _process_events(qapp, cycles=4)
+        window.lsm_mu_f1_input.setText("1.25")
+        window.detector_apply_button.click()
+        _process_events(qapp, cycles=8)
+
+        detector_param = window.model.backend.param_detector.detector_param
+        assert detector_param.parameter_file == ""
+        assert detector_param.model_parameters["index_base"] == 1
+        assert detector_param.model_parameters["mu"]["F1"] == 1.25
     finally:
         window.close()
         _process_events(qapp)

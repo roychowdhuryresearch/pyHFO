@@ -149,12 +149,13 @@ Use `HFO` for the full HFO workflow:
 
 ### Spindle
 
-Use `Spindle` for spindle workflows based on `YASA`.
+Use `Spindle` for spindle workflows based on `YASA` or the Python Kramer LSM detector.
 
 This mode supports:
 
 - spindle filter settings
 - YASA detector settings
+- Kramer LSM detector settings with bundled presets, external `.mat`/`.json` files, or manual model parameters
 - artifact and spike review support
 - annotation
 - session save and export
@@ -333,7 +334,7 @@ Expected reaction:
 Important reaction to understand:
 
 - `Spike` mode is review-oriented, so some automated detection controls may stay disabled
-- `Spindle` mode depends on `YASA`, so spindle detection can stay unavailable if `YASA` is missing
+- `Spindle` mode offers YASA and Kramer LSM detector paths; only the YASA path depends on the optional `yasa` package
 
 ## 6. Main Window Anatomy
 
@@ -823,6 +824,21 @@ Practical reading:
 - `min_distance`: separation between spindle events
 - `corr`, `rel_pow`, `rms`: YASA threshold terms
 
+### 8.5 Kramer LSM
+
+In spindle mode, `LSM` exposes:
+
+- `parameter_file`: compatible Kramer spindle detector `.mat` parameter file
+- bundled preset: `Original`, `AllAges`, `ESES`, or `Infant`
+- `prob_threshold`: probability cutoff for turning latent-state probabilities into detections
+- `min_spindle_duration`: minimum retained spindle duration in seconds
+- `spindle_separation_threshold`: merge gap for nearby detections in seconds
+- `min_peak_prominence`: prominence used for the inter-peak interval/Fano feature
+- optional `start_frequency` and `stop_frequency` for narrowband gating
+- expandable `Model Parameters`: window/step duration, feature indexes, state means, state standard deviations, and transition matrix values
+
+The implementation is a Python rewrite of the Kramer latent-state-model workflow. PyHFO bundles authorized expanded JSON presets derived from the Kramer parameter files so users do not need to handle MATLAB `.mat` files for standard use.
+
 ## 9. Classifier Configuration
 
 PyHFO supports two ways to define classification models.
@@ -1091,7 +1107,7 @@ Use this workflow when the case is a spindle review case.
 1. Open the EEG file.
 2. Switch biomarker mode to `Spindle`.
 3. Confirm the spindle filter settings.
-4. Review `YASA` parameters.
+4. Review `YASA` parameters, or choose `LSM` and select a bundled preset or edit the advanced model parameters.
 5. Run spindle detection.
 6. Open annotation if event review is needed.
 7. Save the session.
@@ -1099,8 +1115,8 @@ Use this workflow when the case is a spindle review case.
 
 Important:
 
-- if `YASA` is unavailable, spindle detection will not run
-- the app can still open the case and UI, but the spindle detector path stays disabled
+- if `YASA` is unavailable, only the YASA path is disabled
+- if `LSM` is selected, detection can use a bundled preset, a compatible local `.mat`/`.json` parameter file, or manually entered model parameters
 
 Recommended spindle review pattern:
 

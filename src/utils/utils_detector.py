@@ -9,6 +9,7 @@ try:
     import yasa
 except Exception:  # pragma: no cover - optional runtime dependency
     yasa = None
+from src.utils.kramer_lsm_spindle import KramerLSMSpindleDetector
 
 
 def has_hil():
@@ -49,6 +50,21 @@ def set_YASA_detector(args):
         raise ImportError("YASA is required for spindle detection but is not installed.")
     detector = yasa
     return {'yasa': detector, 'args': args}
+
+
+def set_LSM_spindle_detector(args):
+    return KramerLSMSpindleDetector(
+        sample_freq=args.sample_freq,
+        parameter_file=args.parameter_file,
+        model_parameters=getattr(args, "model_parameters", {}),
+        prob_threshold=args.prob_threshold,
+        min_spindle_duration=args.min_spindle_duration,
+        spindle_separation_threshold=args.spindle_separation_threshold,
+        min_peak_prominence=args.min_peak_prominence,
+        start_frequency=args.start_frequency,
+        stop_frequency=args.stop_frequency,
+        n_jobs=args.n_jobs,
+    )
 
 
 class SpikeRMSLLDetector:

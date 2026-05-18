@@ -53,6 +53,33 @@ class SpindleFeature(object):
         end = result_summary['End'].to_numpy() * sample_freq
         return SpindleFeature(channel_names, start, end, np.array([]), detector_type, sample_freq, freq_range, time_range, feature_size)
 
+    @staticmethod
+    def construct_from_channel_intervals(event_channel_names, event_intervals, detector_type="LSM", sample_freq=2000,
+                                         freq_range=[10, 500], time_range=[0, 1000], feature_size=224):
+        channel_rows = []
+        start_rows = []
+        end_rows = []
+        for channel_name, intervals in zip(np.asarray(event_channel_names), event_intervals):
+            intervals = np.asarray(intervals)
+            if intervals.size == 0:
+                continue
+            intervals = intervals.reshape(-1, 2)
+            for start, end in intervals:
+                channel_rows.append(channel_name)
+                start_rows.append(start)
+                end_rows.append(end)
+        return SpindleFeature(
+            np.asarray(channel_rows, dtype=object),
+            np.asarray(start_rows, dtype=float),
+            np.asarray(end_rows, dtype=float),
+            np.array([]),
+            detector_type,
+            sample_freq,
+            freq_range,
+            time_range,
+            feature_size,
+        )
+
     def get_num_biomarker(self):
         return self.num_spindle
 

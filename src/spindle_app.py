@@ -9,7 +9,7 @@ import scipy.signal as signal
 from src.spindle_feature import SpindleFeature
 from src.utils.utils_feature import *
 from src.utils.utils_filter import construct_filter, filter_data
-from src.utils.utils_detector import set_YASA_detector
+from src.utils.utils_detector import set_LSM_spindle_detector, set_YASA_detector
 from src.utils.utils_io import get_edf_info, read_eeg_data, dump_to_npz, load_mne_raw
 from src.utils.utils_montage import (
     bipolar_channel_name,
@@ -397,6 +397,8 @@ class SpindleApp(object):
         # print("detector param: ", param.detector_param.to_dict())
         if param.detector_type.lower() == "yasa":
             self.detector = set_YASA_detector(param.detector_param)
+        elif param.detector_type.lower() in ("lsm", "kramer lsm"):
+            self.detector = set_LSM_spindle_detector(param.detector_param)
         else:
             print('To be continued')
 
@@ -415,22 +417,35 @@ class SpindleApp(object):
         #     self.filter_eeg_data()
         # self.event_channel_names, self.HFOs = self.detector.detect_multi_channels(self.filter_data, self.channel_names,
         #                                                                           filtered=True)
-        param_detector = self.detector['args']
-        detector_yasa = self.detector['yasa']
-        sp = detector_yasa.spindles_detect(self.eeg_data, sf=param_detector.sample_freq,
-                                           ch_names=self.channel_names.tolist(), freq_sp=param_detector.freq_sp,
-                                           freq_broad=param_detector.freq_broad, duration=param_detector.duration,
-                                           min_distance=param_detector.min_distance, thresh={'corr': param_detector.corr,
-                                                                                             'rel_pow': param_detector.rel_pow,
-                                                                                             'rms': param_detector.rms})
-        if self.filter_data is None and sp is not None:
-            self.filter_data = sp._data_filt.copy()
-            self.filter_data_60 = sp._data_filt.copy()
-            self.filter_data_un60 = sp._data_filt.copy()
-        self.event_features = SpindleFeature.construct(sp, self.param_detector.detector_type, self.sample_freq)
+        if isinstance(self.detector, dict) and "yasa" in self.detector:
+            param_detector = self.detector['args']
+            detector_yasa = self.detector['yasa']
+            sp = detector_yasa.spindles_detect(self.eeg_data, sf=param_detector.sample_freq,
+                                               ch_names=self.channel_names.tolist(), freq_sp=param_detector.freq_sp,
+                                               freq_broad=param_detector.freq_broad, duration=param_detector.duration,
+                                               min_distance=param_detector.min_distance, thresh={'corr': param_detector.corr,
+                                                                                                 'rel_pow': param_detector.rel_pow,
+                                                                                                 'rms': param_detector.rms})
+            if self.filter_data is None and sp is not None:
+                self.filter_data = sp._data_filt.copy()
+                self.filter_data_60 = sp._data_filt.copy()
+                self.filter_data_un60 = sp._data_filt.copy()
+            self.event_features = SpindleFeature.construct(sp, self.param_detector.detector_type, self.sample_freq)
+            self.Spindles = getattr(sp, "_events", None)
+        else:
+            self.event_channel_names, self.Spindles = self.detector.detect_multi_channels(
+                self.eeg_data,
+                self.channel_names,
+                filtered=False,
+            )
+            self.event_features = SpindleFeature.construct_from_channel_intervals(
+                self.event_channel_names,
+                self.Spindles,
+                detector_type=self.param_detector.detector_type,
+                sample_freq=self.sample_freq,
+            )
         self.detected = True
         self.classified = False
-        self.Spindles = getattr(sp, "_events", None)
         self.capture_current_run()
 
     '''

@@ -106,6 +106,12 @@ class MainWindowView(QObject):
             "Spindle band": "Spin band",
             "Broad band": "Broad bd.",
             "Duration": "Dur.",
+            "Parameter file": "Param file",
+            "Probability": "Prob.",
+            "Separation": "Sep.",
+            "Min prominence": "Prom.",
+            "Start freq.": "Start Hz",
+            "Stop freq.": "Stop Hz",
         }
         return label_map.get(str(text or ""), str(text or ""))
 
@@ -4237,11 +4243,15 @@ class MainWindowView(QObject):
         elif biomarker_type == 'Spindle':
             clear_stacked_widget(self.window.stacked_widget_detection_param)
             page_yasa = self.create_detection_parameter_page_yasa('Detection Parameters (YASA)')
+            page_lsm = self.create_detection_parameter_page_lsm('Detection Parameters (LSM)')
             self.window.stacked_widget_detection_param.addWidget(page_yasa)
+            self.window.stacked_widget_detection_param.addWidget(page_lsm)
 
             self.window.detector_subtabs.clear()
             tab_yasa = self.create_detection_parameter_tab_yasa()
+            tab_lsm = self.create_detection_parameter_tab_lsm()
             self.window.detector_subtabs.addTab(tab_yasa, 'YASA')
+            self.window.detector_subtabs.addTab(tab_lsm, 'LSM')
         elif biomarker_type == 'Spike':
             clear_stacked_widget(self.window.stacked_widget_detection_param)
             page_spike = self.create_detection_parameter_page_spike('Detection Parameters (RMS/LL)')
@@ -4263,7 +4273,7 @@ class MainWindowView(QObject):
         if hasattr(self.window, "detector_mode_combo"):
             detector_options = {
                 "HFO": [("STE", "Short-term energy detector"), ("MNI", "Montreal detector"), ("HIL", "Hilbert detector")],
-                "Spindle": [("YASA", "YASA spindle detector")],
+                "Spindle": [("YASA", "YASA spindle detector"), ("LSM", "Kramer latent-state-model spindle detector")],
                 "Spike": [("RMS/LL", "RMS and line-length spike candidate detector")],
             }
             blocker = QSignalBlocker(self.window.detector_mode_combo)
@@ -4275,7 +4285,7 @@ class MainWindowView(QObject):
             if hasattr(self.window, "detector_mode_hint"):
                 hints = {
                     "HFO": "Choose a detector, tune the quick parameters below, then run a new HFO analysis.",
-                    "Spindle": "Tune the YASA spindle settings below, then run a new spindle analysis.",
+                    "Spindle": "Choose YASA or LSM, tune spindle settings below, then run a new spindle analysis.",
                     "Spike": "Tune the spike candidate thresholds below, then run RMS and line-length detection.",
                 }
                 self.window.detector_mode_hint.setText(hints.get(biomarker_type, "Choose the detector for the next run."))
@@ -4582,6 +4592,60 @@ class MainWindowView(QObject):
         page.setLayout(layout)
         return page
 
+    def create_detection_parameter_page_lsm(self, groupbox_title):
+        page = QWidget()
+        layout = QGridLayout()
+
+        detection_groupbox_lsm = QGroupBox(groupbox_title)
+        lsm_parameter_layout = QGridLayout(detection_groupbox_lsm)
+
+        clear_layout(lsm_parameter_layout)
+
+        label1 = QLabel('Parameter Source')
+        label2 = QLabel('Probability')
+        label3 = QLabel('Min Duration (s)')
+        label4 = QLabel('Separation (s)')
+        label5 = QLabel('Min Prominence')
+        label6 = QLabel('Narrowband (Hz)')
+        for label in (label1, label2, label3, label4, label5, label6):
+            label.setProperty("fieldLabel", True)
+
+        self.window.lsm_parameter_file_display = QLabel()
+        self.window.lsm_probability_display = QLabel()
+        self.window.lsm_min_duration_display = QLabel()
+        self.window.lsm_separation_display = QLabel()
+        self.window.lsm_min_prominence_display = QLabel()
+        self.window.lsm_narrowband_display = QLabel()
+        for display in (
+            self.window.lsm_parameter_file_display,
+            self.window.lsm_probability_display,
+            self.window.lsm_min_duration_display,
+            self.window.lsm_separation_display,
+            self.window.lsm_min_prominence_display,
+            self.window.lsm_narrowband_display,
+        ):
+            style_value_badge(display, alignment=Qt.AlignCenter)
+
+        self.window.lsm_detect_button = QPushButton('Run')
+
+        lsm_parameter_layout.addWidget(label1, 0, 0)
+        lsm_parameter_layout.addWidget(label2, 0, 1)
+        lsm_parameter_layout.addWidget(self.window.lsm_parameter_file_display, 1, 0)
+        lsm_parameter_layout.addWidget(self.window.lsm_probability_display, 1, 1)
+        lsm_parameter_layout.addWidget(label3, 2, 0)
+        lsm_parameter_layout.addWidget(label4, 2, 1)
+        lsm_parameter_layout.addWidget(self.window.lsm_min_duration_display, 3, 0)
+        lsm_parameter_layout.addWidget(self.window.lsm_separation_display, 3, 1)
+        lsm_parameter_layout.addWidget(label5, 4, 0)
+        lsm_parameter_layout.addWidget(label6, 4, 1)
+        lsm_parameter_layout.addWidget(self.window.lsm_min_prominence_display, 5, 0)
+        lsm_parameter_layout.addWidget(self.window.lsm_narrowband_display, 5, 1)
+        lsm_parameter_layout.addWidget(self.window.lsm_detect_button, 6, 1)
+
+        layout.addWidget(detection_groupbox_lsm)
+        page.setLayout(layout)
+        return page
+
     def create_detection_parameter_page_spike(self, groupbox_title):
         page = QWidget()
         layout = QGridLayout()
@@ -4822,6 +4886,187 @@ class MainWindowView(QObject):
 
         parameter_layout.addWidget(self.window.YASA_save_button, 5, 3, 1, 3, alignment=Qt.AlignRight)
         layout.addWidget(groupbox)
+        return tab
+
+    def create_detection_parameter_tab_lsm(self):
+        preset_dir = ROOT_DIR / "src" / "resources" / "spindle_lsm"
+        preset_defs = [
+            ("AllAges (Kwon 2023)", preset_dir / "all_ages_kwon_2023.json"),
+            ("Original (Kramer 2021)", preset_dir / "original_kramer_2021.json"),
+            ("ESES (McLaren 2023)", preset_dir / "eses_mclaren_2023.json"),
+            ("Infant (Berja 2024)", preset_dir / "infant_berja_2024.json"),
+        ]
+
+        tab = QWidget()
+        tab.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+
+        groupbox = QGroupBox("")
+        groupbox.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        parameter_layout = QGridLayout(groupbox)
+        self._configure_compact_form_grid(parameter_layout)
+
+        self.window.lsm_preset_combo = QComboBox()
+        for label, path in preset_defs:
+            if path.exists():
+                self.window.lsm_preset_combo.addItem(label, str(path))
+        self.window.lsm_preset_combo.addItem("Custom file / manual", "")
+        self.window.lsm_parameter_file_input = QLineEdit()
+        self.window.lsm_probability_input = QLineEdit()
+        self.window.lsm_min_duration_input = QLineEdit()
+        self.window.lsm_separation_input = QLineEdit()
+        self.window.lsm_min_prominence_input = QLineEdit()
+        self.window.lsm_start_frequency_input = QLineEdit()
+        self.window.lsm_stop_frequency_input = QLineEdit()
+        self.window.LSM_save_button = QPushButton('Apply')
+        self.window.LSM_save_button.setVisible(False)
+        self.window.lsm_probability_input.setText("0.95")
+        self.window.lsm_min_duration_input.setText("0.5")
+        self.window.lsm_separation_input.setText("1.0")
+        self.window.lsm_min_prominence_input.setText("2e-6")
+
+        top_fields = [
+            ("Preset", self.window.lsm_preset_combo, "", "det_lsm_preset", "essential"),
+            ("Parameter file", self.window.lsm_parameter_file_input, ".mat/.json", "det_lsm_parameter_file", "standard"),
+            ("Probability", self.window.lsm_probability_input, "", "det_lsm_probability", "essential"),
+            ("Min duration", self.window.lsm_min_duration_input, "sec", "det_lsm_min_duration", "essential"),
+            ("Separation", self.window.lsm_separation_input, "sec", "det_lsm_separation", "standard"),
+            ("Min prominence", self.window.lsm_min_prominence_input, "V", "det_lsm_min_prominence", "standard"),
+            ("Start freq.", self.window.lsm_start_frequency_input, "Hz", "det_lsm_start_frequency", "advanced"),
+            ("Stop freq.", self.window.lsm_stop_frequency_input, "Hz", "det_lsm_stop_frequency", "advanced"),
+        ]
+        for index, field in enumerate(top_fields):
+            label_text, widget, unit_text, option_id, density = field
+            if hasattr(widget, "setAlignment"):
+                widget.setAlignment(Qt.AlignCenter)
+            self._add_compact_field_to_grid(
+                parameter_layout,
+                index // 2,
+                index % 2,
+                self._create_compact_field_block(label_text, widget, unit_text, option_id=option_id, density=density),
+            )
+        parameter_layout.addWidget(self.window.LSM_save_button, 4, 3, 1, 3, alignment=Qt.AlignRight)
+        layout.addWidget(groupbox)
+
+        self.window.lsm_model_parameters_group = QGroupBox("Model Parameters")
+        self.window.lsm_model_parameters_group.setCheckable(True)
+        self.window.lsm_model_parameters_group.setChecked(False)
+        model_group_layout = QVBoxLayout(self.window.lsm_model_parameters_group)
+        model_group_layout.setContentsMargins(8, 6, 8, 8)
+        model_group_layout.setSpacing(4)
+        self.window.lsm_model_parameters_content = QFrame()
+        model_grid = QGridLayout(self.window.lsm_model_parameters_content)
+        self._configure_compact_form_grid(model_grid)
+
+        self.window.lsm_window_duration_input = QLineEdit()
+        self.window.lsm_step_duration_input = QLineEdit()
+        self.window.lsm_theta_index_input = QLineEdit()
+        self.window.lsm_nine_15_index_input = QLineEdit()
+        self.window.lsm_mu_log_p_theta1_input = QLineEdit()
+        self.window.lsm_mu_log_p_theta0_input = QLineEdit()
+        self.window.lsm_mu_log_p_9_15_1_input = QLineEdit()
+        self.window.lsm_mu_log_p_9_15_0_input = QLineEdit()
+        self.window.lsm_mu_f1_input = QLineEdit()
+        self.window.lsm_mu_f0_input = QLineEdit()
+        self.window.lsm_sigma_log_p_theta1_input = QLineEdit()
+        self.window.lsm_sigma_log_p_theta0_input = QLineEdit()
+        self.window.lsm_sigma_log_p_9_15_1_input = QLineEdit()
+        self.window.lsm_sigma_log_p_9_15_0_input = QLineEdit()
+        self.window.lsm_sigma_f1_input = QLineEdit()
+        self.window.lsm_sigma_f0_input = QLineEdit()
+        self.window.lsm_transition_00_input = QLineEdit()
+        self.window.lsm_transition_01_input = QLineEdit()
+        self.window.lsm_transition_10_input = QLineEdit()
+        self.window.lsm_transition_11_input = QLineEdit()
+
+        model_fields = [
+            ("Window", self.window.lsm_window_duration_input, "sec"),
+            ("Step", self.window.lsm_step_duration_input, "sec"),
+            ("Theta idx", self.window.lsm_theta_index_input, "1-based"),
+            ("9-15 idx", self.window.lsm_nine_15_index_input, "1-based"),
+            ("mu theta1", self.window.lsm_mu_log_p_theta1_input, ""),
+            ("mu theta0", self.window.lsm_mu_log_p_theta0_input, ""),
+            ("mu 9-15 1", self.window.lsm_mu_log_p_9_15_1_input, ""),
+            ("mu 9-15 0", self.window.lsm_mu_log_p_9_15_0_input, ""),
+            ("mu F1", self.window.lsm_mu_f1_input, ""),
+            ("mu F0", self.window.lsm_mu_f0_input, ""),
+            ("sigma theta1", self.window.lsm_sigma_log_p_theta1_input, ""),
+            ("sigma theta0", self.window.lsm_sigma_log_p_theta0_input, ""),
+            ("sigma 9-15 1", self.window.lsm_sigma_log_p_9_15_1_input, ""),
+            ("sigma 9-15 0", self.window.lsm_sigma_log_p_9_15_0_input, ""),
+            ("sigma F1", self.window.lsm_sigma_f1_input, ""),
+            ("sigma F0", self.window.lsm_sigma_f0_input, ""),
+            ("T 0,0", self.window.lsm_transition_00_input, ""),
+            ("T 0,1", self.window.lsm_transition_01_input, ""),
+            ("T 1,0", self.window.lsm_transition_10_input, ""),
+            ("T 1,1", self.window.lsm_transition_11_input, ""),
+        ]
+        for index, (label_text, widget, unit_text) in enumerate(model_fields):
+            widget.setAlignment(Qt.AlignCenter)
+            self._add_compact_field_to_grid(
+                model_grid,
+                index // 2,
+                index % 2,
+                self._create_compact_field_block(
+                    label_text,
+                    widget,
+                    unit_text,
+                    option_id=f"det_lsm_model_{index}",
+                    density="advanced",
+                ),
+            )
+
+        model_group_layout.addWidget(self.window.lsm_model_parameters_content)
+        self.window.lsm_model_parameters_content.setVisible(False)
+        self.window.lsm_model_parameters_group.toggled.connect(self.window.lsm_model_parameters_content.setVisible)
+        layout.addWidget(self.window.lsm_model_parameters_group)
+
+        def apply_lsm_preset(index=0):
+            path_value = self.window.lsm_preset_combo.itemData(index)
+            if not path_value:
+                return
+            try:
+                payload = json.loads(Path(path_value).read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                return
+            params = payload.get("params", {})
+            mu = payload.get("mu", {})
+            sigma = payload.get("sigma", {})
+            transition_matrix = payload.get("transition_matrix", [[0.5, 0.5], [0.5, 0.5]])
+            index_base = int(payload.get("index_base", 0))
+
+            def display_indexes(values):
+                indexes = [int(value) for value in np.atleast_1d(values).tolist()]
+                if index_base == 0:
+                    indexes = [value + 1 for value in indexes]
+                return ",".join(str(value) for value in indexes)
+
+            self.window.lsm_parameter_file_input.clear()
+            self.window.lsm_window_duration_input.setText(str(params.get("window_duration", 0.5)))
+            self.window.lsm_step_duration_input.setText(str(params.get("step_duration", 0.1)))
+            self.window.lsm_theta_index_input.setText(display_indexes(params.get("theta_index", [7])))
+            self.window.lsm_nine_15_index_input.setText(display_indexes(params.get("nine_15_index", [12, 14])))
+            self.window.lsm_mu_log_p_theta1_input.setText(str(mu.get("log_P_theta1", "")))
+            self.window.lsm_mu_log_p_theta0_input.setText(str(mu.get("log_P_theta0", "")))
+            self.window.lsm_mu_log_p_9_15_1_input.setText(str(mu.get("log_P_9_15_1", "")))
+            self.window.lsm_mu_log_p_9_15_0_input.setText(str(mu.get("log_P_9_15_0", "")))
+            self.window.lsm_mu_f1_input.setText(str(mu.get("F1", "")))
+            self.window.lsm_mu_f0_input.setText(str(mu.get("F0", "")))
+            self.window.lsm_sigma_log_p_theta1_input.setText(str(sigma.get("log_P_theta1", "")))
+            self.window.lsm_sigma_log_p_theta0_input.setText(str(sigma.get("log_P_theta0", "")))
+            self.window.lsm_sigma_log_p_9_15_1_input.setText(str(sigma.get("log_P_9_15_1", "")))
+            self.window.lsm_sigma_log_p_9_15_0_input.setText(str(sigma.get("log_P_9_15_0", "")))
+            self.window.lsm_sigma_f1_input.setText(str(sigma.get("F1", "")))
+            self.window.lsm_sigma_f0_input.setText(str(sigma.get("F0", "")))
+            self.window.lsm_transition_00_input.setText(str(transition_matrix[0][0]))
+            self.window.lsm_transition_01_input.setText(str(transition_matrix[0][1]))
+            self.window.lsm_transition_10_input.setText(str(transition_matrix[1][0]))
+            self.window.lsm_transition_11_input.setText(str(transition_matrix[1][1]))
+
+        self.window.lsm_preset_combo.currentIndexChanged.connect(apply_lsm_preset)
+        apply_lsm_preset(self.window.lsm_preset_combo.currentIndex())
         return tab
 
     def create_detection_parameter_tab_spike(self):

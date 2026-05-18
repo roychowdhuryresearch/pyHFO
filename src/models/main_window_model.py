@@ -3083,8 +3083,11 @@ class MainWindowModel(QObject):
 
             safe_connect_signal_slot(self.window.yasa_detect_button.clicked, self.detect_Spindles)
             self.window.yasa_detect_button.setEnabled(False)
+            safe_connect_signal_slot(self.window.lsm_detect_button.clicked, self.detect_Spindles)
+            self.window.lsm_detect_button.setEnabled(False)
 
             safe_connect_signal_slot(self.window.YASA_save_button.clicked, self.save_yasa_params)
+            safe_connect_signal_slot(self.window.LSM_save_button.clicked, self.save_lsm_params)
             # self.window.YASA_save_button.setEnabled(False)
         elif biomarker_type == 'Spike':
             safe_connect_signal_slot(self.window.overview_filter_button.clicked, self.filter_data)
@@ -3979,9 +3982,12 @@ class MainWindowModel(QObject):
             detector_apply.setToolTip(f"Apply the current {detector_name} detector parameters")
         if detector_run is not None:
             detector_run.setText(f"Run {detector_name}")
-            enabled = has_recording and supports_detection and (self.biomarker_type != "Spindle" or yasa_ready)
+            detector_ready = True
+            if self.biomarker_type == "Spindle" and detector_name == "YASA":
+                detector_ready = yasa_ready
+            enabled = has_recording and supports_detection and detector_ready
             detector_run.setEnabled(enabled)
-            if self.biomarker_type == "Spindle" and not yasa_ready:
+            if self.biomarker_type == "Spindle" and detector_name == "YASA" and not yasa_ready:
                 detector_run.setToolTip("Install the optional 'yasa' package to run spindle detection.")
             else:
                 detector_run.setToolTip(f"Apply the visible settings and run a new {self.get_biomarker_display_name()} analysis")
@@ -4020,6 +4026,7 @@ class MainWindowModel(QObject):
             ("HFO", "MNI"): self.save_mni_params,
             ("HFO", "HIL"): self.save_hil_params,
             ("Spindle", "YASA"): self.save_yasa_params,
+            ("Spindle", "LSM"): self.save_lsm_params,
             ("Spike", "RMS/LL"): self.save_spike_params,
         }
         handler = handlers.get((self.biomarker_type, detector_name))
@@ -6181,6 +6188,134 @@ class MainWindowModel(QObject):
             self.window.yasa_detect_button.setEnabled(False)
             return False
 
+    def _parse_lsm_index_input(self, raw_text, label):
+        parts = [
+            part.strip()
+            for part in str(raw_text or "").replace(";", ",").replace(" ", ",").split(",")
+            if part.strip()
+        ]
+        if not parts:
+            raise ValueError(f"{label} must include at least one index.")
+        indexes = [int(part) for part in parts]
+        if any(index < 1 for index in indexes):
+            raise ValueError(f"{label} indexes are 1-based and must be positive integers.")
+        return indexes
+
+    def _build_lsm_model_parameters_from_inputs(self):
+        return {
+            "format": "pyhfo_kramer_lsm_preset",
+            "schema_version": 1,
+            "name": "Manual LSM parameters",
+            "source": "PyHFO manual entry",
+            "index_base": 1,
+            "params": {
+                "window_duration": self._parse_float_input(self.window.lsm_window_duration_input.text(), "LSM window duration", positive=True),
+                "step_duration": self._parse_float_input(self.window.lsm_step_duration_input.text(), "LSM step duration", positive=True),
+                "theta_index": self._parse_lsm_index_input(self.window.lsm_theta_index_input.text(), "LSM theta index"),
+                "nine_15_index": self._parse_lsm_index_input(self.window.lsm_nine_15_index_input.text(), "LSM 9-15 index"),
+            },
+            "mu": {
+                "log_P_theta1": self._parse_float_input(self.window.lsm_mu_log_p_theta1_input.text(), "LSM mu theta1"),
+                "log_P_theta0": self._parse_float_input(self.window.lsm_mu_log_p_theta0_input.text(), "LSM mu theta0"),
+                "log_P_9_15_1": self._parse_float_input(self.window.lsm_mu_log_p_9_15_1_input.text(), "LSM mu 9-15 state 1"),
+                "log_P_9_15_0": self._parse_float_input(self.window.lsm_mu_log_p_9_15_0_input.text(), "LSM mu 9-15 state 0"),
+                "F1": self._parse_float_input(self.window.lsm_mu_f1_input.text(), "LSM mu F1"),
+                "F0": self._parse_float_input(self.window.lsm_mu_f0_input.text(), "LSM mu F0"),
+            },
+            "sigma": {
+                "log_P_theta1": self._parse_float_input(self.window.lsm_sigma_log_p_theta1_input.text(), "LSM sigma theta1", positive=True),
+                "log_P_theta0": self._parse_float_input(self.window.lsm_sigma_log_p_theta0_input.text(), "LSM sigma theta0", positive=True),
+                "log_P_9_15_1": self._parse_float_input(self.window.lsm_sigma_log_p_9_15_1_input.text(), "LSM sigma 9-15 state 1", positive=True),
+                "log_P_9_15_0": self._parse_float_input(self.window.lsm_sigma_log_p_9_15_0_input.text(), "LSM sigma 9-15 state 0", positive=True),
+                "F1": self._parse_float_input(self.window.lsm_sigma_f1_input.text(), "LSM sigma F1", positive=True),
+                "F0": self._parse_float_input(self.window.lsm_sigma_f0_input.text(), "LSM sigma F0", positive=True),
+            },
+            "transition_matrix": [
+                [
+                    self._parse_float_input(self.window.lsm_transition_00_input.text(), "LSM transition 0,0", non_negative=True),
+                    self._parse_float_input(self.window.lsm_transition_01_input.text(), "LSM transition 0,1", non_negative=True),
+                ],
+                [
+                    self._parse_float_input(self.window.lsm_transition_10_input.text(), "LSM transition 1,0", non_negative=True),
+                    self._parse_float_input(self.window.lsm_transition_11_input.text(), "LSM transition 1,1", non_negative=True),
+                ],
+            ],
+        }
+
+    def save_lsm_params(self):
+        parameter_file = self.window.lsm_parameter_file_input.text().strip()
+        preset_path = ""
+        preset_combo = getattr(self.window, "lsm_preset_combo", None)
+        if preset_combo is not None and preset_combo.currentIndex() >= 0:
+            preset_path = str(preset_combo.currentData() or "")
+        manual_model_parameters = (
+            getattr(self.window, "lsm_model_parameters_group", None) is not None
+            and self.window.lsm_model_parameters_group.isChecked()
+        )
+        probability_raw = self.window.lsm_probability_input.text()
+        min_duration_raw = self.window.lsm_min_duration_input.text()
+        separation_raw = self.window.lsm_separation_input.text()
+        min_prominence_raw = self.window.lsm_min_prominence_input.text()
+        start_frequency_raw = self.window.lsm_start_frequency_input.text().strip()
+        stop_frequency_raw = self.window.lsm_stop_frequency_input.text().strip()
+
+        try:
+            model_parameters = self._build_lsm_model_parameters_from_inputs() if manual_model_parameters else {}
+            if not parameter_file and not model_parameters:
+                parameter_file = preset_path
+            if not parameter_file and not model_parameters:
+                raise ValueError("Choose an LSM preset, provide a parameter file, or expand Model Parameters and enter values.")
+            if parameter_file and not Path(parameter_file).expanduser().exists():
+                raise ValueError("LSM parameter file does not exist.")
+            probability = self._parse_float_input(probability_raw, "LSM probability threshold", positive=True)
+            if probability > 1:
+                raise ValueError("LSM probability threshold must be less than or equal to 1.")
+            start_frequency = None
+            stop_frequency = None
+            if start_frequency_raw or stop_frequency_raw:
+                start_frequency = self._parse_float_input(start_frequency_raw, "LSM start frequency", positive=True)
+                stop_frequency = self._parse_float_input(stop_frequency_raw, "LSM stop frequency", positive=True)
+                if start_frequency >= stop_frequency:
+                    raise ValueError("LSM stop frequency must be greater than the start frequency.")
+
+            param_dict = {
+                "sample_freq": self.backend.sample_freq or 2000,
+                "parameter_file": "" if model_parameters else parameter_file,
+                "model_parameters": model_parameters,
+                "prob_threshold": probability,
+                "min_spindle_duration": self._parse_float_input(min_duration_raw, "LSM minimum duration", positive=True),
+                "spindle_separation_threshold": self._parse_float_input(separation_raw, "LSM separation threshold", non_negative=True),
+                "min_peak_prominence": self._parse_float_input(min_prominence_raw, "LSM minimum peak prominence", positive=True),
+                "start_frequency": start_frequency,
+                "stop_frequency": stop_frequency,
+                "n_jobs": self.backend.n_jobs,
+            }
+            detector_params = {"detector_type": "LSM", "detector_param": param_dict}
+            self.backend.set_detector(ParamDetector.from_dict(detector_params))
+
+            display_name = "Manual parameters" if model_parameters else Path(parameter_file).name
+            self.window.lsm_parameter_file_display.setText(display_name)
+            self.window.lsm_parameter_file_display.setToolTip(parameter_file)
+            self.window.lsm_probability_display.setText(probability_raw)
+            self.window.lsm_min_duration_display.setText(min_duration_raw)
+            self.window.lsm_separation_display.setText(separation_raw)
+            self.window.lsm_min_prominence_display.setText(min_prominence_raw)
+            narrowband = f"{start_frequency_raw} - {stop_frequency_raw}" if start_frequency_raw or stop_frequency_raw else "Broadband"
+            self.window.lsm_narrowband_display.setText(narrowband)
+
+            self.update_detector_tab("LSM")
+            self.window.lsm_detect_button.setEnabled(True)
+            return True
+        except (TypeError, ValueError, FileNotFoundError) as exc:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setText("Error!")
+            msg.setInformativeText(f"LSM detector could not be constructed given the parameters. {exc}")
+            msg.setWindowTitle("LSM Detector Construction Failed")
+            msg.exec_()
+            self.window.lsm_detect_button.setEnabled(False)
+            return False
+
     def save_spike_params(self):
         rms_window_raw = self.window.spike_rms_window_input.text()
         ll_window_raw = self.window.spike_ll_window_input.text()
@@ -6246,6 +6381,25 @@ class MainWindowModel(QObject):
         if hasattr(self.window, "YASA_save_button"):
             self.window.YASA_save_button.setEnabled(yasa_ready)
             self.window.YASA_save_button.setToolTip("" if yasa_ready else "Install the optional 'yasa' package to edit and save spindle detector parameters.")
+        if hasattr(self.window, "lsm_detect_button"):
+            has_recording = self.backend is not None and getattr(self.backend, "eeg_data", None) is not None
+            detector = getattr(self.backend, "param_detector", None) if self.backend is not None else None
+            detector_type = str(getattr(detector, "detector_type", "")).lower()
+            detector_param = getattr(detector, "detector_param", None)
+            parameter_file = str(getattr(detector_param, "parameter_file", "") or "")
+            model_parameters = getattr(detector_param, "model_parameters", {}) or {}
+            lsm_ready = detector_type in ("lsm", "kramer lsm") and (
+                bool(model_parameters) or (bool(parameter_file) and Path(parameter_file).expanduser().exists())
+            )
+            self.window.lsm_detect_button.setEnabled(has_recording and lsm_ready)
+            self.window.lsm_detect_button.setToolTip(
+                "Run Kramer LSM spindle detection with the configured parameter file."
+                if lsm_ready
+                else "Apply a valid Kramer LSM preset, .mat/.json parameter file, or manual parameter set before running detection."
+            )
+        if hasattr(self.window, "LSM_save_button"):
+            self.window.LSM_save_button.setEnabled(True)
+            self.window.LSM_save_button.setToolTip("Apply Kramer LSM spindle detector parameters.")
 
     def update_detector_tab(self, index):
         if index == "STE":
@@ -6256,6 +6410,8 @@ class MainWindowModel(QObject):
             self.window.stacked_widget_detection_param.setCurrentIndex(2)
         elif index == "YASA":
             self.window.stacked_widget_detection_param.setCurrentIndex(0)
+        elif index == "LSM":
+            self.window.stacked_widget_detection_param.setCurrentIndex(1 if self.biomarker_type == "Spindle" else 0)
         elif index == "RMS/LL":
             self.window.stacked_widget_detection_param.setCurrentIndex(0)
 
@@ -6427,6 +6583,75 @@ class MainWindowModel(QObject):
         self.update_detector_tab("RMS/LL")
         self.window.detector_subtabs.setCurrentIndex(0)
 
+    def update_lsm_params(self, lsm_params):
+        parameter_file = str(lsm_params.get("parameter_file", ""))
+        model_parameters = lsm_params.get("model_parameters", {}) or {}
+        probability = str(lsm_params.get("prob_threshold", 0.95))
+        min_duration = str(lsm_params.get("min_spindle_duration", 0.5))
+        separation = str(lsm_params.get("spindle_separation_threshold", 1.0))
+        min_prominence = str(lsm_params.get("min_peak_prominence", 2e-6))
+        start_frequency = lsm_params.get("start_frequency", None)
+        stop_frequency = lsm_params.get("stop_frequency", None)
+        start_frequency_text = "" if start_frequency is None else str(start_frequency)
+        stop_frequency_text = "" if stop_frequency is None else str(stop_frequency)
+
+        self.window.lsm_parameter_file_input.setText(parameter_file)
+        self.window.lsm_probability_input.setText(probability)
+        self.window.lsm_min_duration_input.setText(min_duration)
+        self.window.lsm_separation_input.setText(separation)
+        self.window.lsm_min_prominence_input.setText(min_prominence)
+        self.window.lsm_start_frequency_input.setText(start_frequency_text)
+        self.window.lsm_stop_frequency_input.setText(stop_frequency_text)
+
+        if model_parameters:
+            params = model_parameters.get("params", {})
+            mu = model_parameters.get("mu", {})
+            sigma = model_parameters.get("sigma", {})
+            transition_matrix = model_parameters.get("transition_matrix", [[0.5, 0.5], [0.5, 0.5]])
+            index_base = int(model_parameters.get("index_base", 0))
+
+            def display_indexes(values):
+                indexes = [int(value) for value in np.atleast_1d(values).tolist()]
+                if index_base == 0:
+                    indexes = [value + 1 for value in indexes]
+                return ",".join(str(value) for value in indexes)
+
+            self.window.lsm_window_duration_input.setText(str(params.get("window_duration", "")))
+            self.window.lsm_step_duration_input.setText(str(params.get("step_duration", "")))
+            self.window.lsm_theta_index_input.setText(display_indexes(params.get("theta_index", [])))
+            self.window.lsm_nine_15_index_input.setText(display_indexes(params.get("nine_15_index", [])))
+            self.window.lsm_mu_log_p_theta1_input.setText(str(mu.get("log_P_theta1", "")))
+            self.window.lsm_mu_log_p_theta0_input.setText(str(mu.get("log_P_theta0", "")))
+            self.window.lsm_mu_log_p_9_15_1_input.setText(str(mu.get("log_P_9_15_1", "")))
+            self.window.lsm_mu_log_p_9_15_0_input.setText(str(mu.get("log_P_9_15_0", "")))
+            self.window.lsm_mu_f1_input.setText(str(mu.get("F1", "")))
+            self.window.lsm_mu_f0_input.setText(str(mu.get("F0", "")))
+            self.window.lsm_sigma_log_p_theta1_input.setText(str(sigma.get("log_P_theta1", "")))
+            self.window.lsm_sigma_log_p_theta0_input.setText(str(sigma.get("log_P_theta0", "")))
+            self.window.lsm_sigma_log_p_9_15_1_input.setText(str(sigma.get("log_P_9_15_1", "")))
+            self.window.lsm_sigma_log_p_9_15_0_input.setText(str(sigma.get("log_P_9_15_0", "")))
+            self.window.lsm_sigma_f1_input.setText(str(sigma.get("F1", "")))
+            self.window.lsm_sigma_f0_input.setText(str(sigma.get("F0", "")))
+            self.window.lsm_transition_00_input.setText(str(transition_matrix[0][0]))
+            self.window.lsm_transition_01_input.setText(str(transition_matrix[0][1]))
+            self.window.lsm_transition_10_input.setText(str(transition_matrix[1][0]))
+            self.window.lsm_transition_11_input.setText(str(transition_matrix[1][1]))
+            if hasattr(self.window, "lsm_model_parameters_group"):
+                self.window.lsm_model_parameters_group.setChecked(True)
+
+        display_name = Path(parameter_file).name if parameter_file else ("Manual parameters" if model_parameters else "")
+        self.window.lsm_parameter_file_display.setText(display_name)
+        self.window.lsm_parameter_file_display.setToolTip(parameter_file)
+        self.window.lsm_probability_display.setText(probability)
+        self.window.lsm_min_duration_display.setText(min_duration)
+        self.window.lsm_separation_display.setText(separation)
+        self.window.lsm_min_prominence_display.setText(min_prominence)
+        narrowband = f"{start_frequency_text} - {stop_frequency_text}" if start_frequency_text or stop_frequency_text else "Broadband"
+        self.window.lsm_narrowband_display.setText(narrowband)
+
+        self.update_detector_tab("LSM")
+        self.window.detector_subtabs.setCurrentIndex(1)
+
     def set_detector_param_display(self):
         if self.backend is None or self.backend.param_detector is None:
             self.refresh_detector_mode_ui()
@@ -6441,6 +6666,8 @@ class MainWindowModel(QObject):
             self.update_hil_params(detector_params.detector_param.to_dict())
         elif detector_type == "yasa":
             self.window.detector_subtabs.setCurrentIndex(0)
+        elif detector_type in ("lsm", "kramer lsm"):
+            self.update_lsm_params(detector_params.detector_param.to_dict())
         elif detector_type == "rms/ll":
             self.update_spike_params(detector_params.detector_param.to_dict())
         self.refresh_detector_mode_ui()

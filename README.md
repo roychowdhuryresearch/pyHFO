@@ -15,7 +15,7 @@ PyHFO is a desktop EEG review workspace for high-frequency oscillation (HFO) ana
 
 - Load EEG recordings from EDF, BrainVision, FIF, and FIF.GZ files.
 - Run HFO detection with STE, MNI, or HIL detectors.
-- Run spindle detection with YASA when the optional dependency is available.
+- Run spindle detection with YASA or the Python Kramer LSM detector with bundled editable presets.
 - Review runs side by side, compare overlap, create consensus runs, and accept a preferred run.
 - Classify events with artifact, spkHFO, and eHFO models.
 - Open a dedicated annotation window for event-by-event review, including unreviewed-event queues.
@@ -80,7 +80,7 @@ Quick Detection currently supports:
 The main workspace supports multiple biomarker modes:
 
 - `HFO`: full detection, classification, review, and export workflow
-- `Spindle`: YASA-based detection plus artifact/spike review workflow
+- `Spindle`: YASA or Kramer LSM detection plus artifact/spike review workflow
 - `Spike`: RMS/LL detection plus accepted/artifact review and export workflow
 
 ### 4. Batch Projects And Protocol Presets
@@ -243,7 +243,7 @@ pip install -r requirements.txt --force-reinstall
 
 ### Missing spindle detection
 
-Spindle detection depends on `yasa`. If it is missing, the UI will still load, but the YASA workflow will remain unavailable until that package is installed.
+YASA spindle detection depends on `yasa`. If it is missing, the UI will still load, but the YASA workflow will remain unavailable until that package is installed. Kramer LSM detection is implemented in Python and does not require `yasa`; it includes authorized JSON presets expanded from the Kramer detector parameter files, and the advanced panel lets users edit the model parameters directly or point to a compatible `.mat`/`.json` parameter file.
 
 ### Hosted classifier download failures
 
@@ -286,6 +286,7 @@ If PyHFO is useful in your research, please cite:
 - [HFODetector](https://github.com/roychowdhuryresearch/HFO_Detector) - Python toolbox for fast HFO detection.
 - [HFO-Classification](https://github.com/roychowdhuryresearch/HFO-Classification) - Deep learning projects for HFO classification.
 - [EEG-Viz](https://github.com/jebbica/EEG-Viz) - EEG visualization toolkit.
+- [Spindle-Detector-Method](https://github.com/Mark-Kramer/Spindle-Detector-Method) - Kramer latent-state-model spindle detector method and parameter files. PyHFO includes authorized expanded JSON presets derived from this method for the `LSM` spindle workflow.
 
 ## License
 

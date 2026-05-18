@@ -17,6 +17,8 @@ class ParamDetector:
             param.detector_param = ParamHIL.from_dict(param_dict['detector_param'])
         elif detector_type.lower() == 'yasa':
             param.detector_param = ParamYASA.from_dict(param_dict['detector_param'])
+        elif detector_type.lower() in ('lsm', 'kramer lsm'):
+            param.detector_param = ParamSpindleLSM.from_dict(param_dict['detector_param'])
         elif detector_type.lower() == 'rms/ll':
             param.detector_param = ParamSpikeRMSLL.from_dict(param_dict['detector_param'])
         return param
@@ -199,6 +201,61 @@ class ParamYASA:
             d["rel_pow"],
             d["rms"],
             d["n_jobs"]
+        )
+
+
+class ParamSpindleLSM:
+    def __init__(
+        self,
+        sample_freq=2000,
+        parameter_file="",
+        model_parameters=None,
+        prob_threshold=0.95,
+        min_spindle_duration=0.5,
+        spindle_separation_threshold=1.0,
+        min_peak_prominence=2e-6,
+        start_frequency=None,
+        stop_frequency=None,
+        n_jobs=8,
+    ):
+        self.sample_freq = sample_freq
+        self.parameter_file = parameter_file
+        self.model_parameters = dict(model_parameters or {})
+        self.prob_threshold = prob_threshold
+        self.min_spindle_duration = min_spindle_duration
+        self.spindle_separation_threshold = spindle_separation_threshold
+        self.min_peak_prominence = min_peak_prominence
+        self.start_frequency = start_frequency
+        self.stop_frequency = stop_frequency
+        self.n_jobs = n_jobs
+
+    def to_dict(self):
+        return {
+            "sample_freq": self.sample_freq,
+            "parameter_file": self.parameter_file,
+            "model_parameters": self.model_parameters,
+            "prob_threshold": self.prob_threshold,
+            "min_spindle_duration": self.min_spindle_duration,
+            "spindle_separation_threshold": self.spindle_separation_threshold,
+            "min_peak_prominence": self.min_peak_prominence,
+            "start_frequency": self.start_frequency,
+            "stop_frequency": self.stop_frequency,
+            "n_jobs": self.n_jobs,
+        }
+
+    @staticmethod
+    def from_dict(d):
+        return ParamSpindleLSM(
+            sample_freq=d.get("sample_freq", 2000),
+            parameter_file=d.get("parameter_file", ""),
+            model_parameters=d.get("model_parameters", {}),
+            prob_threshold=d.get("prob_threshold", 0.95),
+            min_spindle_duration=d.get("min_spindle_duration", 0.5),
+            spindle_separation_threshold=d.get("spindle_separation_threshold", 1.0),
+            min_peak_prominence=d.get("min_peak_prominence", 2e-6),
+            start_frequency=d.get("start_frequency", None),
+            stop_frequency=d.get("stop_frequency", None),
+            n_jobs=d.get("n_jobs", 8),
         )
 
 
