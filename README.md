@@ -286,7 +286,7 @@ If PyHFO is useful in your research, please cite:
 - [HFODetector](https://github.com/roychowdhuryresearch/HFO_Detector) - Python toolbox for fast HFO detection.
 - [HFO-Classification](https://github.com/roychowdhuryresearch/HFO-Classification) - Deep learning projects for HFO classification.
 - [EEG-Viz](https://github.com/jebbica/EEG-Viz) - EEG visualization toolkit.
-- [Spindle-Detector-Method](https://github.com/Mark-Kramer/Spindle-Detector-Method) - Kramer latent-state-model spindle detector method and parameter files. PyHFO includes authorized expanded JSON presets derived from this method for the `LSM` spindle workflow.
+- [Spindle-Detector-Method](https://github.com/Mark-Kramer/Spindle-Detector-Method) - Kramer latent-state-model spindle detector method and parameter files. PyHFO includes expanded JSON presets derived from this method for the `LSM` spindle workflow.
 
 ## License
 
