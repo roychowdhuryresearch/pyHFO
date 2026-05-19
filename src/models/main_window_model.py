@@ -4154,7 +4154,7 @@ class MainWindowModel(QObject):
             QMessageBox.information(self.window, "No EEG File", "Load an EEG file before preparing classifier settings.")
             return False
         combo = getattr(self.window, "classifier_mode_combo", None)
-        mode = combo.currentText() if combo is not None and combo.count() > 0 else "Hugging Face CPU"
+        mode = combo.currentText() if combo is not None and combo.count() > 0 else "HF CPU"
         try:
             if mode == "Custom":
                 self.set_custom_classifier_param()
@@ -4162,7 +4162,7 @@ class MainWindowModel(QObject):
                 self._sync_classifier_execution_inputs()
                 classifier_param = self.backend.get_classifier_param() if hasattr(self.backend, "get_classifier_param") else None
                 if classifier_param is None:
-                    if mode == "Hugging Face GPU":
+                    if mode in {"HF GPU", "Hugging Face GPU"}:
                         self.set_classifier_param_gpu_default()
                     else:
                         self.set_classifier_param_cpu_default()
@@ -4309,10 +4309,10 @@ class MainWindowModel(QObject):
             self._set_classifier_custom_sources_visible(False)
             self.window.detect_all_button.setEnabled(False)
             return
-        if mode == "Hugging Face CPU":
+        if mode in {"HF CPU", "Hugging Face CPU"}:
             self.set_classifier_param_cpu_default()
             self._set_classifier_custom_sources_visible(False)
-        elif mode == "Hugging Face GPU":
+        elif mode in {"HF GPU", "Hugging Face GPU"}:
             self.set_classifier_param_gpu_default()
             self._set_classifier_custom_sources_visible(False)
         else:
@@ -4334,7 +4334,7 @@ class MainWindowModel(QObject):
             return
 
         classifier_param = self.backend.get_classifier_param() if self.backend is not None and hasattr(self.backend, "get_classifier_param") else None
-        target_label = "Hugging Face CPU"
+        target_label = "HF CPU"
         if classifier_param is not None:
             model_type = str(getattr(classifier_param, "model_type", "") or "").lower()
             has_custom_sources = any(
@@ -4344,7 +4344,7 @@ class MainWindowModel(QObject):
             if has_custom_sources and model_type not in {"default_cpu", "default_gpu"}:
                 target_label = "Custom"
             elif model_type == "default_gpu":
-                target_label = "Hugging Face GPU"
+                target_label = "HF GPU"
             elif has_custom_sources and model_type == "":
                 target_label = "Custom"
         blocker = QSignalBlocker(combo)

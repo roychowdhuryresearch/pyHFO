@@ -88,9 +88,14 @@ class MainWindowView(QObject):
             "RMS window": "RMS win.",
             "Min window": "Min win.",
             "Min gap": "Min gap",
+            "Min duration": "Min dur.",
+            "Max duration": "Max dur.",
             "Min oscill.": "Min osc.",
             "Peak thresh.": "Peak thr.",
+            "Peak threshold": "Peak thr.",
             "RMS thresh.": "RMS thr.",
+            "RMS threshold": "RMS thr.",
+            "LL threshold": "LL thr.",
             "Epoch length": "Epoch len.",
             "Epoch time": "Epoch",
             "CHF percent": "CHF %",
@@ -4322,12 +4327,24 @@ class MainWindowView(QObject):
                 self.window.detector_mode_hint.setText(hints.get(biomarker_type, "Choose the detector for the next run."))
 
         if hasattr(self.window, "classifier_mode_combo"):
-            classifier_options = ["Hugging Face CPU", "Hugging Face GPU", "Custom"]
+            classifier_options = ["HF CPU", "HF GPU", "Custom"]
             if biomarker_type == "Spike":
                 classifier_options = ["Review only"]
             blocker = QSignalBlocker(self.window.classifier_mode_combo)
             self.window.classifier_mode_combo.clear()
             self.window.classifier_mode_combo.addItems(classifier_options)
+            for index, label in enumerate(classifier_options):
+                tooltip = {
+                    "HF CPU": "Use Hugging Face classifier presets on CPU.",
+                    "HF GPU": "Use Hugging Face classifier presets on GPU.",
+                    "Custom": "Use custom classifier model sources.",
+                    "Review only": "Spike mode currently supports detection and review only.",
+                }.get(label, label)
+                self.window.classifier_mode_combo.setItemData(index, tooltip, Qt.ToolTipRole)
+            if biomarker_type == "Spike":
+                self.window.classifier_mode_combo.setToolTip("Spike mode currently supports detection and review only.")
+            else:
+                self.window.classifier_mode_combo.setToolTip("HF CPU and HF GPU use Hugging Face classifier presets.")
             self.window.classifier_mode_combo.setEnabled(self.window.classifier_mode_combo.count() > 1)
             del blocker
             if hasattr(self.window, "classifier_mode_hint"):

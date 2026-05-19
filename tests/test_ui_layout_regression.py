@@ -84,6 +84,26 @@ def _assert_buttons_fit_text(buttons):
         )
 
 
+def _combo_items(combo):
+    return [combo.itemText(index) for index in range(combo.count())]
+
+
+def _assert_combo_current_text_fits(combo):
+    if not combo.isVisible():
+        return
+    required_width = combo.fontMetrics().horizontalAdvance(combo.currentText()) + 32
+    assert combo.width() >= required_width, (
+        f"{combo.objectName() or combo.currentText()} current text {combo.currentText()!r} "
+        f"width {combo.width()} < {required_width}"
+    )
+
+
+def _assert_quick_detector_panel_current(dialog, panel):
+    current_page = dialog.stackedWidget.currentWidget()
+    assert current_page is panel or current_page.isAncestorOf(panel)
+    assert panel.isVisibleTo(dialog)
+
+
 def _assert_widgets_fit_height_hint(widgets):
     for widget in widgets:
         assert widget.height() >= widget.sizeHint().height(), (
@@ -319,14 +339,21 @@ def test_main_window_layout_regression_covers_dynamic_sections(monkeypatch, qapp
             _assert_container_layout(window, container)
 
         workflow_matrix = (
-            (window.new_hfo_run_action, ["STE", "MNI", "HIL", "RMS", "LineLength"], ["Hugging Face CPU", "Hugging Face GPU", "Custom"]),
-            (window.new_spindle_run_action, ["YASA", "LSM", "A7", "MOLLE"], ["Hugging Face CPU", "Hugging Face GPU", "Custom"]),
-            (window.new_spike_run_action, ["RMS/LL"], ["Review only"]),
+            (window.new_hfo_run_action, ["STE", "MNI", "HIL", "RMS", "LineLength"], ["HF CPU", "HF GPU", "Custom"], True),
+            (window.new_spindle_run_action, ["YASA", "LSM", "A7", "MOLLE"], ["HF CPU", "HF GPU", "Custom"], True),
+            (window.new_spike_run_action, ["RMS/LL"], ["Review only"], False),
         )
 
-        for action, detector_modes, classifier_modes in workflow_matrix:
+        for action, detector_modes, classifier_modes, classifier_enabled in workflow_matrix:
             action.trigger()
             _process_events(qapp, cycles=30)
+
+            assert _combo_items(window.detector_mode_combo) == detector_modes
+            assert _combo_items(window.classifier_mode_combo) == classifier_modes
+            assert window.classifier_mode_combo.isVisibleTo(window)
+            assert window.classifier_mode_combo.isEnabled() is classifier_enabled
+            _assert_combo_current_text_fits(window.detector_mode_combo)
+            _assert_combo_current_text_fits(window.classifier_mode_combo)
 
             if window.use_spike_checkbox.isVisibleTo(window) and window.use_ehfo_checkbox.isVisibleTo(window):
                 _assert_horizontal_gap(window, window.use_spike_checkbox, window.use_ehfo_checkbox, 14)
@@ -335,12 +362,18 @@ def test_main_window_layout_regression_covers_dynamic_sections(monkeypatch, qapp
                 if window.detector_mode_combo.findText(detector_mode) >= 0:
                     window.detector_mode_combo.setCurrentText(detector_mode)
                     _process_events(qapp, cycles=8)
+                assert window.detector_subtabs.tabText(window.detector_subtabs.currentIndex()) == detector_mode
+                assert window.detector_run_button.text() == f"Run {detector_mode}"
+                _assert_combo_current_text_fits(window.detector_mode_combo)
                 _assert_container_layout(window, window.detector_tab)
 
             for classifier_mode in classifier_modes:
                 if window.classifier_mode_combo.findText(classifier_mode) >= 0:
                     window.classifier_mode_combo.setCurrentText(classifier_mode)
                     _process_events(qapp, cycles=8)
+                assert window.classifier_mode_combo.isVisibleTo(window)
+                assert window.classifier_mode_combo.isEnabled() is classifier_enabled
+                _assert_combo_current_text_fits(window.classifier_mode_combo)
                 _assert_container_layout(window, window.classifier_tab)
 
             _assert_container_layout(window, window.run_actions_card)
@@ -446,20 +479,32 @@ def test_quick_detection_layout_regression_covers_detector_and_classifier_panels
             ("RMS", dialog.quick_detector_pages["RMS"]),
             ("LineLength", dialog.quick_detector_pages["LineLength"]),
         )
+        assert _combo_items(dialog.detectionTypeComboBox) == ["MNI", "STE", "HIL", "RMS", "LineLength"]
+        assert dialog.classifier_groupbox_4.isVisibleTo(dialog)
+        assert dialog.classifier_groupbox_4.isEnabled()
+        _assert_combo_current_text_fits(dialog.detectionTypeComboBox)
         for detector_name, panel in detector_panels:
             dialog.detectionTypeComboBox.setCurrentText(detector_name)
             _process_events(qapp, cycles=8)
+            _assert_quick_detector_panel_current(dialog, panel)
+            _assert_combo_current_text_fits(dialog.detectionTypeComboBox)
             _assert_container_layout(dialog, panel)
 
-        for biomarker, detectors in (
-            ("Spindle", ("A7", "MOLLE")),
-            ("Spike", ("RMS/LL",)),
+        for biomarker, detectors, classifier_visible in (
+            ("Spindle", ("A7", "MOLLE"), False),
+            ("Spike", ("RMS/LL",), False),
         ):
             dialog.set_quick_biomarker_type(biomarker)
             _process_events(qapp, cycles=8)
+            assert _combo_items(dialog.detectionTypeComboBox) == list(detectors)
+            assert dialog.classifier_groupbox_4.isVisibleTo(dialog) is classifier_visible
+            assert dialog.classifier_groupbox_4.isEnabled() is classifier_visible
+            _assert_combo_current_text_fits(dialog.detectionTypeComboBox)
             for detector_name in detectors:
                 dialog.detectionTypeComboBox.setCurrentText(detector_name)
                 _process_events(qapp, cycles=8)
+                _assert_quick_detector_panel_current(dialog, dialog.quick_detector_pages[detector_name])
+                _assert_combo_current_text_fits(dialog.detectionTypeComboBox)
                 _assert_container_layout(dialog, dialog.quick_detector_pages[detector_name])
     finally:
         dialog.close()
