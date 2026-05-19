@@ -11,8 +11,10 @@ from src.param.param_detector import (
     ParamHFOLineLength,
     ParamHFORMS,
     ParamSpindleA7,
+    ParamSpindleLSM,
     ParamSpindleRMS,
     ParamSpikeRMSLL,
+    ParamYASA,
 )
 from src.param.param_filter import ParamFilterSpindle
 from src.ui.annotation import Annotation
@@ -274,6 +276,8 @@ def test_quick_detection_collects_hfo_spindle_and_spike_detector_params(qapp, tm
         _process_events(qapp)
         assert dialog.biomarker_type == "Spindle"
         assert [dialog.detectionTypeComboBox.itemText(i) for i in range(dialog.detectionTypeComboBox.count())] == [
+            "YASA",
+            "LSM",
             "A7",
             "MOLLE",
         ]
@@ -282,9 +286,22 @@ def test_quick_detection_collects_hfo_spindle_and_spike_detector_params(qapp, tm
         assert dialog.classifier_groupbox_4.isVisibleTo(dialog) is False
         spindle_config = dialog.collect_run_configuration()
         assert isinstance(spindle_config["filter_param"], ParamFilterSpindle)
-        assert spindle_config["detector_param"].detector_type == "A7"
-        assert isinstance(spindle_config["detector_param"].detector_param, ParamSpindleA7)
+        assert spindle_config["detector_param"].detector_type == "YASA"
+        assert isinstance(spindle_config["detector_param"].detector_param, ParamYASA)
         assert spindle_config["classifier"] is None
+
+        dialog.detectionTypeComboBox.setCurrentText("LSM")
+        _process_events(qapp)
+        lsm_config = dialog.collect_run_configuration()
+        assert lsm_config["detector_param"].detector_type == "LSM"
+        assert isinstance(lsm_config["detector_param"].detector_param, ParamSpindleLSM)
+        assert lsm_config["detector_param"].detector_param.parameter_file.endswith("all_ages_kwon_2023.json")
+
+        dialog.detectionTypeComboBox.setCurrentText("A7")
+        _process_events(qapp)
+        a7_config = dialog.collect_run_configuration()
+        assert a7_config["detector_param"].detector_type == "A7"
+        assert isinstance(a7_config["detector_param"].detector_param, ParamSpindleA7)
 
         dialog.detectionTypeComboBox.setCurrentText("MOLLE")
         _process_events(qapp)

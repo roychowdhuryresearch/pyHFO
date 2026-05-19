@@ -13,10 +13,12 @@ from src.param.param_detector import (
     ParamHFORMS,
     ParamHIL,
     ParamMNI,
+    ParamSpindleLSM,
     ParamSpindleA7,
     ParamSpindleRMS,
     ParamSpikeRMSLL,
     ParamSTE,
+    ParamYASA,
 )
 from src.param.param_filter import ParamFilter, ParamFilterSpindle
 from src.spike_app import SpikeApp
@@ -228,6 +230,16 @@ class HFOQuickDetector(QtWidgets.QDialog):
         safe_key = str(key).lower().replace("/", "_").replace(" ", "_")
         return f"qd_{safe_detector}_{safe_key}_input"
 
+    def _choose_quick_detector_file(self, detector_name, key):
+        widget = self._quick_detector_field(detector_name, key)
+        dialog = self._create_file_dialog("Open parameter file", "Kramer LSM parameters (*.mat *.json);;All files (*)")
+        if not dialog.exec_():
+            return
+        selected_files = dialog.selectedFiles()
+        if selected_files:
+            widget.setText(selected_files[0])
+            widget.setCursorPosition(0)
+
     def _add_quick_detector_page(self, detector_name, title, field_specs):
         groupbox = QtWidgets.QGroupBox(title, self.stackedWidget)
         groupbox.setObjectName(f"qd_{str(detector_name).replace('/', '_')}_detector")
@@ -240,45 +252,79 @@ class HFOQuickDetector(QtWidgets.QDialog):
 
         self.quick_detector_inputs[detector_name] = {}
         self.quick_detector_specs[detector_name] = {}
-        for index, spec in enumerate(field_specs):
-            row = index // 2
-            column = (index % 2) * 3
+        row = 0
+        column_slot = 0
+        for spec in field_specs:
+            full_row = spec.get("type") == "path"
+            if full_row and column_slot:
+                row += 1
+                column_slot = 0
+            column = column_slot * 3
             label = QtWidgets.QLabel(spec["label"], groupbox)
             label.setProperty("fieldLabel", True)
             label.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
             line_edit = QtWidgets.QLineEdit(groupbox)
             line_edit.setObjectName(self._dynamic_input_object_name(detector_name, spec["key"]))
-            line_edit.setText(self._format_numeric_text(spec["default"]))
-            line_edit.setAlignment(QtCore.Qt.AlignCenter)
-            line_edit.setMaximumWidth(118)
+            line_edit.setText(str(spec.get("display", self._format_numeric_text(spec["default"]))))
+            line_edit.setAlignment(QtCore.Qt.AlignLeft if spec.get("type") == "path" else QtCore.Qt.AlignCenter)
+            if spec.get("type") != "path":
+                line_edit.setMaximumWidth(118)
             line_edit.setMinimumHeight(self.ui_density.compact_input_height)
             line_edit.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
-            self._configure_numeric_line_edit(
-                line_edit,
-                integer=spec.get("integer", False),
-                minimum=spec.get("minimum", 0.0),
-                maximum=spec.get("maximum"),
-            )
+            if spec.get("type") == "path":
+                line_edit.setPlaceholderText(spec.get("placeholder", "Choose a .mat or .json file"))
+                line_edit.setToolTip(spec.get("tooltip", "Path to a compatible Kramer LSM .mat or .json parameter file."))
+            else:
+                self._configure_numeric_line_edit(
+                    line_edit,
+                    integer=spec.get("integer", False),
+                    minimum=spec.get("minimum", 0.0),
+                    maximum=spec.get("maximum"),
+                    decimals=spec.get("decimals", 6),
+                    placeholder=spec.get("placeholder"),
+                    tooltip=spec.get("tooltip"),
+                )
             safe_connect_signal_slot(line_edit.returnPressed, self._submit_run_from_fields)
 
             grid.addWidget(label, row, column)
-            grid.addWidget(line_edit, row, column + 1)
+            if full_row:
+                grid.addWidget(line_edit, row, 1, 1, 4)
+                browse_button = QtWidgets.QPushButton("Browse", groupbox)
+                browse_button.setMinimumHeight(self.ui_density.compact_button_height)
+                safe_connect_signal_slot(
+                    browse_button.clicked,
+                    lambda _checked=False, detector=detector_name, field_key=spec["key"]: self._choose_quick_detector_file(detector, field_key),
+                )
+                grid.addWidget(browse_button, row, 5)
+            else:
+                grid.addWidget(line_edit, row, column + 1)
             unit_text = spec.get("unit", "")
-            if unit_text:
+            if unit_text and not full_row:
                 unit_label = QtWidgets.QLabel(unit_text, groupbox)
                 unit_label.setProperty("fieldUnit", True)
                 unit_label.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
                 grid.addWidget(unit_label, row, column + 2)
             self.quick_detector_inputs[detector_name][spec["key"]] = line_edit
             self.quick_detector_specs[detector_name][spec["key"]] = spec
+            if full_row or column_slot == 1:
+                row += 1
+                column_slot = 0
+            else:
+                column_slot = 1
 
         page_index = self.stackedWidget.addWidget(groupbox)
         self.quick_detector_pages[detector_name] = groupbox
         self.quick_detector_page_indices[detector_name] = page_index
 
+    def _spindle_lsm_preset_path(self):
+        preset_path = ROOT_DIR.parent / "resources" / "spindle_lsm" / "all_ages_kwon_2023.json"
+        return str(preset_path) if preset_path.exists() else ""
+
     def _build_programmatic_detector_pages(self):
         hfo_rms = ParamHFORMS()
         hfo_ll = ParamHFOLineLength()
+        spindle_yasa = ParamYASA()
+        spindle_lsm = ParamSpindleLSM(parameter_file=self._spindle_lsm_preset_path())
         spindle_a7 = ParamSpindleA7()
         spindle_molle = ParamSpindleRMS()
         spike = ParamSpikeRMSLL()
@@ -304,6 +350,49 @@ class HFOQuickDetector(QtWidgets.QDialog):
                 {"key": "min_gap", "label": "Merge gap", "unit": "s", "default": hfo_ll.min_gap},
                 {"key": "threshold", "label": "LL threshold", "default": hfo_ll.threshold},
                 {"key": "peak_threshold", "label": "Peak threshold", "default": hfo_ll.peak_threshold},
+            ],
+        )
+        self._add_quick_detector_page(
+            "YASA",
+            "Spindle YASA",
+            [
+                {"key": "freq_sp_low", "label": "Spindle low", "unit": "Hz", "default": spindle_yasa.freq_sp[0]},
+                {"key": "freq_sp_high", "label": "Spindle high", "unit": "Hz", "default": spindle_yasa.freq_sp[1]},
+                {"key": "freq_broad_low", "label": "Broad low", "unit": "Hz", "default": spindle_yasa.freq_broad[0]},
+                {"key": "freq_broad_high", "label": "Broad high", "unit": "Hz", "default": spindle_yasa.freq_broad[1]},
+                {"key": "duration_low", "label": "Duration min", "unit": "s", "default": spindle_yasa.duration[0]},
+                {"key": "duration_high", "label": "Duration max", "unit": "s", "default": spindle_yasa.duration[1]},
+                {"key": "min_distance", "label": "Min distance", "unit": "ms", "default": spindle_yasa.min_distance},
+                {"key": "rel_pow", "label": "Rel power", "default": spindle_yasa.rel_pow},
+                {"key": "corr", "label": "Correlation", "default": spindle_yasa.corr},
+                {"key": "rms", "label": "RMS threshold", "default": spindle_yasa.rms},
+            ],
+        )
+        self._add_quick_detector_page(
+            "LSM",
+            "Spindle LSM",
+            [
+                {
+                    "key": "parameter_file",
+                    "label": "Parameter file",
+                    "type": "path",
+                    "default": spindle_lsm.parameter_file,
+                    "placeholder": "Choose a Kramer .mat/.json parameter file",
+                    "tooltip": "Compatible Kramer LSM .mat/.json parameter file. The bundled AllAges JSON preset is selected by default.",
+                },
+                {"key": "prob_threshold", "label": "Probability", "default": spindle_lsm.prob_threshold, "maximum": 1.0},
+                {"key": "min_spindle_duration", "label": "Min duration", "unit": "s", "default": spindle_lsm.min_spindle_duration},
+                {"key": "spindle_separation_threshold", "label": "Separation", "unit": "s", "default": spindle_lsm.spindle_separation_threshold, "minimum": 0.0},
+                {
+                    "key": "min_peak_prominence",
+                    "label": "Min prominence",
+                    "unit": "V",
+                    "default": spindle_lsm.min_peak_prominence,
+                    "display": "0.000002",
+                    "decimals": 12,
+                },
+                {"key": "start_frequency", "label": "Start freq.", "unit": "Hz", "default": spindle_lsm.start_frequency, "placeholder": "Optional"},
+                {"key": "stop_frequency", "label": "Stop freq.", "unit": "Hz", "default": spindle_lsm.stop_frequency, "placeholder": "Optional"},
             ],
         )
         self._add_quick_detector_page(
@@ -354,7 +443,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
     def _detector_options_for_biomarker(self, biomarker_type):
         normalized = self._normalize_biomarker_type(biomarker_type)
         if normalized == "Spindle":
-            return ["A7", "MOLLE"]
+            return ["YASA", "LSM", "A7", "MOLLE"]
         if normalized == "Spike":
             return ["RMS/LL"]
         return ["MNI", "STE", "HIL", "RMS", "LineLength"]
@@ -362,7 +451,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
     def _default_detector_for_biomarker(self, biomarker_type):
         normalized = self._normalize_biomarker_type(biomarker_type)
         if normalized == "Spindle":
-            return "A7"
+            return "YASA"
         if normalized == "Spike":
             return "RMS/LL"
         return "HIL"
@@ -379,6 +468,9 @@ class HFOQuickDetector(QtWidgets.QDialog):
             "linelength": "LineLength",
             "ll": "LineLength",
             "hfoll": "LineLength",
+            "yasa": "YASA",
+            "lsm": "LSM",
+            "kramerlsm": "LSM",
             "a7": "A7",
             "molle": "MOLLE",
             "fasst": "MOLLE",
@@ -1446,6 +1538,20 @@ class HFOQuickDetector(QtWidgets.QDialog):
             non_negative=non_negative,
         )
 
+    def _quick_optional_field_float(self, detector_name, key, *, positive=True, non_negative=False):
+        widget = self._quick_detector_field(detector_name, key)
+        if not widget.text().strip():
+            return None
+        return self._parse_float_input(
+            widget.text(),
+            self._quick_field_label(detector_name, key),
+            positive=positive,
+            non_negative=non_negative,
+        )
+
+    def _quick_field_text(self, detector_name, key):
+        return self._quick_detector_field(detector_name, key).text().strip()
+
     def _quick_range(self, detector_name, low_key, high_key, label):
         low_value = self._quick_field_float(detector_name, low_key, positive=True)
         high_value = self._quick_field_float(detector_name, high_key, positive=True)
@@ -1486,6 +1592,50 @@ class HFOQuickDetector(QtWidgets.QDialog):
         if param_dict["min_window"] > param_dict["max_window"]:
             raise ValueError("Min duration must be lower than max duration.")
         return ParamDetector.from_dict({"detector_type": "LineLength", "detector_param": param_dict})
+
+    def get_spindle_yasa_params(self):
+        param_dict = {
+            "sample_freq": self._detector_sample_frequency(),
+            "freq_sp": self._quick_range("YASA", "freq_sp_low", "freq_sp_high", "Spindle band"),
+            "freq_broad": self._quick_range("YASA", "freq_broad_low", "freq_broad_high", "Broad band"),
+            "duration": self._quick_range("YASA", "duration_low", "duration_high", "Duration"),
+            "min_distance": self._quick_field_float("YASA", "min_distance", positive=False, non_negative=True),
+            "corr": self._quick_field_float("YASA", "corr", positive=False, non_negative=True),
+            "rel_pow": self._quick_field_float("YASA", "rel_pow", positive=False, non_negative=True),
+            "rms": self._quick_field_float("YASA", "rms"),
+            "n_jobs": self.backend.n_jobs,
+        }
+        return ParamDetector.from_dict({"detector_type": "YASA", "detector_param": param_dict})
+
+    def get_spindle_lsm_params(self):
+        parameter_file = self._quick_field_text("LSM", "parameter_file")
+        if not parameter_file:
+            raise ValueError("LSM parameter file is required.")
+        if not Path(parameter_file).expanduser().exists():
+            raise ValueError("LSM parameter file does not exist.")
+        probability = self._quick_field_float("LSM", "prob_threshold")
+        if probability > 1:
+            raise ValueError("LSM probability threshold must be less than or equal to 1.")
+        start_frequency = self._quick_optional_field_float("LSM", "start_frequency")
+        stop_frequency = self._quick_optional_field_float("LSM", "stop_frequency")
+        if (start_frequency is None) != (stop_frequency is None):
+            raise ValueError("LSM start and stop frequencies must be set together.")
+        if start_frequency is not None and start_frequency >= stop_frequency:
+            raise ValueError("LSM stop frequency must be greater than the start frequency.")
+
+        param_dict = {
+            "sample_freq": self._detector_sample_frequency(),
+            "parameter_file": parameter_file,
+            "model_parameters": {},
+            "prob_threshold": probability,
+            "min_spindle_duration": self._quick_field_float("LSM", "min_spindle_duration"),
+            "spindle_separation_threshold": self._quick_field_float("LSM", "spindle_separation_threshold", positive=False, non_negative=True),
+            "min_peak_prominence": self._quick_field_float("LSM", "min_peak_prominence"),
+            "start_frequency": start_frequency,
+            "stop_frequency": stop_frequency,
+            "n_jobs": self.backend.n_jobs,
+        }
+        return ParamDetector.from_dict({"detector_type": "LSM", "detector_param": param_dict})
 
     def get_spindle_a7_params(self):
         param_dict = {
@@ -1546,6 +1696,10 @@ class HFOQuickDetector(QtWidgets.QDialog):
             return self.get_hfo_rms_params()
         if detector_name == "LineLength":
             return self.get_hfo_line_length_params()
+        if detector_name == "YASA":
+            return self.get_spindle_yasa_params()
+        if detector_name == "LSM":
+            return self.get_spindle_lsm_params()
         if detector_name == "A7":
             return self.get_spindle_a7_params()
         if detector_name == "MOLLE":

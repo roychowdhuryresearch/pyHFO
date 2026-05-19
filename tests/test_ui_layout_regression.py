@@ -491,7 +491,7 @@ def test_quick_detection_layout_regression_covers_detector_and_classifier_panels
             _assert_container_layout(dialog, panel)
 
         for biomarker, detectors, classifier_visible in (
-            ("Spindle", ("A7", "MOLLE"), False),
+            ("Spindle", ("YASA", "LSM", "A7", "MOLLE"), False),
             ("Spike", ("RMS/LL",), False),
         ):
             dialog.set_quick_biomarker_type(biomarker)
