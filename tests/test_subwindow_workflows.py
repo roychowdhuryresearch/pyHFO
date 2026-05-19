@@ -279,6 +279,7 @@ def test_quick_detection_collects_hfo_spindle_and_spike_detector_params(qapp, tm
         ]
         assert dialog.qd_use_classifier_checkbox.isChecked() is False
         assert dialog.qd_use_classifier_checkbox.isEnabled() is False
+        assert dialog.classifier_groupbox_4.isVisibleTo(dialog) is False
         spindle_config = dialog.collect_run_configuration()
         assert isinstance(spindle_config["filter_param"], ParamFilterSpindle)
         assert spindle_config["detector_param"].detector_type == "A7"
@@ -293,6 +294,7 @@ def test_quick_detection_collects_hfo_spindle_and_spike_detector_params(qapp, tm
 
         dialog.set_quick_biomarker_type("Spike")
         _process_events(qapp)
+        assert dialog.classifier_groupbox_4.isVisibleTo(dialog) is False
         assert [dialog.detectionTypeComboBox.itemText(i) for i in range(dialog.detectionTypeComboBox.count())] == [
             "RMS/LL",
         ]
@@ -301,6 +303,10 @@ def test_quick_detection_collects_hfo_spindle_and_spike_detector_params(qapp, tm
         assert spike_config["detector_param"].detector_type == "RMS/LL"
         assert isinstance(spike_config["detector_param"].detector_param, ParamSpikeRMSLL)
         assert Path(spike_config["npz_output"]).name == "sample_raw_rms_ll.npz"
+
+        dialog.set_quick_biomarker_type("HFO")
+        _process_events(qapp)
+        assert dialog.classifier_groupbox_4.isVisibleTo(dialog) is True
     finally:
         dialog.close()
         _process_events(qapp)

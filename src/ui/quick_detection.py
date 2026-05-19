@@ -203,6 +203,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
             self.qd_use_classifier_checkbox.blockSignals(True)
             self.qd_use_classifier_checkbox.setChecked(False)
             self.qd_use_classifier_checkbox.blockSignals(False)
+        self.classifier_groupbox_4.setVisible(supports_classifier)
         self.qd_use_classifier_checkbox.setEnabled(supports_classifier)
         self.classifier_groupbox_4.setEnabled(supports_classifier)
         self.classifier_groupbox_4.setToolTip(
@@ -556,7 +557,7 @@ class HFOQuickDetector(QtWidgets.QDialog):
 
         title = QtWidgets.QLabel("Run Setup", setup_card)
         title.setProperty("sectionTitle", True)
-        subtitle = QtWidgets.QLabel("Load an EEG file, choose the detector, then launch a compact run from here.", setup_card)
+        subtitle = QtWidgets.QLabel("Load an EEG file, choose the biomarker and detector, then launch a compact run from here.", setup_card)
         subtitle.setProperty("helperText", True)
         subtitle.setWordWrap(True)
         setup_card_layout.addWidget(title)
