@@ -2846,6 +2846,8 @@ class MainWindowModel(QObject):
             break_suffix = f". Broken chains: {break_names}"
         self.message_handler(f"{montage_label.title()} view ready ({len(derived_channels)} derived channels){break_suffix}")
         self._set_workflow_message(f"Reviewing {montage_label} channels")
+        # Restart 60Hz background computation so it uses the new (post-bipolar) channel count
+        self._start_60hz_background()
 
     def _toggle_waveform_cursor_shortcut(self):
         if self.backend is None or not hasattr(self.window, "waveform_plot"):
@@ -6170,6 +6172,10 @@ class MainWindowModel(QObject):
         self.window.overview_filter_button.setEnabled(True)
         # enable the plot out the 60Hz bandstopped signal
         self.window.Filter60Button.setEnabled(True)
+        # Default the 60Hz filter to ON so the waveform is clean on first display
+        if not self.window.Filter60Button.isChecked():
+            self.window.Filter60Button.setChecked(True)
+            # toggled signal → switch_60() → set_filter_60() flag + _start_60hz_background()
         self.window.bipolar_button.setEnabled(True)
         self._set_workflow_message("EEG file loaded")
         self._sync_workspace_state()

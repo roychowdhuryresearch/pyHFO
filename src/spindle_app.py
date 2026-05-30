@@ -317,14 +317,48 @@ class SpindleApp(object):
         return [(channel_1, channel_2) for _derived_name, channel_1, channel_2 in self.get_auto_bipolar_definitions()]
 
     def ensure_auto_bipolar_channels(self):
-        derived_channel_names = []
-        existing = {str(channel) for channel in np.array(self.channel_names if self.channel_names is not None else []).tolist()}
-        for derived_name, channel_1, channel_2 in self.get_auto_bipolar_definitions():
-            derived_channel_names.append(derived_name)
-            if derived_name not in existing:
-                self.add_bipolar_channel(channel_1, channel_2, derived_name=derived_name)
-                existing.add(derived_name)
-        return np.array(derived_channel_names)
+        all_definitions = self.get_auto_bipolar_definitions()
+        existing = {str(ch) for ch in (self.channel_names if self.channel_names is not None else [])}
+        pending = [(name, ch1, ch2) for name, ch1, ch2 in all_definitions if str(name) not in existing]
+
+        if pending:
+            self._add_bipolar_channels_batch(pending)
+
+        return np.array([str(d[0]) for d in all_definitions])
+
+    def _add_bipolar_channels_batch(self, pending):
+        """Add multiple bipolar channels in a single concatenation pass.
+
+        Avoids the O(N * n_channels^2) memory cost of calling add_bipolar_channel
+        N times on a long recording — each individual call copies the entire array.
+        """
+        def _bipolar(data, channels, ch1, ch2):
+            return data[channels == ch1] - data[channels == ch2]
+
+        src_data     = self.eeg_data
+        src_un60     = self.eeg_data_un60
+        src_channels = self.channel_names
+
+        new_data  = np.concatenate([_bipolar(src_data,  src_channels, ch1, ch2) for _, ch1, ch2 in pending], axis=0)
+        new_un60  = np.concatenate([_bipolar(src_un60,  src_channels, ch1, ch2) for _, ch1, ch2 in pending], axis=0)
+        new_names = np.array([str(name) for name, _, _ in pending])
+
+        self.channel_names = np.concatenate([new_names, self.channel_names])
+        self.eeg_data      = np.concatenate([new_data,  self.eeg_data],  axis=0)
+        self.eeg_data_un60 = np.concatenate([new_un60,  self.eeg_data_un60], axis=0)
+
+        if self.eeg_data_60 is not None:
+            new_60 = np.concatenate([_bipolar(self.eeg_data_60, src_channels, ch1, ch2)
+                                     for _, ch1, ch2 in pending], axis=0)
+            self.eeg_data_60 = np.concatenate([new_60, self.eeg_data_60], axis=0)
+
+        if self.filtered and self.filter_data_un60 is not None:
+            new_filt = np.concatenate([_bipolar(self.filter_data_un60, src_channels, ch1, ch2)
+                                       for _, ch1, ch2 in pending], axis=0)
+            self.filter_data_un60 = np.concatenate([new_filt, self.filter_data_un60], axis=0)
+            self.filter_data = self.filter_data_un60.copy()
+
+        self._60hz_window_cache = None  # Invalidate window cache
 
     def ensure_average_reference_channels(self):
         definitions = self.get_average_reference_definitions()
