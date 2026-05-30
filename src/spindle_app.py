@@ -104,8 +104,7 @@ class SpindleApp(object):
                 param = self.param_classifier
             if param is None:
                 raise ValueError("Classifier parameters are not set.")
-            from src.classifer import Classifier
-            self.classifier = Classifier(param)
+            self.set_classifier(param)  # lazy: loads all model weights on first use
         return self.classifier
 
     def load_edf(self, file_path):
@@ -591,15 +590,16 @@ class SpindleApp(object):
         This is the function should be linked to the confirm button in the set artifact window
 
         '''
-
         self.param_classifier = param
-        classifier = self._ensure_classifier(param)
+        if self.classifier is None:
+            from src.classifer import Classifier
+            self.classifier = Classifier(param)
         self._load_classifier_source(
             param,
             param.artifact_path,
             param.artifact_card,
-            classifier.update_model_a,
-            classifier.update_model_artifact,
+            self.classifier.update_model_a,
+            self.classifier.update_model_artifact,
         )
 
     def set_spike_classifier(self, param: ParamClassifier):
@@ -608,13 +608,15 @@ class SpindleApp(object):
 
         '''
         self.param_classifier = param
-        classifier = self._ensure_classifier(param)
+        if self.classifier is None:
+            from src.classifer import Classifier
+            self.classifier = Classifier(param)
         self._load_classifier_source(
             param,
             param.spike_path,
             param.spike_card,
-            classifier.update_model_s,
-            classifier.update_model_spkhfo,
+            self.classifier.update_model_s,
+            self.classifier.update_model_spkhfo,
         )
 
     def set_default_cpu_classifier(self):

@@ -6147,6 +6147,7 @@ class MainWindowModel(QObject):
             needs_switch = eeg_type == "scalp" and self.biomarker_type in ("HFO", "Spike")
             self.window.view.apply_eeg_type_ui_state(eeg_type, self.biomarker_type)
             if needs_switch:
+                self._pre_populate_switch_backend('Spindle')
                 combo = getattr(self.window, "combo_box_biomarker", None)
                 if combo is not None:
                     QTimer.singleShot(0, lambda: combo.currentIndexChanged.emit(combo.currentIndex()))
@@ -7263,6 +7264,23 @@ class MainWindowModel(QObject):
                 combo.setCurrentIndex(index)
         QTimer.singleShot(0, self._ensure_current_backend_loaded)
         self.message_handler(f"Prepared {biomarker_type} run workspace.")
+
+    def _transfer_recording_state(self, source, target):
+        """Copy raw EEG recording data from source backend to target without re-reading disk."""
+        for attr in ('raw', 'edf_param', 'eeg_data', 'channel_names', 'sample_freq',
+                     'eeg_data_un60', 'eeg_data_60', 'recording_channel_names', 'eeg_type'):
+            val = getattr(source, attr, None)
+            if val is not None:
+                setattr(target, attr, val)
+
+    def _pre_populate_switch_backend(self, target_bio_type):
+        """Create a backend for target_bio_type pre-loaded with the current recording so
+        _ensure_current_backend_loaded skips the second disk read."""
+        if target_bio_type in self.case_backends:
+            return
+        target = self._instantiate_backend_for_biomarker(target_bio_type)
+        self._transfer_recording_state(self.backend, target)
+        self.case_backends[target_bio_type] = target
 
     def _ensure_current_backend_loaded(self):
         if self.backend is None:
