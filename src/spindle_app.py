@@ -72,6 +72,8 @@ class SpindleApp(object):
         self.filter_data_un60 = None
         self.eeg_data_60 = None
         self.filter_data_60 = None
+        self._filter_60_active = False
+        self._60hz_window_cache = None  # (s, e, filtered_array) for on-demand display
 
         ## detector related
         self.param_detector = None
@@ -117,6 +119,8 @@ class SpindleApp(object):
         self.recording_channel_names = np.array(self.channel_names).copy()
         self.eeg_data_un60 = self.eeg_data
         self.eeg_data_60 = None
+        self._filter_60_active = False
+        self._60hz_window_cache = None
         self.eeg_type = infer_eeg_type(self.channel_names)
         self.analysis_session = AnalysisSession(self.biomarker_type)
         # print("channel names: ", self.channel_names)
@@ -166,6 +170,15 @@ class SpindleApp(object):
         return self.edf_param
 
     def get_eeg_data(self, start: int = None, end: int = None, filtered: bool = False):
+        # On-demand 60Hz filter for the displayed window while background is computing
+        if (self._filter_60_active and self.eeg_data_60 is None
+                and start is not None and end is not None
+                and self.eeg_data_un60 is not None):
+            src = (self.filter_data_un60
+                   if (filtered and self.filter_data_un60 is not None)
+                   else self.eeg_data_un60)
+            return self._get_60hz_range_cached(src, start, end), self.channel_names
+
         data = self.eeg_data if not filtered else self.filter_data
         if start is None and end is None:
             return data, self.channel_names
@@ -175,6 +188,36 @@ class SpindleApp(object):
             return data[:, start:], self.channel_names
         else:
             return data[:, start:end], self.channel_names
+
+    def _get_60hz_range_cached(self, source_un60, start, end):
+        """Zero-phase 60Hz notch for [start:end] with a rolling 1-min+margin cache."""
+        from scipy.signal import sosfiltfilt, butter
+        n = source_un60.shape[1]
+        margin = min(30 * self.sample_freq, n // 4)
+        s = max(0, start - margin)
+        e = min(n, end + margin)
+
+        if self._60hz_window_cache is not None:
+            c_s, c_e, c_data = self._60hz_window_cache
+            if c_s <= start and end <= c_e:
+                return c_data[:, start - c_s:end - c_s]
+
+        chunk = source_un60[:, s:e]
+        sos = butter(5, [58, 62], 'bandstop', fs=self.sample_freq, output='sos')
+        filtered = sosfiltfilt(sos, chunk, axis=1)
+        self._60hz_window_cache = (s, e, filtered)
+        return filtered[:, start - s:end - s]
+
+    def apply_60hz_filter_result(self, eeg_60):
+        """Called by the model when background 60Hz computation finishes."""
+        if eeg_60 is None:
+            return
+        if self.eeg_data_un60 is not None and eeg_60.shape[0] != self.eeg_data_un60.shape[0]:
+            return  # Shape mismatch — bipolar was added after job started; discard
+        self.eeg_data_60 = eeg_60
+        if self._filter_60_active:
+            self.eeg_data = eeg_60.copy()
+            self._60hz_window_cache = None
 
     def get_eeg_data_shape(self):
         return self.eeg_data.shape
@@ -412,13 +455,19 @@ class SpindleApp(object):
         return self.filter_data_60
 
     def set_filter_60(self):
-        # self.eeg_data_un60 = self.eeg_data.copy()
-        self.eeg_data = self.ensure_eeg_data_60().copy()
-        if self.filtered:
-            # self.filter_data_un60 = self.filter_data.copy()
-            self.filter_data = self.ensure_filter_data_60().copy()
+        self._filter_60_active = True
+        self._60hz_window_cache = None
+        if self.eeg_data_60 is not None:
+            # Already computed — apply immediately without blocking
+            self.eeg_data = self.eeg_data_60.copy()
+            if self.filtered and self.filter_data_60 is not None:
+                self.filter_data = self.filter_data_60.copy()
+        # else: get_eeg_data will compute on-demand per window;
+        #       background computation started by the model
 
     def set_unfiltered_60(self):
+        self._filter_60_active = False
+        self._60hz_window_cache = None
         self.eeg_data = self.eeg_data_un60.copy()
         if self.filtered:
             self.filter_data = self.filter_data_un60.copy()

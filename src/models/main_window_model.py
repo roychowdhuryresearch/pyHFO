@@ -6008,18 +6008,50 @@ class MainWindowModel(QObject):
         self.window.waveform_plot.plot(0, 0, empty=is_empty, update_biomarker=True)
 
     def switch_60(self):
-        # get the value of the Filter60Button radio button
         filter_60 = self.window.Filter60Button.isChecked()
-        # print("filtering:", filter_60)
-        # if yes
         if filter_60:
             self.backend.set_filter_60()
-        # if not
+            # Immediately redraw with on-demand filtered current window (non-blocking)
+            self.window.waveform_plot.plot()
+            # Start background computation of the full array if not already available
+            self._start_60hz_background()
         else:
+            self._60hz_request_serial = getattr(self, '_60hz_request_serial', 0) + 1
             self.backend.set_unfiltered_60()
+            self.window.waveform_plot.plot()
 
-        # replot
-        self.window.waveform_plot.plot()
+    def _start_60hz_background(self):
+        if self.backend is None or self.backend.eeg_data_un60 is None:
+            return
+        if self.backend.eeg_data_60 is not None:
+            return  # Already computed — set_filter_60 already applied it
+        self._60hz_request_serial = getattr(self, '_60hz_request_serial', 0) + 1
+        serial = self._60hz_request_serial
+        backend = self.backend
+        src = backend.eeg_data_un60  # snapshot reference; safe even if backend changes
+
+        def _compute(progress_callback):
+            return backend.compute_60hz_filtered_data(src)
+
+        worker = Worker(_compute)
+        self._connect_worker(
+            worker,
+            "60Hz background filter",
+            result_handler=lambda result: self._on_60hz_background_done(result, serial),
+        )
+
+    def _on_60hz_background_done(self, result, serial):
+        if getattr(self, '_60hz_request_serial', 0) != serial:
+            return  # Stale result from a superseded job
+        if self.backend is None:
+            return
+        self.backend.apply_60hz_filter_result(result)
+        if (hasattr(self.window, 'Filter60Button')
+                and self.window.Filter60Button.isChecked()
+                and hasattr(self.window, 'waveform_plot')):
+            self.window.waveform_plot.plot()
+            self.message_handler("60Hz filter fully applied")
+
         # add a warning to the text about the HFO info saying that it is outdated now
 
     @pyqtSlot(str)
