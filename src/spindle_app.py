@@ -189,7 +189,11 @@ class SpindleApp(object):
 
         bipolar_signal = bipolar(self.eeg_data, self.channel_names, ch_1, ch_2)
         bipolar_signalun60 = bipolar(self.eeg_data_un60, self.channel_names, ch_1, ch_2)
-        bipolar_signal60 = bipolar(self.ensure_eeg_data_60(), self.channel_names, ch_1, ch_2)
+        # Only extend eeg_data_60 if it's already cached; otherwise leave None so
+        # ensure_eeg_data_60() recomputes from the updated eeg_data_un60 on next access.
+        # The 60Hz filter is linear so filter(A-B) == filter(A)-filter(B).
+        if self.eeg_data_60 is not None:
+            bipolar_signal60 = bipolar(self.eeg_data_60, self.channel_names, ch_1, ch_2)
 
         if self.filtered == True:
             bipolar_filtered_60 = bipolar(self.ensure_filter_data_60(), self.channel_names, ch_1, ch_2)
@@ -198,10 +202,10 @@ class SpindleApp(object):
         derived_label = derived_name or bipolar_channel_name(ch_1, ch_2)
         self.channel_names = np.concatenate([[derived_label], self.channel_names])
 
-        # add filtered/unfiltered 60/un60 signals to different arrays
         self.eeg_data = np.concatenate([bipolar_signal, self.eeg_data])
         self.eeg_data_un60 = np.concatenate([bipolar_signalun60, self.eeg_data_un60])
-        self.eeg_data_60 = np.concatenate([bipolar_signal60, self.ensure_eeg_data_60()])
+        if self.eeg_data_60 is not None:
+            self.eeg_data_60 = np.concatenate([bipolar_signal60, self.eeg_data_60])
         if self.filtered == True:
             self.filter_data_60 = np.concatenate([bipolar_filtered_60, self.ensure_filter_data_60()])
             self.filter_data_un60 = np.concatenate([bipolar_filtered_un60, self.filter_data_un60])
