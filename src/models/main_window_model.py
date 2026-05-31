@@ -5441,15 +5441,16 @@ class MainWindowModel(QObject):
             self._sync_filter_inputs_from_param(self.backend.param_filter)
 
             if self.backend.param_detector is None:
-                if has_yasa():
-                    default_params = ParamYASA(self.backend.sample_freq)
-                    detector_type = "YASA"
-                else:
-                    default_params = ParamSpindleA7(self.backend.sample_freq)
-                    detector_type = "A7"
+                default_params = ParamYASA(self.backend.sample_freq)
+                detector_type = "YASA"
                 default_params.n_jobs = self.backend.n_jobs
                 detector_params = {"detector_type": detector_type, "detector_param": default_params.to_dict()}
-                self.backend.set_detector(ParamDetector.from_dict(detector_params))
+                param_detector = ParamDetector.from_dict(detector_params)
+                if has_yasa():
+                    self.backend.set_detector(param_detector)
+                else:
+                    self.backend.param_detector = param_detector
+                    self.backend.detector = None
 
             if self.backend.param_classifier is None:
                 self.backend.set_default_cpu_classifier()
@@ -6234,13 +6235,6 @@ class MainWindowModel(QObject):
             return False
 
     def save_yasa_params(self):
-        # get filter parameters
-        if not has_yasa():
-            self.handle_unsupported_biomarker_mode(
-                "Spindle detection requires the optional 'yasa' package. Install it to configure and run YASA detection."
-            )
-            return
-
         freq_sp_low_raw = self.window.yasa_freq_sp_low_input.text()
         freq_sp_high_raw = self.window.yasa_freq_sp_high_input.text()
         freq_broad_low_raw = self.window.yasa_freq_broad_low_input.text()
@@ -6274,7 +6268,12 @@ class MainWindowModel(QObject):
                           "rms": self._parse_float_input(thresh_rms_raw, "YASA RMS threshold", positive=True),
                           "n_jobs": self.backend.n_jobs}
             detector_params = {"detector_type": "YASA", "detector_param": param_dict}
-            self.backend.set_detector(ParamDetector.from_dict(detector_params))
+            param_detector = ParamDetector.from_dict(detector_params)
+            if has_yasa():
+                self.backend.set_detector(param_detector)
+            else:
+                self.backend.param_detector = param_detector
+                self.backend.detector = None
 
             # set display parameters
             self.window.yasa_freq_sp_display.setText(f"{freq_sp_low_raw} - {freq_sp_high_raw}")
@@ -6285,7 +6284,7 @@ class MainWindowModel(QObject):
             self.window.yasa_thresh_corr_display.setText(thresh_corr_raw)
             self.window.yasa_thresh_rms_display.setText(thresh_rms_raw)
             # self.update_detector_tab("STE")
-            self.window.yasa_detect_button.setEnabled(True)
+            self.window.yasa_detect_button.setEnabled(has_yasa())
             return True
         except (SyntaxError, ValueError, TypeError) as exc:
             msg = QMessageBox()

@@ -11,6 +11,7 @@ from src.hfo_app import HFO_App
 from src.param.param_detector import ParamDetector, ParamHIL, ParamMNI, ParamSTE, ParamYASA
 from src.param.param_filter import ParamFilter, ParamFilterSpindle
 from src.spindle_app import SpindleApp
+from src.utils.utils_detector import has_yasa
 
 
 if os.environ.get("PYHFO_RUN_SMOKE") != "1":
@@ -300,6 +301,8 @@ def test_hfo_backend_multi_detector_classification_and_export_smoke(hfo_cropped_
 def test_spindle_backend_full_chain_smoke(tmp_path):
     if importlib.util.find_spec("torch") is None:
         pytest.skip("torch is required for real spindle classification smoke")
+    if not has_yasa():
+        pytest.skip("yasa is required for real spindle detection smoke")
 
     recording_path = _build_spindle_recording(tmp_path)
 

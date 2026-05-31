@@ -208,6 +208,46 @@ The current main workspace is shown below:
 
 For detailed operator instructions, refer to the [manual](MANUAL.md).
 
+## Agent and CLI usage
+
+PyHFO also exposes a headless agent API and JSON CLI for automation workflows that should not drive the PyQt interface.
+
+Read recording metadata:
+
+```bash
+python -m src.agent_cli info --input SM_B_ave.edf --json
+```
+
+Run a detection and write structured artifacts:
+
+```bash
+python -m src.agent_cli detect \
+  --input SM_B_ave.edf \
+  --output artifacts/agent-smoke \
+  --biomarker HFO \
+  --detector STE \
+  --export summary-json \
+  --export excel \
+  --export session
+```
+
+Create and run a resumable batch:
+
+```bash
+python -m src.agent_cli batch-create --input recordings --output artifacts/batch
+python -m src.agent_cli batch-run --manifest artifacts/batch/batch_project.json --biomarker HFO --detector STE
+```
+
+Start the MCP server for clients that support local stdio MCP servers:
+
+```bash
+python -m src.agent_mcp.server --transport stdio
+```
+
+The MCP server exposes tools for recording metadata, detection, batch creation, batch execution, and summary reading. It also advertises a `ui://pyhfo/results` MCP App resource for clients that support interactive MCP Apps.
+
+The CLI writes machine-readable JSON to stdout and errors to stderr. The same workflow is available to Python callers through `src.agent_api`.
+
 ## Development
 
 Install development dependencies with:
