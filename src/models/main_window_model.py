@@ -6182,13 +6182,7 @@ class MainWindowModel(QObject):
         QTimer.singleShot(0, self._auto_load_severity_if_available)
         eeg_type = getattr(self.backend, "eeg_type", None)
         if eeg_type and hasattr(self.window, "view"):
-            needs_switch = eeg_type == "scalp" and self.biomarker_type in ("HFO", "Spike")
             self.window.view.apply_eeg_type_ui_state(eeg_type, self.biomarker_type)
-            if needs_switch:
-                self._pre_populate_switch_backend('Spindle')
-                combo = getattr(self.window, "combo_box_biomarker", None)
-                if combo is not None:
-                    QTimer.singleShot(0, lambda: combo.currentIndexChanged.emit(combo.currentIndex()))
             if eeg_type == "scalp":
                 QTimer.singleShot(50, lambda: self.toggle_auto_bipolar_view(True))
         self._apply_backend_defaults_if_needed()
