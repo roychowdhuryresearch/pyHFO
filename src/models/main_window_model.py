@@ -6172,6 +6172,9 @@ class MainWindowModel(QObject):
         self.window.overview_filter_button.setEnabled(True)
         # enable the plot out the 60Hz bandstopped signal
         self.window.Filter60Button.setEnabled(True)
+        # Invalidate any in-flight 60Hz background job from a previous EDF so its
+        # result is never applied to this recording even if channel counts match.
+        self._60hz_request_serial = getattr(self, '_60hz_request_serial', 0) + 1
         # Default the 60Hz filter to ON so the waveform is clean on first display
         if not self.window.Filter60Button.isChecked():
             self.window.Filter60Button.setChecked(True)

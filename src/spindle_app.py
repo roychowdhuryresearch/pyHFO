@@ -380,11 +380,13 @@ class SpindleApp(object):
         if len(source_indices) < 2:
             return np.array([])
 
-        avg_signal = np.mean(self.eeg_data[source_indices], axis=0, keepdims=True)
+        avg_signal      = np.mean(self.eeg_data[source_indices],     axis=0, keepdims=True)
         avg_signal_un60 = np.mean(self.eeg_data_un60[source_indices], axis=0, keepdims=True)
-        avg_signal_60 = np.mean(self.ensure_eeg_data_60()[source_indices], axis=0, keepdims=True)
+        # Only compute 60Hz average if cache is warm — avoid blocking main thread.
+        avg_signal_60 = (np.mean(self.eeg_data_60[source_indices], axis=0, keepdims=True)
+                         if self.eeg_data_60 is not None else None)
         if self.filtered:
-            avg_filtered_60 = np.mean(self.ensure_filter_data_60()[source_indices], axis=0, keepdims=True)
+            avg_filtered_60   = np.mean(self.ensure_filter_data_60()[source_indices], axis=0, keepdims=True)
             avg_filtered_un60 = np.mean(self.filter_data_un60[source_indices], axis=0, keepdims=True)
 
         derived_raw = []
@@ -400,7 +402,8 @@ class SpindleApp(object):
             derived_labels.append(derived_name)
             derived_raw.append(self.eeg_data[source_index:source_index + 1] - avg_signal)
             derived_un60.append(self.eeg_data_un60[source_index:source_index + 1] - avg_signal_un60)
-            derived_60.append(self.ensure_eeg_data_60()[source_index:source_index + 1] - avg_signal_60)
+            if avg_signal_60 is not None:
+                derived_60.append(self.eeg_data_60[source_index:source_index + 1] - avg_signal_60)
             if self.filtered:
                 derived_filtered_60.append(self.ensure_filter_data_60()[source_index:source_index + 1] - avg_filtered_60)
                 derived_filtered_un60.append(self.filter_data_un60[source_index:source_index + 1] - avg_filtered_un60)
@@ -409,13 +412,16 @@ class SpindleApp(object):
             return np.array(derived_channel_names)
 
         self.channel_names = np.concatenate([np.array(derived_labels, dtype=object), self.channel_names])
-        self.eeg_data = np.concatenate([np.concatenate(derived_raw, axis=0), self.eeg_data], axis=0)
+        self.eeg_data      = np.concatenate([np.concatenate(derived_raw,  axis=0), self.eeg_data],      axis=0)
         self.eeg_data_un60 = np.concatenate([np.concatenate(derived_un60, axis=0), self.eeg_data_un60], axis=0)
-        self.eeg_data_60 = np.concatenate([np.concatenate(derived_60, axis=0), self.ensure_eeg_data_60()], axis=0)
+        if derived_60:
+            self.eeg_data_60 = np.concatenate([np.concatenate(derived_60, axis=0), self.eeg_data_60], axis=0)
+        # else: eeg_data_60 stays None; ensure_eeg_data_60() recomputes from updated eeg_data_un60
         if self.filtered:
-            self.filter_data_60 = np.concatenate([np.concatenate(derived_filtered_60, axis=0), self.ensure_filter_data_60()], axis=0)
+            self.filter_data_60   = np.concatenate([np.concatenate(derived_filtered_60,  axis=0), self.ensure_filter_data_60()],  axis=0)
             self.filter_data_un60 = np.concatenate([np.concatenate(derived_filtered_un60, axis=0), self.filter_data_un60], axis=0)
             self.filter_data = self.filter_data_un60.copy()
+        self._60hz_window_cache = None
         return np.array(derived_channel_names)
 
     '''
