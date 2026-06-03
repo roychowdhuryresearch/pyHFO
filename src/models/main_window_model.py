@@ -5,6 +5,7 @@ import tempfile
 from datetime import datetime
 import math
 import json
+import numpy as np
 
 from PyQt5 import uic
 from PyQt5.QtGui import *
@@ -465,6 +466,8 @@ class MainWindowModel(QObject):
     def init_error_terminal_display(self):
         self.window._original_stdout = sys.stdout
         self.window._original_stderr = sys.stderr
+        if os.environ.get('PYBRAIN_DEBUG'):
+            return
         self.window.stdout = Queue()
         self.window.stderr = Queue()
         sys.stdout = WriteStream(self.window.stdout)
@@ -755,6 +758,17 @@ class MainWindowModel(QObject):
         blocker = QSignalBlocker(button)
         button.setChecked(bool(checked))
         del blocker
+
+    def _set_bipolar_button_active(self, active):
+        if not hasattr(self.window, "montage_tool_button"):
+            return
+        btn = self.window.montage_tool_button
+        new_val = "true" if active else ""
+        if btn.property("montageActive") != new_val:
+            btn.setProperty("montageActive", new_val)
+            btn.style().unpolish(btn)
+            btn.style().polish(btn)
+            btn.update()
 
     def _set_report_export_enabled(self, enabled):
         if hasattr(self.window, "save_report_button"):
@@ -1288,6 +1302,24 @@ class MainWindowModel(QObject):
                 tooltip=tool_payload["tooltip"],
             )
 
+        if hasattr(self.window, "eeg_type_badge"):
+            eeg_type = getattr(self.backend, "eeg_type", None) if self.backend is not None else None
+            badge = self.window.eeg_type_badge
+            if has_recording and eeg_type:
+                label = "Scalp EEG" if eeg_type == "scalp" else "iEEG"
+                tooltip = "Scalp EEG detected — spindle detection available." if eeg_type == "scalp" else "Intracranial EEG detected — HFO, spike, and spindle detection available."
+                badge.setText(label)
+                badge.setToolTip(tooltip)
+                badge.setProperty("eegType", eeg_type)
+                badge.style().unpolish(badge)
+                badge.style().polish(badge)
+                badge.setVisible(True)
+            else:
+                badge.setVisible(False)
+                badge.setProperty("eegType", "")
+                badge.style().unpolish(badge)
+                badge.style().polish(badge)
+
         if hasattr(self.window, "waveform_reset_view_button"):
             reset_available = bool(
                 has_recording
@@ -1320,6 +1352,11 @@ class MainWindowModel(QObject):
             self.window.review_channels_button.setEnabled(self.window.Choose_Channels_Button.isEnabled())
         if hasattr(self.window, "montage_tool_button"):
             self.window.montage_tool_button.setEnabled(self.window.bipolar_button.isEnabled())
+            _ch_names = getattr(self.backend, "channel_names", None)
+            has_any_bipolar = has_recording and _ch_names is not None and any(
+                "#-#" in str(ch) for ch in _ch_names
+            )
+            self._set_bipolar_button_active(has_any_bipolar)
         if hasattr(self.window, "referential_tool_button"):
             self.window.referential_tool_button.setEnabled(has_recording)
             referential_active = self._channel_subset_within(recording_channels, current_channels=current_channels)
@@ -1352,21 +1389,10 @@ class MainWindowModel(QObject):
                 )
             self.window.average_reference_button.setToolTip(average_reference_tooltip)
             self.window.average_reference_button.setStatusTip(average_reference_tooltip)
-        if hasattr(self.window, "auto_bipolar_button"):
-            self.window.auto_bipolar_button.setEnabled(bool(has_recording and auto_bipolar_channels))
-            auto_bipolar_active = self._channel_subset_within(
-                auto_bipolar_channels,
-                current_channels=current_channels,
-            )
-            self._set_button_checked(
-                self.window.auto_bipolar_button,
-                auto_bipolar_active,
-            )
-            auto_bipolar_tooltip = self._format_auto_bipolar_button_tooltip(auto_bipolar_metadata)
-            if auto_bipolar_active:
-                auto_bipolar_tooltip += ". Click again, Ref, or Reset View to return."
-            self.window.auto_bipolar_button.setToolTip(auto_bipolar_tooltip)
-            self.window.auto_bipolar_button.setStatusTip(auto_bipolar_tooltip)
+        auto_bipolar_active = self._channel_subset_within(
+            auto_bipolar_channels,
+            current_channels=current_channels,
+        )
         if hasattr(self.window, "montage_status_badge"):
             badge_text = self._auto_bipolar_badge_text(auto_bipolar_metadata) if has_recording else ""
             status_tooltip = self._format_auto_bipolar_button_tooltip(auto_bipolar_metadata) if badge_text else ""
@@ -2207,7 +2233,7 @@ class MainWindowModel(QObject):
                 "handler": lambda: self.toggle_auto_bipolar_view(
                     self._current_waveform_channel_names() != self._auto_bipolar_waveform_channel_names()
                 ),
-                "required_widget": "auto_bipolar_button",
+                "required_widget": "montage_tool_button",
             },
             {
                 "id": "show_referential",
@@ -2825,6 +2851,9 @@ class MainWindowModel(QObject):
             break_suffix = f". Broken chains: {break_names}"
         self.message_handler(f"{montage_label.title()} view ready ({len(derived_channels)} derived channels){break_suffix}")
         self._set_workflow_message(f"Reviewing {montage_label} channels")
+        self.update_waveform_toolbar_state()
+        # Restart 60Hz background computation so it uses the new (post-bipolar) channel count
+        self._start_60hz_background()
 
     def _toggle_waveform_cursor_shortcut(self):
         if self.backend is None or not hasattr(self.window, "waveform_plot"):
@@ -2907,6 +2936,7 @@ class MainWindowModel(QObject):
         safe_connect_signal_slot(self.window.normalize_vertical_input.stateChanged, self.waveform_plot_button_clicked)
 
         safe_connect_signal_slot(self.window.bipolar_button.clicked, self.open_bipolar_channel_selection)
+        self.window.bipolar_button.setCheckable(True)
         self.window.bipolar_button.setEnabled(False)
         safe_connect_signal_slot(self.window.waveform_plot_button.clicked, self.waveform_plot_button_clicked)
         for widget in (
@@ -2932,8 +2962,6 @@ class MainWindowModel(QObject):
             safe_connect_signal_slot(self.window.referential_tool_button.clicked, self.show_referential_channels)
         if hasattr(self.window, "average_reference_button"):
             safe_connect_signal_slot(self.window.average_reference_button.toggled, self.toggle_average_reference_view)
-        if hasattr(self.window, "auto_bipolar_button"):
-            safe_connect_signal_slot(self.window.auto_bipolar_button.toggled, self.toggle_auto_bipolar_view)
         if hasattr(self.window, "montage_status_badge"):
             safe_connect_signal_slot(self.window.montage_status_badge.clicked, self.show_auto_bipolar_details)
         if hasattr(self.window, "montage_break_badge"):
@@ -3068,6 +3096,25 @@ class MainWindowModel(QObject):
             safe_connect_signal_slot(self.window.run_stats_export_button.clicked, self.save_to_excel)
         if hasattr(self.window, "run_stats_report_button"):
             safe_connect_signal_slot(self.window.run_stats_report_button.clicked, self.save_analysis_report)
+
+        # severity scoring
+        if hasattr(self.window, "severity_run_button"):
+            safe_connect_signal_slot(self.window.severity_run_button.clicked, self.run_severity_scoring)
+        if hasattr(self.window, "severity_export_button"):
+            safe_connect_signal_slot(self.window.severity_export_button.clicked, self.export_severity_csv)
+        if hasattr(self.window, "severity_jump_clean_button"):
+            safe_connect_signal_slot(self.window.severity_jump_clean_button.clicked, self.severity_jump_to_most_severe_non_artifactual)
+        if hasattr(self.window, "severity_prev_button"):
+            safe_connect_signal_slot(self.window.severity_prev_button.clicked, self.severity_prev)
+        if hasattr(self.window, "severity_next_button"):
+            safe_connect_signal_slot(self.window.severity_next_button.clicked, self.severity_next)
+        if hasattr(self.window, "severity_nav_combo"):
+            safe_connect_signal_slot(self.window.severity_nav_combo.currentIndexChanged, self._severity_nav_combo_changed)
+        if hasattr(self.window, "severity_load_button"):
+            safe_connect_signal_slot(self.window.severity_load_button.clicked, self.load_severity_scores)
+        if hasattr(self.window, "severity_batch_button"):
+            safe_connect_signal_slot(self.window.severity_batch_button.clicked, self.batch_score_folder)
+
         self.window.switch_run_button.setEnabled(False)
         self.window.accept_run_button.setEnabled(False)
         self.window.compare_runs_button.setEnabled(False)
@@ -4178,6 +4225,476 @@ class MainWindowModel(QObject):
         except Exception as exc:
             QMessageBox.critical(self.window, "Classifier Setup Failed", str(exc))
             return False
+
+    # ── severity scoring ──────────────────────────────────────────────────────
+
+    def run_severity_scoring(self):
+        if self.backend is None or self.backend.eeg_data is None:
+            QMessageBox.information(self.window, "No Recording",
+                                    "Load an EEG recording before running severity scoring.")
+            return
+
+        from src.severity_app import SeverityScorer
+        model_dir = self.backend.default_severity_model_dir()
+        if not hasattr(self, "_severity_scorer") or self._severity_scorer is None:
+            self._severity_scorer = None  # will be created inside worker
+
+        self.message_handler("Running severity scoring...")
+        self._set_workflow_message("Running severity scoring...")
+        btn = getattr(self.window, "severity_run_button", None)
+        self._begin_busy_task("severity", "Scoring...", [btn] if btn else [])
+
+        def _do_score(progress_callback):
+            if not hasattr(self, "_severity_scorer") or self._severity_scorer is None:
+                self._severity_scorer = SeverityScorer(model_dir)
+            return self.backend.run_severity_scoring(self._severity_scorer, progress_callback=progress_callback)
+
+        worker = Worker(_do_score)
+        safe_connect_signal_slot(worker.signals.progress, self._severity_progress)
+        self._connect_worker(
+            worker, "Severity scoring",
+            result_handler=lambda _: self._severity_done(),
+        )
+
+    @staticmethod
+    def _severity_score_color(score: float) -> str:
+        score = max(0.0, min(5.0, score))
+        if score <= 2.5:
+            t = score / 2.5
+            r = int(76  + t * (255 - 76))
+            g = int(175 + t * (235 - 175))
+            b = int(80  + t * (59  - 80))
+        else:
+            t = (score - 2.5) / 2.5
+            r = int(255 + t * (244 - 255))
+            g = int(235 + t * (67  - 235))
+            b = int(59  + t * (54  - 59))
+        return f"#{r:02x}{g:02x}{b:02x}"
+
+    def _clear_severity_state(self):
+        self._severity_rank = 0
+        self._severity_clean_rank = 0
+        self._severity_df_time = None
+        self._severity_df_clean_time = None
+        self._severity_df_sorted = None
+        self._severity_df_clean_sorted = None
+        self._severity_plot_buckets = None
+        for attr in ("severity_mean_value", "severity_peak_value", "severity_peak_time_value"):
+            lbl = getattr(self.window, attr, None)
+            if lbl is not None:
+                lbl.setText("--")
+        for attr in ("severity_jump_clean_button", "severity_prev_button",
+                     "severity_next_button", "severity_export_button"):
+            btn = getattr(self.window, attr, None)
+            if btn is not None:
+                btn.setEnabled(False)
+        combo = getattr(self.window, "severity_nav_combo", None)
+        if combo is not None:
+            blocker = QSignalBlocker(combo)
+            combo.clear()
+            combo.setEnabled(False)
+            del blocker
+        lst = getattr(self.window, "severity_window_list", None)
+        if lst is not None:
+            lst.clear()
+        if hasattr(self.window, "waveform_plot"):
+            self.window.waveform_plot.mini_plot_controller.view.clear()
+
+    def _reapply_severity_overlay(self):
+        if not hasattr(self.window, "waveform_plot"):
+            return
+        buckets = getattr(self, "_severity_plot_buckets", None)
+        if not buckets:
+            self._update_severity_window_list()
+            return
+        import pyqtgraph as pg
+        plot_widget = self.window.waveform_plot.mini_plot_controller.view.plot_widget
+        for color, (xs, ys) in buckets.items():
+            plot_widget.plot(xs, ys, pen=pg.mkPen(color=color, width=2), connect="finite")
+        self.window.waveform_plot.set_miniplot_y_range(0, 5)
+        self._update_severity_window_list()
+
+    def _build_severity_plot_buckets(self, df) -> dict:
+        """Pre-compute nan-connected arrays per color bucket. Fully vectorised."""
+        starts  = df["start_sec"].to_numpy(dtype=float)
+        ends    = df["end_sec"].to_numpy(dtype=float)
+        scores  = df["score"].to_numpy(dtype=float)
+        nan_col = np.full(len(df), np.nan)
+        xs_all  = np.column_stack([starts, ends, nan_col]).ravel()
+        ys_all  = np.column_stack([scores, scores, nan_col]).ravel()
+        buckets_q = np.round(scores * 2) / 2      # quantise to 0.5 steps → ≤11 buckets
+        result = {}
+        for bucket_val in np.unique(buckets_q):
+            mask3 = np.repeat(buckets_q == bucket_val, 3)
+            color = self._severity_score_color(float(bucket_val))
+            result[color] = (xs_all[mask3].copy(), ys_all[mask3].copy())
+        return result
+
+    def _severity_progress(self, pct: int):
+        msg = f"Severity scoring... {pct}%"
+        self._set_workflow_message(msg)
+        label = getattr(self.window, "activity_summary_label", None)
+        if label is not None:
+            label.setText(f"Info  {msg}")
+
+    def _on_severity_result_ready(self):
+        """Update all severity UI after scoring or CSV load. Backend must have severity_result set."""
+        if self.backend is None or not self.backend.has_severity_result():
+            return
+
+        scores_df = self.backend.severity_result.scores_df
+
+        clean_df = self._compute_clean_df(scores_df)
+
+        def _fmt(v):
+            return f"{v:.3f}" if v == v else "—"
+
+        if len(clean_df):
+            peak_idx   = clean_df["score"].idxmax()
+            mean_score = float(clean_df["score"].mean())
+            peak_score = float(clean_df.loc[peak_idx, "score"])
+            peak_time  = float(clean_df.loc[peak_idx, "start_sec"])
+        else:
+            mean_score = peak_score = peak_time = float("nan")
+
+        if hasattr(self.window, "severity_mean_value"):
+            self.window.severity_mean_value.setText(_fmt(mean_score))
+        if hasattr(self.window, "severity_peak_value"):
+            self.window.severity_peak_value.setText(_fmt(peak_score))
+        if hasattr(self.window, "severity_peak_time_value"):
+            self.window.severity_peak_time_value.setText(
+                f"{peak_time:.1f} s" if peak_time == peak_time else "—")
+
+        for btn_attr in ("severity_export_button", "severity_jump_clean_button",
+                         "severity_prev_button", "severity_next_button"):
+            btn = getattr(self.window, btn_attr, None)
+            if btn is not None:
+                btn.setEnabled(True)
+
+        self._severity_df_time         = scores_df.sort_values("start_sec").reset_index(drop=True)
+        self._severity_df_clean_time   = clean_df.sort_values("start_sec").reset_index(drop=True)
+        self._severity_df_sorted       = scores_df.sort_values("score", ascending=False).reset_index(drop=True)
+        self._severity_df_clean_sorted = clean_df.sort_values("score", ascending=False).reset_index(drop=True)
+        self._severity_rank = 0
+        self._severity_clean_rank = 0
+        self._populate_severity_nav_combo()
+        self._severity_plot_buckets = self._build_severity_plot_buckets(self._severity_df_time)
+        self._update_severity_distribution_plot(self._severity_df_clean_time)
+        if hasattr(self.window, "waveform_plot"):
+            self._reapply_severity_overlay()
+
+    def _update_severity_distribution_plot(self, scores_df):
+        dist_widget = getattr(self.window, "severity_dist_plot", None)
+        if dist_widget is None:
+            return
+        import pyqtgraph as pg
+        dist_widget.clear()
+        scores = scores_df["score"].to_numpy()
+        counts, edges = np.histogram(scores, bins=20, range=(0.0, 5.0))
+        counts = counts / float(counts.max()) if counts.max() > 0 else counts.astype(float)
+        bar_width = edges[1] - edges[0]
+        bar_colors = [self._severity_score_color(float(edges[i] + bar_width / 2)) for i in range(len(counts))]
+        for i, (count, left) in enumerate(zip(counts, edges[:-1])):
+            bar = pg.BarGraphItem(x=[left + bar_width / 2], height=[count],
+                                  width=bar_width * 0.9,
+                                  brush=bar_colors[i], pen=pg.mkPen(None))
+            dist_widget.addItem(bar)
+        dist_widget.setXRange(0, 5, padding=0)
+        dist_widget.setYRange(0, 1, padding=0.05)
+
+    def _severity_done(self):
+        self._end_busy_task()
+        self._set_workflow_message("Severity scoring complete")
+        self.message_handler("Severity scoring complete")
+        self._on_severity_result_ready()
+        self._auto_save_severity()
+
+    def batch_score_folder(self):
+        from PyQt5.QtWidgets import QFileDialog
+        folder = QFileDialog.getExistingDirectory(self.window, "Select folder to batch score")
+        if not folder:
+            return
+        exts = {".edf", ".eeg", ".vhdr", ".fif"}
+        files = [p for p in Path(folder).iterdir()
+                 if p.suffix.lower() in exts or str(p).lower().endswith(".fif.gz")]
+        if not files:
+            QMessageBox.information(self.window, "No EEG files",
+                                    "No EEG files found in the selected folder.")
+            return
+        btn = getattr(self.window, "severity_batch_button", None)
+        if btn:
+            btn.setEnabled(False)
+        self._begin_busy_task("batch_severity", "Batch scoring...", [btn] if btn else [])
+        worker = Worker(lambda progress_callback: self._run_batch_scoring(files, progress_callback))
+        self._connect_worker(worker, "Batch severity scoring",
+                             result_handler=lambda summary: self._batch_score_done(summary, btn))
+
+    def _run_batch_scoring(self, files, progress_callback):
+        import sys
+        from tqdm import tqdm
+        from src.spindle_app import SpindleApp
+        from src.severity_app import SeverityScorer
+        from src.utils.utils_montage import infer_eeg_type
+
+        # Reuse model-level scorer if already loaded, else create once for whole batch
+        scorer = getattr(self, "_severity_scorer", None)
+        scored = skipped = errors = 0
+
+        bar = tqdm(files, desc="Batch scoring", unit="file", file=sys.stdout, ascii=True)
+        for i, path in enumerate(bar):
+            cache_path = str(path.with_suffix("")) + ".severity_scores.csv"
+            if os.path.isfile(cache_path):
+                skipped += 1
+                bar.set_postfix(scored=scored, skipped=skipped, errors=errors)
+                if progress_callback is not None:
+                    progress_callback.emit(int((i + 1) / len(files) * 100))
+                continue
+            try:
+                app = SpindleApp()
+                app.load_edf(str(path))
+                if infer_eeg_type(app.channel_names) != "scalp":
+                    skipped += 1
+                    continue
+                if scorer is None:
+                    scorer = SeverityScorer(app.default_severity_model_dir())
+                    self._severity_scorer = scorer
+                result = scorer.run(app.eeg_data, app.channel_names, app.sample_freq)
+                scorer.export_csv(result, cache_path)
+                scored += 1
+            except Exception as exc:
+                errors += 1
+                print(f"Error scoring {path.name}: {exc}")
+            bar.set_postfix(scored=scored, skipped=skipped, errors=errors)
+            if progress_callback is not None:
+                progress_callback.emit(int((i + 1) / len(files) * 100))
+
+        bar.close()
+        return {"total": len(files), "scored": scored, "skipped": skipped, "errors": errors}
+
+    def _batch_score_done(self, summary, btn):
+        self._end_busy_task()
+        if btn:
+            btn.setEnabled(True)
+        msg = (f"Batch scoring complete — "
+               f"{summary['scored']} scored, "
+               f"{summary['skipped']} skipped (already cached or non-scalp), "
+               f"{summary['errors']} errors")
+        self._set_workflow_message(msg)
+        self.message_handler(msg)
+
+    def _auto_save_severity(self):
+        try:
+            edf_path = getattr(self.backend, "edf_param", {}).get("edf_fn", None)
+            if not edf_path:
+                return
+            cache_path = str(Path(edf_path).with_suffix("")) + ".severity_scores.csv"
+            self.backend.export_severity_csv(cache_path)
+            self.message_handler(f"Severity scores cached to {Path(cache_path).name}")
+        except Exception:
+            pass
+
+    def _auto_load_severity_if_available(self):
+        try:
+            edf_path = getattr(self.backend, "edf_param", {}).get("edf_fn", None)
+            if not edf_path:
+                return
+            cache_path = str(Path(edf_path).with_suffix("")) + ".severity_scores.csv"
+            if not os.path.isfile(cache_path):
+                return
+            self._load_severity_from_path(cache_path)
+            self.message_handler(f"Severity scores loaded from cache ({Path(cache_path).name})")
+            self._set_workflow_message("Severity scores loaded from cache")
+        except Exception:
+            pass
+
+    def load_severity_scores(self):
+        from PyQt5.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getOpenFileName(
+            self.window, "Load Severity Scores", "",
+            "CSV files (*.csv)")
+        if path:
+            self._load_severity_from_path(path)
+
+    def _load_severity_from_path(self, path: str):
+        import pandas as pd
+        from src.severity_app import SeverityResult
+        scores_df = pd.read_csv(path)
+        required = {"segment_idx", "start_sec", "end_sec", "score"}
+        if not required.issubset(scores_df.columns):
+            QMessageBox.warning(self.window, "Invalid File",
+                                "CSV must contain columns: segment_idx, start_sec, end_sec, score")
+            return
+        peak_idx = scores_df["score"].idxmax()
+        result = SeverityResult(
+            scores_df=scores_df,
+            mean_score=float(scores_df["score"].mean()),
+            peak_score=float(scores_df.loc[peak_idx, "score"]),
+            peak_time_sec=float(scores_df.loc[peak_idx, "start_sec"]),
+        )
+        self.backend.severity_result = result
+        self._on_severity_result_ready()
+
+    def export_severity_csv(self):
+        if not self.backend.has_severity_result():
+            return
+        from PyQt5.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getSaveFileName(
+            self.window, "Export severity scores", "severity_scores.csv",
+            "CSV files (*.csv)")
+        if path:
+            self.backend.export_severity_csv(path)
+
+    def _severity_jump_to_time(self, start_sec: float):
+        """Navigate the waveform to start_sec and update the window scores list."""
+        if not hasattr(self.window, "waveform_plot"):
+            return
+        total_time = float(self.window.waveform_plot.get_total_time())
+        time_window = max(0.1, float(self.window.display_time_window_input.value()))
+        target = min(max(0.0, start_sec), max(0.0, total_time - time_window))
+        self.window.waveform_plot.t_start = target
+        self.waveform_plot_button_clicked()
+        self._set_workflow_message(f"Jumped to {target:.1f} s")
+        self._update_severity_window_list()
+
+    def severity_jump_to_most_severe_non_artifactual(self):
+        if not self.backend or not self.backend.has_severity_result():
+            return
+        df = getattr(self, "_severity_df_clean_sorted", None)
+        if df is None or len(df) == 0:
+            self._set_workflow_message("All segments exceed the 1000 µV artifact threshold")
+            return
+        self._severity_clean_rank = 0
+        self._sync_severity_nav_combo()
+        self._severity_navigate_to_clean_rank()
+
+    def _compute_clean_df(self, scores_df, threshold_uv: float = 1000.0):
+        """Return sub-df of non-artifactual segments, fully vectorised."""
+        try:
+            from src.severity_app import TUEG_19, _clean_ch
+            tueg_set = set(TUEG_19)
+            eeg_rows = [i for i, ch in enumerate(self.backend.channel_names)
+                        if _clean_ch(str(ch)) in tueg_set]
+            if not eeg_rows:
+                return scores_df.copy()
+            fs      = int(self.backend.sample_freq)
+            n_segs  = len(scores_df)
+            seg_len = int(round((scores_df["end_sec"].iloc[0] - scores_df["start_sec"].iloc[0]) * fs))
+            eeg     = self.backend.eeg_data[eeg_rows, :]   # (n_eeg, total_samples)
+            # Reshape to (n_eeg, n_segs, seg_len) — no Python loop
+            trimmed = eeg[:, :n_segs * seg_len]
+            segs    = trimmed.reshape(len(eeg_rows), n_segs, seg_len)
+            # Max absolute voltage per segment across channels and time
+            max_per_seg = np.abs(segs).max(axis=(0, 2))    # (n_segs,)
+            clean_mask  = max_per_seg < threshold_uv
+            return scores_df[clean_mask]
+        except Exception:
+            return scores_df.copy()
+
+    def _severity_segment_is_artifactual(self, scores_df, row_idx, threshold_uv: float = 1000.0) -> bool:
+        """Return True if any TUEG-19 EEG channel in the segment exceeds threshold_uv."""
+        try:
+            from src.severity_app import TUEG_19, _clean_ch
+            start_sec = float(scores_df.loc[row_idx, "start_sec"])
+            end_sec = float(scores_df.loc[row_idx, "end_sec"])
+            fs = self.backend.sample_freq
+            s0 = int(start_sec * fs)
+            s1 = int(end_sec * fs)
+            tueg_set = set(TUEG_19)
+            eeg_rows = [
+                i for i, ch in enumerate(self.backend.channel_names)
+                if _clean_ch(str(ch)) in tueg_set
+            ]
+            if not eeg_rows:
+                return False
+            segment = self.backend.eeg_data[eeg_rows, s0:s1]
+            return float(np.abs(segment).max()) >= threshold_uv
+        except Exception:
+            return False
+
+    def severity_prev(self):
+        if not self.backend or not self.backend.has_severity_result():
+            return
+        if self._severity_clean_rank <= 0:
+            self._set_workflow_message("Already at the most severe non-artifactual segment")
+            return
+        self._severity_clean_rank -= 1
+        self._sync_severity_nav_combo()
+        self._severity_navigate_to_clean_rank()
+
+    def severity_next(self):
+        if not self.backend or not self.backend.has_severity_result():
+            return
+        df = getattr(self, "_severity_df_clean_sorted", None)
+        if df is None or self._severity_clean_rank >= len(df) - 1:
+            self._set_workflow_message("No more non-artifactual segments")
+            return
+        self._severity_clean_rank += 1
+        self._sync_severity_nav_combo()
+        self._severity_navigate_to_clean_rank()
+
+    def _severity_nav_combo_changed(self, index):
+        if index < 0:
+            return
+        df = getattr(self, "_severity_df_clean_sorted", None)
+        if df is None or index >= len(df):
+            return
+        self._severity_clean_rank = index
+        self._severity_navigate_to_clean_rank()
+
+    def _populate_severity_nav_combo(self):
+        combo = getattr(self.window, "severity_nav_combo", None)
+        if combo is None:
+            return
+        df = getattr(self, "_severity_df_clean_sorted", None)
+        blocker = QSignalBlocker(combo)
+        combo.clear()
+        if df is not None and len(df):
+            for i, row in enumerate(df.itertuples(index=False)):
+                combo.addItem(f"Top {i + 1}  —  {row.score:.3f}  at {row.start_sec:.0f}s")
+            combo.setCurrentIndex(0)
+            combo.setEnabled(True)
+        else:
+            combo.setEnabled(False)
+        del blocker
+
+    def _sync_severity_nav_combo(self):
+        combo = getattr(self.window, "severity_nav_combo", None)
+        if combo is None:
+            return
+        blocker = QSignalBlocker(combo)
+        combo.setCurrentIndex(self._severity_clean_rank)
+        del blocker
+
+    def _severity_navigate_to_clean_rank(self):
+        df = getattr(self, "_severity_df_clean_sorted", None)
+        if df is None or len(df) == 0:
+            return
+        row = df.iloc[self._severity_clean_rank]
+        self._set_workflow_message(
+            f"Non-artifactual rank {self._severity_clean_rank + 1}/{len(df)} — score {row['score']:.3f} at {row['start_sec']:.1f} s")
+        self._severity_jump_to_time(float(row["start_sec"]))
+
+    def _update_severity_window_list(self):
+        list_widget = getattr(self.window, "severity_window_list", None)
+        if list_widget is None:
+            return
+        df = getattr(self, "_severity_df_time", None)
+        if df is None or len(df) == 0:
+            list_widget.clear()
+            return
+        try:
+            t_start = float(self.window.waveform_plot.t_start)
+            t_end = t_start + float(self.window.display_time_window_input.value())
+        except Exception:
+            list_widget.clear()
+            return
+        overlap = df[(df["end_sec"] > t_start) & (df["start_sec"] < t_end)]
+        list_widget.clear()
+        for label in (f"{r.start_sec:.0f}s – {r.end_sec:.0f}s   {r.score:.3f}"
+                      for r in overlap.itertuples(index=False)):
+            list_widget.addItem(label)
+
+    # ─────────────────────────────────────────────────────────────────────────
 
     def run_classifier_workflow(self):
         if not self.biomarker_supports_classification():
@@ -5382,6 +5899,9 @@ class MainWindowModel(QObject):
         self.update_status_indicators()
         self.update_decision_overview()
         self._sync_workspace_state()
+        eeg_type = getattr(self.backend, "eeg_type", None)
+        if eeg_type and hasattr(self.window, "view"):
+            self.window.view.apply_eeg_type_ui_state(eeg_type, self.biomarker_type)
 
     def _refresh_recording_metadata_ui(self, results):
         previous = self._suspend_default_configuration
@@ -5495,18 +6015,50 @@ class MainWindowModel(QObject):
         self.window.waveform_plot.plot(0, 0, empty=is_empty, update_biomarker=True)
 
     def switch_60(self):
-        # get the value of the Filter60Button radio button
         filter_60 = self.window.Filter60Button.isChecked()
-        # print("filtering:", filter_60)
-        # if yes
         if filter_60:
             self.backend.set_filter_60()
-        # if not
+            # Immediately redraw with on-demand filtered current window (non-blocking)
+            self.window.waveform_plot.plot()
+            # Start background computation of the full array if not already available
+            self._start_60hz_background()
         else:
+            self._60hz_request_serial = getattr(self, '_60hz_request_serial', 0) + 1
             self.backend.set_unfiltered_60()
+            self.window.waveform_plot.plot()
 
-        # replot
-        self.window.waveform_plot.plot()
+    def _start_60hz_background(self):
+        if self.backend is None or self.backend.eeg_data_un60 is None:
+            return
+        if self.backend.eeg_data_60 is not None:
+            return  # Already computed — set_filter_60 already applied it
+        self._60hz_request_serial = getattr(self, '_60hz_request_serial', 0) + 1
+        serial = self._60hz_request_serial
+        backend = self.backend
+        src = backend.eeg_data_un60  # snapshot reference; safe even if backend changes
+
+        def _compute(progress_callback):
+            return backend.compute_60hz_filtered_data(src)
+
+        worker = Worker(_compute)
+        self._connect_worker(
+            worker,
+            "60Hz background filter",
+            result_handler=lambda result: self._on_60hz_background_done(result, serial),
+        )
+
+    def _on_60hz_background_done(self, result, serial):
+        if getattr(self, '_60hz_request_serial', 0) != serial:
+            return  # Stale result from a superseded job
+        if self.backend is None:
+            return
+        self.backend.apply_60hz_filter_result(result)
+        if (hasattr(self.window, 'Filter60Button')
+                and self.window.Filter60Button.isChecked()
+                and hasattr(self.window, 'waveform_plot')):
+            self.window.waveform_plot.plot()
+            self.message_handler("60Hz filter fully applied")
+
         # add a warning to the text about the HFO info saying that it is outdated now
 
     @pyqtSlot(str)
@@ -5625,9 +6177,50 @@ class MainWindowModel(QObject):
         self.window.overview_filter_button.setEnabled(True)
         # enable the plot out the 60Hz bandstopped signal
         self.window.Filter60Button.setEnabled(True)
+        # Invalidate any in-flight 60Hz background job from a previous EDF so its
+        # result is never applied to this recording even if channel counts match.
+        self._60hz_request_serial = getattr(self, '_60hz_request_serial', 0) + 1
+        # Set 60Hz filter UI (block signal; _post_load_process starts the background).
+        if not self.window.Filter60Button.isChecked():
+            blocker = QSignalBlocker(self.window.Filter60Button)
+            self.window.Filter60Button.setChecked(True)
+            del blocker
         self.window.bipolar_button.setEnabled(True)
         self._set_workflow_message("EEG file loaded")
         self._sync_workspace_state()
+        QTimer.singleShot(0, self._auto_load_severity_if_available)
+        self._post_load_process()
+
+    def _post_load_process(self):
+        """Post-load processing pipeline.
+
+        Steps:
+          1. Determine what transforms the loaded EEG needs (eeg_type, filter state).
+          2. Apply fast synchronous transforms on the main thread (bipolar derivation).
+          3. Enable on-demand per-window versions of expensive transforms so the
+             current window renders immediately while background workers run.
+          4. Start background workers for full-array computation; once done their
+             results are cached and all subsequent renders use them.
+        """
+        eeg_type = getattr(self.backend, "eeg_type", None)
+
+        if eeg_type and hasattr(self.window, "view"):
+            self.window.view.apply_eeg_type_ui_state(eeg_type, self.biomarker_type)
+
+        # Step 3: enable on-demand per-window 60Hz filtering so the current
+        # window is already clean when it first renders below.
+        if self.window.Filter60Button.isChecked():
+            self.backend.set_filter_60()
+
+        if eeg_type == "scalp":
+            # Step 2+4: add bipolar channels synchronously (fast array concat),
+            # update the view, then start one background 60Hz computation for
+            # the complete channel set. toggle_auto_bipolar_view handles all of this.
+            self.toggle_auto_bipolar_view(True)
+        else:
+            # Step 4: no channel derivation needed; just start background 60Hz.
+            self._start_60hz_background()
+
         self._apply_backend_defaults_if_needed()
         if getattr(self.backend, "param_filter", None) is not None:
             self._sync_filter_inputs_from_param(self.backend.param_filter)
@@ -5673,10 +6266,18 @@ class MainWindowModel(QObject):
     def scroll_time_waveform_plot(self, event):
         t_start = self.window.waveform_time_scroll_bar.value() * self.window.waveform_plot.get_time_window() * self.window.waveform_plot.get_time_increment() / 100
         self.window.waveform_plot.plot(t_start)
+        self._restore_severity_y_range()
 
     def scroll_channel_waveform_plot(self, event):
         channel_start = self.window.channel_scroll_bar.value()
         self.window.waveform_plot.plot(first_channel_to_plot=channel_start, update_biomarker=True)
+        self._reapply_severity_overlay()
+
+    def _restore_severity_y_range(self):
+        """Restore the mini-bar y-range to [0, 5] after a time scroll without redrawing."""
+        if getattr(self, "_severity_df_time", None) is not None and hasattr(self.window, "waveform_plot"):
+            self.window.waveform_plot.set_miniplot_y_range(0, 5)
+            self._update_severity_window_list()
 
     def get_channels_to_plot(self):
         return self.window.waveform_plot.get_channels_to_plot()
@@ -5733,6 +6334,7 @@ class MainWindowModel(QObject):
         self.window.channel_scroll_bar.setMaximum(len(self.window.waveform_plot.get_channels_to_plot()) - n_channels_to_plot)
         self.window.channel_scroll_bar.setValue(c_value)
         self.window.waveform_plot.plot(start, first_channel_to_plot, empty=is_empty, update_biomarker=True)
+        self._reapply_severity_overlay()
         if hasattr(self.window, "go_to_time_input"):
             blocker = QSignalBlocker(self.window.go_to_time_input)
             self.window.go_to_time_input.setMaximum(max(0.0, self.window.waveform_plot.get_total_time()))
@@ -5944,7 +6546,6 @@ class MainWindowModel(QObject):
     def _ensure_prediction_arrays_are_sized(self):
         """Ensure prediction arrays have the same size as the number of detected events"""
         if self.backend.detected and self.backend.event_features:
-            import numpy as np
             num_events = len(self.backend.event_features.starts)
             
             # Fix spike_predictions array if it's empty
@@ -6705,6 +7306,9 @@ class MainWindowModel(QObject):
         self.close_other_window()
         # self.backend = HFO_App()
         self.set_biomarker_type_and_init_backend(self.biomarker_type)
+        if hasattr(self.window, "view"):
+            self.window.view.apply_eeg_type_ui_state("ieeg", self.biomarker_type)
+        self._clear_severity_state()
         if hasattr(self.window, "waveform_plot"):
             self.window.waveform_plot.update_backend(self.backend, False)
         self.window.main_filename.setText("")
@@ -6728,6 +7332,23 @@ class MainWindowModel(QObject):
                 combo.setCurrentIndex(index)
         QTimer.singleShot(0, self._ensure_current_backend_loaded)
         self.message_handler(f"Prepared {biomarker_type} run workspace.")
+
+    def _transfer_recording_state(self, source, target):
+        """Copy raw EEG recording data from source backend to target without re-reading disk."""
+        for attr in ('raw', 'edf_param', 'eeg_data', 'channel_names', 'sample_freq',
+                     'eeg_data_un60', 'eeg_data_60', 'recording_channel_names', 'eeg_type'):
+            val = getattr(source, attr, None)
+            if val is not None:
+                setattr(target, attr, val)
+
+    def _pre_populate_switch_backend(self, target_bio_type):
+        """Create a backend for target_bio_type pre-loaded with the current recording so
+        _ensure_current_backend_loaded skips the second disk read."""
+        if target_bio_type in self.case_backends:
+            return
+        target = self._instantiate_backend_for_biomarker(target_bio_type)
+        self._transfer_recording_state(self.backend, target)
+        self.case_backends[target_bio_type] = target
 
     def _ensure_current_backend_loaded(self):
         if self.backend is None:

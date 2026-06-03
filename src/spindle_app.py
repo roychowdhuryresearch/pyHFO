@@ -22,6 +22,8 @@ from src.utils.utils_montage import (
     get_average_reference_metadata,
     infer_auto_bipolar_montage_metadata,
     infer_auto_bipolar_montage_entries,
+    infer_eeg_type,
+    is_bipolar_channel,
     source_channel_names,
 )
 from src.utils.utils_plotting import plot_feature
@@ -71,6 +73,8 @@ class SpindleApp(object):
         self.filter_data_un60 = None
         self.eeg_data_60 = None
         self.filter_data_60 = None
+        self._filter_60_active = False
+        self._60hz_window_cache = None  # (s, e, filtered_array) for on-demand display
 
         ## detector related
         self.param_detector = None
@@ -88,6 +92,9 @@ class SpindleApp(object):
         self.Spindles = None
         self.analysis_session = AnalysisSession(self.biomarker_type)
 
+        ## severity scoring related
+        self.severity_result = None
+
     def set_n_jobs(self, n_jobs):
         self.n_jobs = int(n_jobs)
         if self.param_detector is not None:
@@ -100,8 +107,7 @@ class SpindleApp(object):
                 param = self.param_classifier
             if param is None:
                 raise ValueError("Classifier parameters are not set.")
-            from src.classifer import Classifier
-            self.classifier = Classifier(param)
+            self.set_classifier(param)  # lazy: loads all model weights on first use
         return self.classifier
 
     def load_edf(self, file_path):
@@ -114,6 +120,9 @@ class SpindleApp(object):
         self.recording_channel_names = np.array(self.channel_names).copy()
         self.eeg_data_un60 = self.eeg_data
         self.eeg_data_60 = None
+        self._filter_60_active = False
+        self._60hz_window_cache = None
+        self.eeg_type = infer_eeg_type(self.channel_names)
         self.analysis_session = AnalysisSession(self.biomarker_type)
         # print("channel names: ", self.channel_names)
         # print("Loading COMPLETE!")
@@ -123,10 +132,54 @@ class SpindleApp(object):
             raise ValueError("input_dir is required to create a batch project.")
         return create_batch_project(input_dir, output_dir, recursive=recursive)
 
+    # ── severity scoring ──────────────────────────────────────────────────────
+
+    @staticmethod
+    def default_severity_model_dir():
+        return str(Path(os.path.dirname(__file__)).parent / "ckpt" / "severity_model")
+
+    def run_severity_scoring(self, scorer, progress_callback=None):
+        if self.eeg_data is None or self.channel_names is None:
+            raise ValueError("Load an EEG recording before running severity scoring.")
+        self.severity_result = scorer.run(
+            self.eeg_data, self.channel_names, self.sample_freq,
+            progress_callback=progress_callback,
+        )
+        return self.severity_result
+
+    def export_severity_csv(self, path: str):
+        if self.severity_result is None:
+            raise ValueError("Run severity scoring first.")
+        from src.severity_app import SeverityScorer
+        SeverityScorer.export_csv_static(self.severity_result, path)
+
+    def get_severity_summary(self):
+        if self.severity_result is None:
+            return None
+        r = self.severity_result
+        return {
+            'mean_score':    r.mean_score,
+            'peak_score':    r.peak_score,
+            'peak_time_sec': r.peak_time_sec,
+            'n_segments':    len(r.scores_df),
+        }
+
+    def has_severity_result(self):
+        return self.severity_result is not None
+
     def get_edf_info(self):
         return self.edf_param
 
     def get_eeg_data(self, start: int = None, end: int = None, filtered: bool = False):
+        # On-demand 60Hz filter for the displayed window while background is computing
+        if (self._filter_60_active and self.eeg_data_60 is None
+                and start is not None and end is not None
+                and self.eeg_data_un60 is not None):
+            src = (self.filter_data_un60
+                   if (filtered and self.filter_data_un60 is not None)
+                   else self.eeg_data_un60)
+            return self._get_60hz_range_cached(src, start, end), self.channel_names
+
         data = self.eeg_data if not filtered else self.filter_data
         if start is None and end is None:
             return data, self.channel_names
@@ -136,6 +189,36 @@ class SpindleApp(object):
             return data[:, start:], self.channel_names
         else:
             return data[:, start:end], self.channel_names
+
+    def _get_60hz_range_cached(self, source_un60, start, end):
+        """Zero-phase 60Hz notch for [start:end] with a rolling 1-min+margin cache."""
+        from scipy.signal import sosfiltfilt, butter
+        n = source_un60.shape[1]
+        margin = min(30 * self.sample_freq, n // 4)
+        s = max(0, start - margin)
+        e = min(n, end + margin)
+
+        if self._60hz_window_cache is not None:
+            c_s, c_e, c_data = self._60hz_window_cache
+            if c_s <= start and end <= c_e:
+                return c_data[:, start - c_s:end - c_s]
+
+        chunk = source_un60[:, s:e]
+        sos = butter(5, [58, 62], 'bandstop', fs=self.sample_freq, output='sos')
+        filtered = sosfiltfilt(sos, chunk, axis=1)
+        self._60hz_window_cache = (s, e, filtered)
+        return filtered[:, start - s:end - s]
+
+    def apply_60hz_filter_result(self, eeg_60):
+        """Called by the model when background 60Hz computation finishes."""
+        if eeg_60 is None:
+            return
+        if self.eeg_data_un60 is not None and eeg_60.shape[0] != self.eeg_data_un60.shape[0]:
+            return  # Shape mismatch — bipolar was added after job started; discard
+        self.eeg_data_60 = eeg_60
+        if self._filter_60_active:
+            self.eeg_data = eeg_60.copy()
+            self._60hz_window_cache = None
 
     def get_eeg_data_shape(self):
         return self.eeg_data.shape
@@ -150,7 +233,11 @@ class SpindleApp(object):
 
         bipolar_signal = bipolar(self.eeg_data, self.channel_names, ch_1, ch_2)
         bipolar_signalun60 = bipolar(self.eeg_data_un60, self.channel_names, ch_1, ch_2)
-        bipolar_signal60 = bipolar(self.ensure_eeg_data_60(), self.channel_names, ch_1, ch_2)
+        # Only extend eeg_data_60 if it's already cached; otherwise leave None so
+        # ensure_eeg_data_60() recomputes from the updated eeg_data_un60 on next access.
+        # The 60Hz filter is linear so filter(A-B) == filter(A)-filter(B).
+        if self.eeg_data_60 is not None:
+            bipolar_signal60 = bipolar(self.eeg_data_60, self.channel_names, ch_1, ch_2)
 
         if self.filtered == True:
             bipolar_filtered_60 = bipolar(self.ensure_filter_data_60(), self.channel_names, ch_1, ch_2)
@@ -159,14 +246,38 @@ class SpindleApp(object):
         derived_label = derived_name or bipolar_channel_name(ch_1, ch_2)
         self.channel_names = np.concatenate([[derived_label], self.channel_names])
 
-        # add filtered/unfiltered 60/un60 signals to different arrays
         self.eeg_data = np.concatenate([bipolar_signal, self.eeg_data])
         self.eeg_data_un60 = np.concatenate([bipolar_signalun60, self.eeg_data_un60])
-        self.eeg_data_60 = np.concatenate([bipolar_signal60, self.ensure_eeg_data_60()])
+        if self.eeg_data_60 is not None:
+            self.eeg_data_60 = np.concatenate([bipolar_signal60, self.eeg_data_60])
         if self.filtered == True:
             self.filter_data_60 = np.concatenate([bipolar_filtered_60, self.ensure_filter_data_60()])
             self.filter_data_un60 = np.concatenate([bipolar_filtered_un60, self.filter_data_un60])
             self.filter_data = self.filter_data_un60.copy()
+
+    def remove_bipolar_channel(self, channel_name):
+        """Remove a derived channel by name. Returns True if removed."""
+        if not is_bipolar_channel(channel_name):
+            return False
+        idx_arr = np.where(np.array(self.channel_names) == channel_name)[0]
+        if len(idx_arr) == 0:
+            return False
+        i = idx_arr[0]
+        mask = np.ones(len(self.channel_names), dtype=bool)
+        mask[i] = False
+        self.channel_names = self.channel_names[mask]
+        self.eeg_data = self.eeg_data[mask]
+        self.eeg_data_un60 = self.eeg_data_un60[mask]
+        if self.eeg_data_60 is not None:
+            self.eeg_data_60 = self.eeg_data_60[mask]
+        if self.filter_data is not None:
+            self.filter_data = self.filter_data[mask]
+        if self.filter_data_un60 is not None:
+            self.filter_data_un60 = self.filter_data_un60[mask]
+        if self.filter_data_60 is not None:
+            self.filter_data_60 = self.filter_data_60[mask]
+        self._60hz_window_cache = None
+        return True
 
     def get_auto_bipolar_definitions(self):
         return infer_auto_bipolar_montage_entries(self.get_recording_channel_names())
@@ -231,14 +342,48 @@ class SpindleApp(object):
         return [(channel_1, channel_2) for _derived_name, channel_1, channel_2 in self.get_auto_bipolar_definitions()]
 
     def ensure_auto_bipolar_channels(self):
-        derived_channel_names = []
-        existing = {str(channel) for channel in np.array(self.channel_names if self.channel_names is not None else []).tolist()}
-        for derived_name, channel_1, channel_2 in self.get_auto_bipolar_definitions():
-            derived_channel_names.append(derived_name)
-            if derived_name not in existing:
-                self.add_bipolar_channel(channel_1, channel_2, derived_name=derived_name)
-                existing.add(derived_name)
-        return np.array(derived_channel_names)
+        all_definitions = self.get_auto_bipolar_definitions()
+        existing = {str(ch) for ch in (self.channel_names if self.channel_names is not None else [])}
+        pending = [(name, ch1, ch2) for name, ch1, ch2 in all_definitions if str(name) not in existing]
+
+        if pending:
+            self._add_bipolar_channels_batch(pending)
+
+        return np.array([str(d[0]) for d in all_definitions])
+
+    def _add_bipolar_channels_batch(self, pending):
+        """Add multiple bipolar channels in a single concatenation pass.
+
+        Avoids the O(N * n_channels^2) memory cost of calling add_bipolar_channel
+        N times on a long recording — each individual call copies the entire array.
+        """
+        def _bipolar(data, channels, ch1, ch2):
+            return data[channels == ch1] - data[channels == ch2]
+
+        src_data     = self.eeg_data
+        src_un60     = self.eeg_data_un60
+        src_channels = self.channel_names
+
+        new_data  = np.concatenate([_bipolar(src_data,  src_channels, ch1, ch2) for _, ch1, ch2 in pending], axis=0)
+        new_un60  = np.concatenate([_bipolar(src_un60,  src_channels, ch1, ch2) for _, ch1, ch2 in pending], axis=0)
+        new_names = np.array([str(name) for name, _, _ in pending])
+
+        self.channel_names = np.concatenate([new_names, self.channel_names])
+        self.eeg_data      = np.concatenate([new_data,  self.eeg_data],  axis=0)
+        self.eeg_data_un60 = np.concatenate([new_un60,  self.eeg_data_un60], axis=0)
+
+        if self.eeg_data_60 is not None:
+            new_60 = np.concatenate([_bipolar(self.eeg_data_60, src_channels, ch1, ch2)
+                                     for _, ch1, ch2 in pending], axis=0)
+            self.eeg_data_60 = np.concatenate([new_60, self.eeg_data_60], axis=0)
+
+        if self.filtered and self.filter_data_un60 is not None:
+            new_filt = np.concatenate([_bipolar(self.filter_data_un60, src_channels, ch1, ch2)
+                                       for _, ch1, ch2 in pending], axis=0)
+            self.filter_data_un60 = np.concatenate([new_filt, self.filter_data_un60], axis=0)
+            self.filter_data = self.filter_data_un60.copy()
+
+        self._60hz_window_cache = None  # Invalidate window cache
 
     def ensure_average_reference_channels(self):
         definitions = self.get_average_reference_definitions()
@@ -260,11 +405,13 @@ class SpindleApp(object):
         if len(source_indices) < 2:
             return np.array([])
 
-        avg_signal = np.mean(self.eeg_data[source_indices], axis=0, keepdims=True)
+        avg_signal      = np.mean(self.eeg_data[source_indices],     axis=0, keepdims=True)
         avg_signal_un60 = np.mean(self.eeg_data_un60[source_indices], axis=0, keepdims=True)
-        avg_signal_60 = np.mean(self.ensure_eeg_data_60()[source_indices], axis=0, keepdims=True)
+        # Only compute 60Hz average if cache is warm — avoid blocking main thread.
+        avg_signal_60 = (np.mean(self.eeg_data_60[source_indices], axis=0, keepdims=True)
+                         if self.eeg_data_60 is not None else None)
         if self.filtered:
-            avg_filtered_60 = np.mean(self.ensure_filter_data_60()[source_indices], axis=0, keepdims=True)
+            avg_filtered_60   = np.mean(self.ensure_filter_data_60()[source_indices], axis=0, keepdims=True)
             avg_filtered_un60 = np.mean(self.filter_data_un60[source_indices], axis=0, keepdims=True)
 
         derived_raw = []
@@ -280,7 +427,8 @@ class SpindleApp(object):
             derived_labels.append(derived_name)
             derived_raw.append(self.eeg_data[source_index:source_index + 1] - avg_signal)
             derived_un60.append(self.eeg_data_un60[source_index:source_index + 1] - avg_signal_un60)
-            derived_60.append(self.ensure_eeg_data_60()[source_index:source_index + 1] - avg_signal_60)
+            if avg_signal_60 is not None:
+                derived_60.append(self.eeg_data_60[source_index:source_index + 1] - avg_signal_60)
             if self.filtered:
                 derived_filtered_60.append(self.ensure_filter_data_60()[source_index:source_index + 1] - avg_filtered_60)
                 derived_filtered_un60.append(self.filter_data_un60[source_index:source_index + 1] - avg_filtered_un60)
@@ -289,13 +437,16 @@ class SpindleApp(object):
             return np.array(derived_channel_names)
 
         self.channel_names = np.concatenate([np.array(derived_labels, dtype=object), self.channel_names])
-        self.eeg_data = np.concatenate([np.concatenate(derived_raw, axis=0), self.eeg_data], axis=0)
+        self.eeg_data      = np.concatenate([np.concatenate(derived_raw,  axis=0), self.eeg_data],      axis=0)
         self.eeg_data_un60 = np.concatenate([np.concatenate(derived_un60, axis=0), self.eeg_data_un60], axis=0)
-        self.eeg_data_60 = np.concatenate([np.concatenate(derived_60, axis=0), self.ensure_eeg_data_60()], axis=0)
+        if derived_60:
+            self.eeg_data_60 = np.concatenate([np.concatenate(derived_60, axis=0), self.eeg_data_60], axis=0)
+        # else: eeg_data_60 stays None; ensure_eeg_data_60() recomputes from updated eeg_data_un60
         if self.filtered:
-            self.filter_data_60 = np.concatenate([np.concatenate(derived_filtered_60, axis=0), self.ensure_filter_data_60()], axis=0)
+            self.filter_data_60   = np.concatenate([np.concatenate(derived_filtered_60,  axis=0), self.ensure_filter_data_60()],  axis=0)
             self.filter_data_un60 = np.concatenate([np.concatenate(derived_filtered_un60, axis=0), self.filter_data_un60], axis=0)
             self.filter_data = self.filter_data_un60.copy()
+        self._60hz_window_cache = None
         return np.array(derived_channel_names)
 
     '''
@@ -369,13 +520,19 @@ class SpindleApp(object):
         return self.filter_data_60
 
     def set_filter_60(self):
-        # self.eeg_data_un60 = self.eeg_data.copy()
-        self.eeg_data = self.ensure_eeg_data_60().copy()
-        if self.filtered:
-            # self.filter_data_un60 = self.filter_data.copy()
-            self.filter_data = self.ensure_filter_data_60().copy()
+        self._filter_60_active = True
+        self._60hz_window_cache = None
+        if self.eeg_data_60 is not None:
+            # Already computed — apply immediately without blocking
+            self.eeg_data = self.eeg_data_60.copy()
+            if self.filtered and self.filter_data_60 is not None:
+                self.filter_data = self.filter_data_60.copy()
+        # else: get_eeg_data will compute on-demand per window;
+        #       background computation started by the model
 
     def set_unfiltered_60(self):
+        self._filter_60_active = False
+        self._60hz_window_cache = None
         self.eeg_data = self.eeg_data_un60.copy()
         if self.filtered:
             self.filter_data = self.filter_data_un60.copy()
@@ -551,15 +708,16 @@ class SpindleApp(object):
         This is the function should be linked to the confirm button in the set artifact window
 
         '''
-
         self.param_classifier = param
-        classifier = self._ensure_classifier(param)
+        if self.classifier is None:
+            from src.classifer import Classifier
+            self.classifier = Classifier(param)
         self._load_classifier_source(
             param,
             param.artifact_path,
             param.artifact_card,
-            classifier.update_model_a,
-            classifier.update_model_artifact,
+            self.classifier.update_model_a,
+            self.classifier.update_model_artifact,
         )
 
     def set_spike_classifier(self, param: ParamClassifier):
@@ -568,13 +726,15 @@ class SpindleApp(object):
 
         '''
         self.param_classifier = param
-        classifier = self._ensure_classifier(param)
+        if self.classifier is None:
+            from src.classifer import Classifier
+            self.classifier = Classifier(param)
         self._load_classifier_source(
             param,
             param.spike_path,
             param.spike_card,
-            classifier.update_model_s,
-            classifier.update_model_spkhfo,
+            self.classifier.update_model_s,
+            self.classifier.update_model_spkhfo,
         )
 
     def set_default_cpu_classifier(self):
@@ -589,8 +749,7 @@ class SpindleApp(object):
                                                 artifact_card=artifact_card, spike_card=spike_card, use_spike=True,
                                                 device="cpu", batch_size=32, model_type="default_cpu",
                                                 source_preference="huggingface")
-        self.classifier = None
-        self.set_classifier(self.param_classifier)
+        self.classifier = None  # weights load lazily on first classify call
 
     def set_default_gpu_classifier(self):
         '''

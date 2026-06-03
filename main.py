@@ -19,6 +19,9 @@ def closeAllWindows():
 
 if __name__ == '__main__':
     mp.freeze_support()
+    debug = '--debug' in sys.argv
+    if debug:
+        os.environ['PYBRAIN_DEBUG'] = '1'
     app = QApplication(sys.argv)
     app.setApplicationName("PyBrain")
     mainWindow = MainWindow()

@@ -20,7 +20,7 @@ class MiniPlotController:
 
     def get_first_channel_to_plot(self):
         return self.model.first_channel_to_plot
-    
+
     def set_channel_indices_to_plot(self, channel_indices_to_plot):
         self.model.set_channel_indices_to_plot(channel_indices_to_plot)
 
@@ -41,7 +41,7 @@ class MiniPlotController:
 
     def plot_all_current_biomarkers_for_one_channel(self, channel, plot_height):
         starts_in_time, ends_in_time, colors = self.model.get_all_biomarkers_for_channel_and_color(channel)
-        
+
         for i in range(len(starts_in_time)):
             self.plot_one_biomarker(starts_in_time[i], ends_in_time[i], plot_height, colors[i], 5)
 
@@ -69,7 +69,6 @@ class MiniPlotController:
     def set_overlay_run_provider(self, provider):
         self.model.set_overlay_run_provider(provider)
 
+
     def sync_left_axis_width(self, axis_width):
         self.view.sync_left_axis_width(axis_width)
-
-    

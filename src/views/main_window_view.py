@@ -564,6 +564,11 @@ class MainWindowView(QObject):
                 background: #e8edf3;
                 border-color: #c7d1da;
             }
+            QToolButton[waveformTool="true"][montageActive="true"] {
+                background: #d6e8f4;
+                border-color: #6e9fbd;
+                color: #1d3d52;
+            }
             QDockWidget {
                 color: #243746;
                 font-weight: 600;
@@ -609,6 +614,30 @@ class MainWindowView(QObject):
                 background: #f7f8fa;
                 color: #9aa6b2;
                 border: 1px solid #dde2e8;
+            }
+            QPushButton:checked {
+                background: #d6e8f4;
+                border-color: #6e9fbd;
+                color: #1d3d52;
+                font-weight: 600;
+            }
+            QPushButton:checked:hover {
+                background: #c9e0ef;
+                border-color: #5e8fae;
+            }
+            QPushButton:checked:pressed {
+                background: #bdd7ea;
+                border-color: #4e7fa0;
+            }
+            QPushButton[montageActive="true"] {
+                background: #d6e8f4;
+                border-color: #6e9fbd;
+                color: #1d3d52;
+                font-weight: 600;
+            }
+            QPushButton[montageActive="true"]:hover {
+                background: #c9e0ef;
+                border-color: #5e8fae;
             }
             QPushButton[workflowBusy="true"], QToolButton[workflowBusy="true"] {
                 background: #58748a;
@@ -790,6 +819,16 @@ class MainWindowView(QObject):
                 background: #f8fafc;
                 border-color: #e2e8ee;
             }
+            QLabel[waveformBadge="true"][eegType="scalp"] {
+                color: #276740;
+                background: #eaf6ee;
+                border-color: #a3d4b0;
+            }
+            QLabel[waveformBadge="true"][eegType="ieeg"] {
+                color: #5b2d91;
+                background: #f3edfb;
+                border-color: #c9a8e8;
+            }
             QLabel[waveformKeyLabel="true"] {
                 color: #506474;
                 background: #edf2f6;
@@ -950,6 +989,33 @@ class MainWindowView(QObject):
             }
             QTabWidget[inspectorTabs="true"] QTabBar::tab:hover {
                 color: #31495c;
+            }
+            QToolButton[inspectorSegBtn="true"] {
+                background: #eef2f5;
+                color: #5b6d7a;
+                border: 1px solid #cdd6de;
+                padding: 5px 0px;
+                font-size: 11px;
+                font-weight: 600;
+                border-radius: 0px;
+            }
+            QToolButton[inspectorSegBtn="true"][segFirst="true"] {
+                border-top-left-radius: 6px;
+                border-bottom-left-radius: 6px;
+            }
+            QToolButton[inspectorSegBtn="true"][segLast="true"] {
+                border-top-right-radius: 6px;
+                border-bottom-right-radius: 6px;
+                border-left: none;
+            }
+            QToolButton[inspectorSegBtn="true"]:checked {
+                background: #2d4e61;
+                color: #ffffff;
+                border-color: #2d4e61;
+            }
+            QToolButton[inspectorSegBtn="true"]:hover:!checked {
+                background: #dce4ea;
+                color: #2d4e61;
             }
             QSplitter#loadedWorkspaceSplitter::handle {
                 background: #e6edf2;
@@ -1711,6 +1777,11 @@ class MainWindowView(QObject):
         self.window.waveform_tool_mode_badge.setProperty("waveformBadge", True)
         mode_layout.addWidget(self.window.waveform_tool_mode_badge, 0, Qt.AlignLeft | Qt.AlignVCenter)
 
+        self.window.eeg_type_badge = QLabel("", mode_frame)
+        self.window.eeg_type_badge.setProperty("waveformBadge", True)
+        self.window.eeg_type_badge.setVisible(False)
+        mode_layout.addWidget(self.window.eeg_type_badge, 0, Qt.AlignLeft | Qt.AlignVCenter)
+
         mode_layout.addStretch(1)
 
         self.window.waveform_reset_view_button = QToolButton(mode_frame)
@@ -2163,30 +2234,237 @@ class MainWindowView(QObject):
         content = QWidget(dock)
         content.setObjectName("InspectorContent")
         layout = QVBoxLayout(content)
-        layout.setContentsMargins(6, 6, 6, 6)
-        layout.setSpacing(4)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
         hidden_state = self._build_active_run_group()
         hidden_state.hide()
         self.window.inspector_hidden_state_widget = hidden_state
 
-        layout.addWidget(self._build_run_toolbar())
-        layout.addWidget(self._build_results_section())
-        self._install_inspector_tabs()
+        # Segmented control: Analysis | Severity
+        seg_bar = QFrame(content)
+        seg_bar.setObjectName("inspectorSegBar")
+        seg_bar.setProperty("inspectorSegBar", True)
+        seg_layout = QHBoxLayout(seg_bar)
+        seg_layout.setContentsMargins(6, 6, 6, 0)
+        seg_layout.setSpacing(0)
 
+        btn_analysis = QToolButton(seg_bar)
+        btn_analysis.setText("Analysis")
+        btn_analysis.setCheckable(True)
+        btn_analysis.setChecked(True)
+        btn_analysis.setProperty("inspectorSegBtn", True)
+        btn_analysis.setProperty("segFirst", True)
+        btn_analysis.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+        btn_severity = QToolButton(seg_bar)
+        btn_severity.setText("Severity")
+        btn_severity.setCheckable(True)
+        btn_severity.setChecked(False)
+        btn_severity.setProperty("inspectorSegBtn", True)
+        btn_severity.setProperty("segLast", True)
+        btn_severity.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        btn_severity.setVisible(False)
+
+        btn_group = QtWidgets.QButtonGroup(seg_bar)
+        btn_group.setExclusive(True)
+        btn_group.addButton(btn_analysis, 0)
+        btn_group.addButton(btn_severity, 1)
+
+        seg_layout.addWidget(btn_analysis)
+        seg_layout.addWidget(btn_severity)
+        layout.addWidget(seg_bar)
+
+        # Stacked content
+        stack = QtWidgets.QStackedWidget(content)
+        stack.setObjectName("inspectorStack")
+
+        # Page 0: Analysis — the existing pipeline
+        analysis_page = QWidget(stack)
+        analysis_page.setObjectName("InspectorAnalysisPage")
+        analysis_layout = QVBoxLayout(analysis_page)
+        analysis_layout.setContentsMargins(6, 6, 6, 6)
+        analysis_layout.setSpacing(4)
+        analysis_layout.addWidget(self._build_run_toolbar())
+        analysis_layout.addWidget(self._build_results_section())
+        self._install_inspector_tabs()
         self.window.tabWidget.setDocumentMode(True)
         self.window.tabWidget.setCurrentIndex(0)
         self.window.tabWidget.setMinimumWidth(0)
         self.window.tabWidget.setProperty("inspectorTabs", True)
-        layout.addWidget(self.window.tabWidget, 1)
+        analysis_layout.addWidget(self.window.tabWidget, 1)
+        stack.addWidget(analysis_page)
+
+        # inspector_container must be set before _build_severity_tab()
+        # because _wrap_inspector_section() reads it for widget parenting
+        self.window.inspector_container = analysis_page
+
+        # Page 1: Severity — CBraMod scoring
+        severity_page = self._build_severity_tab()
+        stack.addWidget(severity_page)
+        stack.setCurrentIndex(0)
+
+        btn_group.idClicked.connect(stack.setCurrentIndex)
+        layout.addWidget(stack, 1)
 
         dock.setWidget(content)
         self.window.addDockWidget(Qt.RightDockWidgetArea, dock)
         self.window.inspector_dock = dock
-        self.window.inspector_container = content
+        self.window.inspector_seg_btn_analysis = btn_analysis
+        self.window.inspector_seg_btn_severity = btn_severity
+        self.window.inspector_stack = stack
         self.window.inspector_scroll_area = None
         dock.setMinimumWidth(density.inspector_dock_min_width)
         dock.setMaximumWidth(density.inspector_dock_max_width)
+
+    def _build_severity_tab(self):
+        page = QWidget()
+        page.setObjectName("InspectorSeverityPage")
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(6, 6, 6, 6)
+        layout.setSpacing(8)
+
+        # --- Scoring section ---
+        scoring_body = QFrame(page)
+        scoring_layout = QVBoxLayout(scoring_body)
+        scoring_layout.setContentsMargins(0, 0, 0, 0)
+        scoring_layout.setSpacing(4)
+
+        hint = QLabel("Score every 15-second window across the full recording using the bundled CBraMod model.")
+        hint.setWordWrap(True)
+        hint.setProperty("helperText", True)
+        scoring_layout.addWidget(hint)
+
+        self.window.severity_run_button = QPushButton("Run Scoring")
+        self.window.severity_run_button.setProperty("inspectorPrimary", True)
+        self.window.severity_run_button.setToolTip("Run severity scoring on the loaded scalp EEG")
+
+        self.window.severity_load_button = QPushButton("Load Scores")
+        self.window.severity_load_button.setProperty("inspectorPrimary", True)
+        self.window.severity_load_button.setToolTip("Load previously exported severity scores from a CSV file")
+
+        run_row = QHBoxLayout()
+        run_row.addWidget(self.window.severity_load_button)
+        run_row.addStretch(1)
+        run_row.addWidget(self.window.severity_run_button)
+        scoring_layout.addLayout(run_row)
+
+        self.window.severity_batch_button = QPushButton("Batch Score Folder…")
+        self.window.severity_batch_button.setProperty("inspectorPrimary", True)
+        self.window.severity_batch_button.setToolTip(
+            "Score all scalp EEG files in a folder and save per-file CSV caches")
+        scoring_layout.addWidget(self.window.severity_batch_button)
+
+        layout.addWidget(self._wrap_inspector_section("SCORING", scoring_body))
+
+        # --- Results section ---
+        results_frame = QFrame(page)
+        results_outer = QVBoxLayout(results_frame)
+        results_outer.setContentsMargins(0, 0, 0, 0)
+        results_outer.setSpacing(6)
+
+        def _metric_label(text):
+            lbl = QLabel(text)
+            lbl.setProperty("fieldLabel", True)
+            return lbl
+
+        def _metric_value():
+            lbl = QLabel("--")
+            lbl.setProperty("metricValue", True)
+            return lbl
+
+        # Summary stats row
+        stats_body = QFrame(results_frame)
+        stats_layout = QGridLayout(stats_body)
+        stats_layout.setContentsMargins(0, 0, 0, 0)
+        stats_layout.setHorizontalSpacing(8)
+        stats_layout.setVerticalSpacing(4)
+
+        self.window.severity_mean_value = _metric_value()
+        self.window.severity_peak_value = _metric_value()
+        self.window.severity_peak_time_value = _metric_value()
+
+        stats_layout.addWidget(_metric_label("Mean"), 0, 0)
+        stats_layout.addWidget(self.window.severity_mean_value, 0, 1)
+        stats_layout.addWidget(_metric_label("Peak"), 1, 0)
+        stats_layout.addWidget(self.window.severity_peak_value, 1, 1)
+        stats_layout.addWidget(_metric_label("Peak at"), 2, 0)
+        stats_layout.addWidget(self.window.severity_peak_time_value, 2, 1)
+        results_outer.addWidget(stats_body)
+
+        # Navigation
+        self.window.severity_jump_clean_button = QPushButton("Jump to Most Severe Non-Artifactual")
+        self.window.severity_jump_clean_button.setProperty("inspectorPrimary", True)
+        self.window.severity_jump_clean_button.setToolTip("Jump to the highest severity segment where max |voltage| < 1000 µV")
+        self.window.severity_jump_clean_button.setEnabled(False)
+
+        self.window.severity_prev_button = QPushButton("← Prev")
+        self.window.severity_prev_button.setProperty("inspectorPrimary", True)
+        self.window.severity_prev_button.setEnabled(False)
+
+        self.window.severity_nav_combo = QtWidgets.QComboBox()
+        self.window.severity_nav_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.window.severity_nav_combo.setEnabled(False)
+        self.window.severity_nav_combo.setToolTip("Select severity rank to jump to")
+
+        self.window.severity_next_button = QPushButton("Next →")
+        self.window.severity_next_button.setProperty("inspectorPrimary", True)
+        self.window.severity_next_button.setEnabled(False)
+
+        pn_row = QHBoxLayout()
+        pn_row.setContentsMargins(0, 0, 0, 0)
+        pn_row.setSpacing(3)
+        pn_row.addWidget(self.window.severity_prev_button)
+        pn_row.addWidget(self.window.severity_nav_combo, 1)
+        pn_row.addWidget(self.window.severity_next_button)
+
+        nav_layout = QVBoxLayout()
+        nav_layout.setContentsMargins(0, 0, 0, 0)
+        nav_layout.setSpacing(3)
+        nav_layout.addWidget(self.window.severity_jump_clean_button)
+        nav_layout.addLayout(pn_row)
+        results_outer.addLayout(nav_layout)
+
+        # Current window scores list
+        window_scores_label = QLabel("Current window")
+        window_scores_label.setProperty("fieldLabel", True)
+        self.window.severity_window_list = QtWidgets.QListWidget()
+        self.window.severity_window_list.setMaximumHeight(90)
+        self.window.severity_window_list.setProperty("inspectorList", True)
+        results_outer.addWidget(window_scores_label)
+        results_outer.addWidget(self.window.severity_window_list)
+
+        # Score distribution plot
+        import pyqtgraph as pg
+        dist_label = QLabel("Score distribution")
+        dist_label.setProperty("fieldLabel", True)
+        self.window.severity_dist_plot = pg.PlotWidget()
+        self.window.severity_dist_plot.setFixedHeight(80)
+        self.window.severity_dist_plot.setBackground("w")
+        self.window.severity_dist_plot.getPlotItem().hideAxis("left")
+        self.window.severity_dist_plot.getPlotItem().hideButtons()
+        self.window.severity_dist_plot.getPlotItem().setMenuEnabled(False)
+        self.window.severity_dist_plot.setMouseEnabled(x=False, y=False)
+        self.window.severity_dist_plot.setXRange(0, 5, padding=0)
+        bottom_axis = self.window.severity_dist_plot.getAxis("bottom")
+        bottom_axis.setTicks([[(i, str(i)) for i in range(6)]])
+        results_outer.addWidget(dist_label)
+        results_outer.addWidget(self.window.severity_dist_plot)
+
+        # Export
+        self.window.severity_export_button = QPushButton("Export CSV")
+        self.window.severity_export_button.setToolTip("Export severity scores to a CSV file")
+        self.window.severity_export_button.setEnabled(False)
+        export_row = QHBoxLayout()
+        export_row.addStretch(1)
+        export_row.addWidget(self.window.severity_export_button)
+        results_outer.addLayout(export_row)
+
+        layout.addWidget(self._wrap_inspector_section("RESULTS", results_frame))
+        layout.addStretch(1)
+
+        self.window.severity_tab_page = page
+        return page
 
     def _build_inspector_header(self):
         frame = QFrame(self.window)
@@ -3093,7 +3371,6 @@ class MainWindowView(QObject):
             "review_channels_button",
             "referential_tool_button",
             "average_reference_button",
-            "auto_bipolar_button",
             "highlight_channel_button",
             "neighbor_channels_button",
             "clean_view_button",
@@ -3280,13 +3557,6 @@ class MainWindowView(QObject):
             icon=get_waveform_toolbar_icon("average"),
             text="Avg Ref",
             tooltip="Show average-reference derived channels. Click again, Ref, or Reset View to return.",
-            checkable=True,
-            icon_only=False,
-        )
-        self.window.auto_bipolar_button = self._make_waveform_tool_button(
-            icon=get_waveform_toolbar_icon("auto_bipolar"),
-            text="Auto Bp",
-            tooltip="Automatically build conventional EEG bipolar chains or adjacent iEEG bipolar channels. Click again, Ref, or Reset View to return.",
             checkable=True,
             icon_only=False,
         )
@@ -3528,7 +3798,6 @@ class MainWindowView(QObject):
         channel_layout.addWidget(self.window.montage_tool_button)
         channel_layout.addWidget(self.window.referential_tool_button)
         channel_layout.addWidget(self.window.average_reference_button)
-        channel_layout.addWidget(self.window.auto_bipolar_button)
         channel_layout.addWidget(self.window.montage_status_slot)
         channel_layout.addWidget(self.window.montage_break_slot)
         channel_layout.addSpacing(4)
@@ -3581,7 +3850,6 @@ class MainWindowView(QObject):
             self.window.review_channels_button,
             self.window.referential_tool_button,
             self.window.average_reference_button,
-            self.window.auto_bipolar_button,
             self.window.highlight_channel_button,
             self.window.neighbor_channels_button,
             self.window.clean_view_button,
@@ -4226,6 +4494,23 @@ class MainWindowView(QObject):
 
     def get_biomarker_type(self):
         return self.window.combo_box_biomarker.currentText()
+
+    _BIOMARKER_ITEMS = ["HFO", "Spindle", "Spike"]
+    _SCALP_BIOMARKER_ITEMS = ["Spindle"]
+
+    def apply_eeg_type_ui_state(self, eeg_type, biomarker_type=None):
+        is_scalp = eeg_type == "scalp"
+
+        # Show Severity tab only for scalp; if switching away while on it, snap back to Analysis
+        btn_severity = getattr(self.window, "inspector_seg_btn_severity", None)
+        btn_analysis = getattr(self.window, "inspector_seg_btn_analysis", None)
+        stack = getattr(self.window, "inspector_stack", None)
+        if btn_severity is not None:
+            btn_severity.setVisible(is_scalp)
+            if not is_scalp and stack is not None and stack.currentIndex() == 1:
+                stack.setCurrentIndex(0)
+                if btn_analysis is not None:
+                    btn_analysis.setChecked(True)
 
     def create_stacked_widget_detection_param(self, biomarker_type='HFO'):
         if biomarker_type == 'HFO':

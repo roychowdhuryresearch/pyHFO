@@ -73,6 +73,7 @@ class MiniPlotView(QtWidgets.QGraphicsView):
         else:
             self.timeline_baseline.setData([x_range[0], x_range[1]], [baseline_y, baseline_y])
 
+
     def clear(self):
         self.plot_widget.clear()
         self.linear_region = None

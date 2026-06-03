@@ -576,3 +576,11 @@ def infer_auto_bipolar_montage_entries(channel_names):
 
 def infer_auto_bipolar_channel_names(channel_names):
     return [derived_name for derived_name, _channel_1, _channel_2 in infer_auto_bipolar_montage_entries(channel_names)]
+
+
+def infer_eeg_type(channel_names):
+    """Return 'scalp' if channel names match the conventional 10-20 layout, 'ieeg' otherwise."""
+    metadata = infer_auto_bipolar_montage_metadata(channel_names)
+    if metadata.get("montage_kind") == "conventional_eeg":
+        return "scalp"
+    return "ieeg"
