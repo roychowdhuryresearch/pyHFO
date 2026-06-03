@@ -564,6 +564,11 @@ class MainWindowView(QObject):
                 background: #e8edf3;
                 border-color: #c7d1da;
             }
+            QToolButton[waveformTool="true"][montageActive="true"] {
+                background: #d6e8f4;
+                border-color: #6e9fbd;
+                color: #1d3d52;
+            }
             QDockWidget {
                 color: #243746;
                 font-weight: 600;
@@ -609,6 +614,30 @@ class MainWindowView(QObject):
                 background: #f7f8fa;
                 color: #9aa6b2;
                 border: 1px solid #dde2e8;
+            }
+            QPushButton:checked {
+                background: #d6e8f4;
+                border-color: #6e9fbd;
+                color: #1d3d52;
+                font-weight: 600;
+            }
+            QPushButton:checked:hover {
+                background: #c9e0ef;
+                border-color: #5e8fae;
+            }
+            QPushButton:checked:pressed {
+                background: #bdd7ea;
+                border-color: #4e7fa0;
+            }
+            QPushButton[montageActive="true"] {
+                background: #d6e8f4;
+                border-color: #6e9fbd;
+                color: #1d3d52;
+                font-weight: 600;
+            }
+            QPushButton[montageActive="true"]:hover {
+                background: #c9e0ef;
+                border-color: #5e8fae;
             }
             QPushButton[workflowBusy="true"], QToolButton[workflowBusy="true"] {
                 background: #58748a;
@@ -3342,7 +3371,6 @@ class MainWindowView(QObject):
             "review_channels_button",
             "referential_tool_button",
             "average_reference_button",
-            "auto_bipolar_button",
             "highlight_channel_button",
             "neighbor_channels_button",
             "clean_view_button",
@@ -3529,13 +3557,6 @@ class MainWindowView(QObject):
             icon=get_waveform_toolbar_icon("average"),
             text="Avg Ref",
             tooltip="Show average-reference derived channels. Click again, Ref, or Reset View to return.",
-            checkable=True,
-            icon_only=False,
-        )
-        self.window.auto_bipolar_button = self._make_waveform_tool_button(
-            icon=get_waveform_toolbar_icon("auto_bipolar"),
-            text="Auto Bp",
-            tooltip="Automatically build conventional EEG bipolar chains or adjacent iEEG bipolar channels. Click again, Ref, or Reset View to return.",
             checkable=True,
             icon_only=False,
         )
@@ -3777,7 +3798,6 @@ class MainWindowView(QObject):
         channel_layout.addWidget(self.window.montage_tool_button)
         channel_layout.addWidget(self.window.referential_tool_button)
         channel_layout.addWidget(self.window.average_reference_button)
-        channel_layout.addWidget(self.window.auto_bipolar_button)
         channel_layout.addWidget(self.window.montage_status_slot)
         channel_layout.addWidget(self.window.montage_break_slot)
         channel_layout.addSpacing(4)
@@ -3830,7 +3850,6 @@ class MainWindowView(QObject):
             self.window.review_channels_button,
             self.window.referential_tool_button,
             self.window.average_reference_button,
-            self.window.auto_bipolar_button,
             self.window.highlight_channel_button,
             self.window.neighbor_channels_button,
             self.window.clean_view_button,

@@ -24,6 +24,7 @@ from src.utils.utils_montage import (
     infer_auto_bipolar_montage_metadata,
     infer_auto_bipolar_montage_entries,
     infer_eeg_type,
+    is_bipolar_channel,
     source_channel_names,
 )
 from src.utils.utils_plotting import plot_feature
@@ -225,6 +226,30 @@ class HFO_App(object):
             self.filter_data_60 = np.concatenate([bipolar_filtered_60, self.ensure_filter_data_60()])
             self.filter_data_un60 = np.concatenate([bipolar_filtered_un60, self.filter_data_un60])
             self.filter_data = self.filter_data_un60.copy()
+
+    def remove_bipolar_channel(self, channel_name):
+        """Remove a derived channel by name. Returns True if removed."""
+        if not is_bipolar_channel(channel_name):
+            return False
+        idx_arr = np.where(np.array(self.channel_names) == channel_name)[0]
+        if len(idx_arr) == 0:
+            return False
+        i = idx_arr[0]
+        mask = np.ones(len(self.channel_names), dtype=bool)
+        mask[i] = False
+        self.channel_names = self.channel_names[mask]
+        self.eeg_data = self.eeg_data[mask]
+        self.eeg_data_un60 = self.eeg_data_un60[mask]
+        if self.eeg_data_60 is not None:
+            self.eeg_data_60 = self.eeg_data_60[mask]
+        if self.filter_data is not None:
+            self.filter_data = self.filter_data[mask]
+        if self.filter_data_un60 is not None:
+            self.filter_data_un60 = self.filter_data_un60[mask]
+        if self.filter_data_60 is not None:
+            self.filter_data_60 = self.filter_data_60[mask]
+        self._60hz_window_cache = None
+        return True
 
     def get_auto_bipolar_definitions(self):
         return infer_auto_bipolar_montage_entries(self.get_recording_channel_names())

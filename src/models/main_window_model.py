@@ -759,6 +759,17 @@ class MainWindowModel(QObject):
         button.setChecked(bool(checked))
         del blocker
 
+    def _set_bipolar_button_active(self, active):
+        if not hasattr(self.window, "montage_tool_button"):
+            return
+        btn = self.window.montage_tool_button
+        new_val = "true" if active else ""
+        if btn.property("montageActive") != new_val:
+            btn.setProperty("montageActive", new_val)
+            btn.style().unpolish(btn)
+            btn.style().polish(btn)
+            btn.update()
+
     def _set_report_export_enabled(self, enabled):
         if hasattr(self.window, "save_report_button"):
             self.window.save_report_button.setEnabled(bool(enabled))
@@ -1341,6 +1352,11 @@ class MainWindowModel(QObject):
             self.window.review_channels_button.setEnabled(self.window.Choose_Channels_Button.isEnabled())
         if hasattr(self.window, "montage_tool_button"):
             self.window.montage_tool_button.setEnabled(self.window.bipolar_button.isEnabled())
+            _ch_names = getattr(self.backend, "channel_names", None)
+            has_any_bipolar = has_recording and _ch_names is not None and any(
+                "#-#" in str(ch) for ch in _ch_names
+            )
+            self._set_bipolar_button_active(has_any_bipolar)
         if hasattr(self.window, "referential_tool_button"):
             self.window.referential_tool_button.setEnabled(has_recording)
             referential_active = self._channel_subset_within(recording_channels, current_channels=current_channels)
@@ -1373,21 +1389,10 @@ class MainWindowModel(QObject):
                 )
             self.window.average_reference_button.setToolTip(average_reference_tooltip)
             self.window.average_reference_button.setStatusTip(average_reference_tooltip)
-        if hasattr(self.window, "auto_bipolar_button"):
-            self.window.auto_bipolar_button.setEnabled(bool(has_recording and auto_bipolar_channels))
-            auto_bipolar_active = self._channel_subset_within(
-                auto_bipolar_channels,
-                current_channels=current_channels,
-            )
-            self._set_button_checked(
-                self.window.auto_bipolar_button,
-                auto_bipolar_active,
-            )
-            auto_bipolar_tooltip = self._format_auto_bipolar_button_tooltip(auto_bipolar_metadata)
-            if auto_bipolar_active:
-                auto_bipolar_tooltip += ". Click again, Ref, or Reset View to return."
-            self.window.auto_bipolar_button.setToolTip(auto_bipolar_tooltip)
-            self.window.auto_bipolar_button.setStatusTip(auto_bipolar_tooltip)
+        auto_bipolar_active = self._channel_subset_within(
+            auto_bipolar_channels,
+            current_channels=current_channels,
+        )
         if hasattr(self.window, "montage_status_badge"):
             badge_text = self._auto_bipolar_badge_text(auto_bipolar_metadata) if has_recording else ""
             status_tooltip = self._format_auto_bipolar_button_tooltip(auto_bipolar_metadata) if badge_text else ""
@@ -2228,7 +2233,7 @@ class MainWindowModel(QObject):
                 "handler": lambda: self.toggle_auto_bipolar_view(
                     self._current_waveform_channel_names() != self._auto_bipolar_waveform_channel_names()
                 ),
-                "required_widget": "auto_bipolar_button",
+                "required_widget": "montage_tool_button",
             },
             {
                 "id": "show_referential",
@@ -2846,6 +2851,7 @@ class MainWindowModel(QObject):
             break_suffix = f". Broken chains: {break_names}"
         self.message_handler(f"{montage_label.title()} view ready ({len(derived_channels)} derived channels){break_suffix}")
         self._set_workflow_message(f"Reviewing {montage_label} channels")
+        self.update_waveform_toolbar_state()
         # Restart 60Hz background computation so it uses the new (post-bipolar) channel count
         self._start_60hz_background()
 
@@ -2930,6 +2936,7 @@ class MainWindowModel(QObject):
         safe_connect_signal_slot(self.window.normalize_vertical_input.stateChanged, self.waveform_plot_button_clicked)
 
         safe_connect_signal_slot(self.window.bipolar_button.clicked, self.open_bipolar_channel_selection)
+        self.window.bipolar_button.setCheckable(True)
         self.window.bipolar_button.setEnabled(False)
         safe_connect_signal_slot(self.window.waveform_plot_button.clicked, self.waveform_plot_button_clicked)
         for widget in (
@@ -2955,8 +2962,6 @@ class MainWindowModel(QObject):
             safe_connect_signal_slot(self.window.referential_tool_button.clicked, self.show_referential_channels)
         if hasattr(self.window, "average_reference_button"):
             safe_connect_signal_slot(self.window.average_reference_button.toggled, self.toggle_average_reference_view)
-        if hasattr(self.window, "auto_bipolar_button"):
-            safe_connect_signal_slot(self.window.auto_bipolar_button.toggled, self.toggle_auto_bipolar_view)
         if hasattr(self.window, "montage_status_badge"):
             safe_connect_signal_slot(self.window.montage_status_badge.clicked, self.show_auto_bipolar_details)
         if hasattr(self.window, "montage_break_badge"):
@@ -4365,7 +4370,6 @@ class MainWindowModel(QObject):
             btn = getattr(self.window, btn_attr, None)
             if btn is not None:
                 btn.setEnabled(True)
-        self._populate_severity_nav_combo()
 
         self._severity_df_time         = scores_df.sort_values("start_sec").reset_index(drop=True)
         self._severity_df_clean_time   = clean_df.sort_values("start_sec").reset_index(drop=True)
@@ -4373,6 +4377,7 @@ class MainWindowModel(QObject):
         self._severity_df_clean_sorted = clean_df.sort_values("score", ascending=False).reset_index(drop=True)
         self._severity_rank = 0
         self._severity_clean_rank = 0
+        self._populate_severity_nav_combo()
         self._severity_plot_buckets = self._build_severity_plot_buckets(self._severity_df_time)
         self._update_severity_distribution_plot(self._severity_df_clean_time)
         if hasattr(self.window, "waveform_plot"):
@@ -6175,19 +6180,47 @@ class MainWindowModel(QObject):
         # Invalidate any in-flight 60Hz background job from a previous EDF so its
         # result is never applied to this recording even if channel counts match.
         self._60hz_request_serial = getattr(self, '_60hz_request_serial', 0) + 1
-        # Default the 60Hz filter to ON so the waveform is clean on first display
+        # Set 60Hz filter UI (block signal; _post_load_process starts the background).
         if not self.window.Filter60Button.isChecked():
+            blocker = QSignalBlocker(self.window.Filter60Button)
             self.window.Filter60Button.setChecked(True)
-            # toggled signal → switch_60() → set_filter_60() flag + _start_60hz_background()
+            del blocker
         self.window.bipolar_button.setEnabled(True)
         self._set_workflow_message("EEG file loaded")
         self._sync_workspace_state()
         QTimer.singleShot(0, self._auto_load_severity_if_available)
+        self._post_load_process()
+
+    def _post_load_process(self):
+        """Post-load processing pipeline.
+
+        Steps:
+          1. Determine what transforms the loaded EEG needs (eeg_type, filter state).
+          2. Apply fast synchronous transforms on the main thread (bipolar derivation).
+          3. Enable on-demand per-window versions of expensive transforms so the
+             current window renders immediately while background workers run.
+          4. Start background workers for full-array computation; once done their
+             results are cached and all subsequent renders use them.
+        """
         eeg_type = getattr(self.backend, "eeg_type", None)
+
         if eeg_type and hasattr(self.window, "view"):
             self.window.view.apply_eeg_type_ui_state(eeg_type, self.biomarker_type)
-            if eeg_type == "scalp":
-                QTimer.singleShot(50, lambda: self.toggle_auto_bipolar_view(True))
+
+        # Step 3: enable on-demand per-window 60Hz filtering so the current
+        # window is already clean when it first renders below.
+        if self.window.Filter60Button.isChecked():
+            self.backend.set_filter_60()
+
+        if eeg_type == "scalp":
+            # Step 2+4: add bipolar channels synchronously (fast array concat),
+            # update the view, then start one background 60Hz computation for
+            # the complete channel set. toggle_auto_bipolar_view handles all of this.
+            self.toggle_auto_bipolar_view(True)
+        else:
+            # Step 4: no channel derivation needed; just start background 60Hz.
+            self._start_60hz_background()
+
         self._apply_backend_defaults_if_needed()
         if getattr(self.backend, "param_filter", None) is not None:
             self._sync_filter_inputs_from_param(self.backend.param_filter)
