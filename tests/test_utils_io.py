@@ -1,7 +1,7 @@
 import numpy as np
 
-from src.utils.utils_io import get_edf_info, load_mne_raw, read_eeg_data, sort_channel
-from src.utils.utils_montage import infer_auto_bipolar_channel_names, infer_auto_bipolar_pairs
+from pyhfo.utils.utils_io import get_edf_info, load_mne_raw, read_eeg_data, sort_channel
+from pyhfo.utils.utils_montage import infer_auto_bipolar_channel_names, infer_auto_bipolar_pairs
 
 
 class FakeRaw:

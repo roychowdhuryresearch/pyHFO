@@ -2,13 +2,13 @@ import json
 
 import numpy as np
 
-from src.hfo_app import HFO_App
-from src.hfo_feature import HFO_Feature
-from src.param.param_classifier import ParamClassifier
-from src.param.param_detector import ParamDetector, ParamMNI, ParamSTE
-from src.param.param_filter import ParamFilter
-from src.utils.analysis_session import DetectionRun
-from src.utils.reporting import export_analysis_report
+from pyhfo.hfo_app import HFO_App
+from pyhfo.hfo_feature import HFO_Feature
+from pyhfo.param.param_classifier import ParamClassifier
+from pyhfo.param.param_detector import ParamDetector, ParamMNI, ParamSTE
+from pyhfo.param.param_filter import ParamFilter
+from pyhfo.utils.analysis_session import DetectionRun
+from pyhfo.utils.reporting import export_analysis_report
 
 
 def _build_hfo_run(detector_name, intervals, channel_names):

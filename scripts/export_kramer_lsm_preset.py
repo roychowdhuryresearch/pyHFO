@@ -2,8 +2,12 @@
 from __future__ import annotations
 
 import argparse
+import sys
+from pathlib import Path
 
-from src.utils.kramer_lsm_spindle import export_kramer_lsm_json_preset
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+from pyhfo.utils.kramer_lsm_spindle import export_kramer_lsm_json_preset
 
 
 def main():

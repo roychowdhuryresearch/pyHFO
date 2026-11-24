@@ -1,7 +1,7 @@
 import json
 
-from src.hfo_app import HFO_App
-from src.utils.batch_project import create_batch_project, load_batch_project
+from pyhfo.hfo_app import HFO_App
+from pyhfo.utils.batch_project import create_batch_project, load_batch_project
 
 
 def test_batch_project_discovers_supported_recordings_and_tracks_resume_state(tmp_path):

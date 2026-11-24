@@ -1,19 +1,21 @@
-# Core runtime dependencies for running PyHFO from source.
+# Full desktop backend and model-export environment. Wheel dependencies live in pyproject.toml.
 # HIL is present again in HFODetector 0.0.23+.
 HFODetector>=0.0.23,<0.1
+huggingface_hub>=0.26,<2
 matplotlib
 mne
 numpy>=1.25,<2
+onnx>=1.15,<2
+onnxruntime>=1.16,<2
 openpyxl
 p_tqdm
 pandas
-PyQt5>=5.15.9,<5.16
-PyQt5_sip>=12.12.1,<13
-pyqtgraph==0.13.3
 scikit-image
 scipy
 torch
 torchvision
 tqdm
 transformers
-yasa>=0.6.5,<0.7
+# 0.7.x is verified working (spindles_detect API unchanged); the old <0.7 cap
+# excluded the very release the env runs, causing fresh-install vs runtime drift.
+yasa>=0.6.5,<0.8

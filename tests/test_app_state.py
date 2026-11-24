@@ -1,6 +1,6 @@
 import numpy as np
 
-from src.utils.app_state import APP_STATE_VERSION, build_base_checkpoint, checkpoint_get, checkpoint_version
+from pyhfo.utils.app_state import APP_STATE_VERSION, build_base_checkpoint, checkpoint_get, checkpoint_version
 
 
 class DummyApp:
