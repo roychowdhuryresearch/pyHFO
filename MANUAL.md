@@ -1,9 +1,10 @@
 # PyHFO 3.0.2 User Manual
 
 > **⚠️ This manual documents the PyQt desktop application, which no longer exists in this
-> repository.** The PyQt UI was removed — the shipped interface is now the Electron app in
-> `../desktop/`, and this `pyhfo/` package is the headless engine behind it (`pyhfo.agent_api`,
-> `pyhfo.agent_cli`, `pyhfo.agent_mcp`). Every instruction below that says to click a button, open a
+> repository.** The PyQt UI was removed — the shipped interface is now the Electron app in the
+> [roychowdhuryresearch/ieeg-agent](https://github.com/roychowdhuryresearch/ieeg-agent) monorepo,
+> and the `pyhfo` package in this repository (`src/pyhfo`) is the headless engine behind it
+> (`pyhfo.agent_api`, `pyhfo.agent_cli`, `pyhfo.agent_mcp`). Every instruction below that says to click a button, open a
 > window, or use a menu refers to an application that is gone; the Electron app arranges the same
 > work differently.
 >

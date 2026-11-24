@@ -23,11 +23,10 @@ The runtime ONNX loader requires both files for each model:
 
 ## Export Environment
 
-Run conversion from the `pyhfo` directory in an environment that has the export
+Run conversion from the repository root in an environment that has the export
 dependencies. Torch is needed only for this conversion step.
 
 ```bash
-cd pyhfo
 python -m pip install -r requirements.txt
 python -m pip install onnx onnxruntime
 ```
@@ -41,8 +40,8 @@ The script expects the default checkpoint names in the checkpoint directory:
 `model_a.tar`, `model_s.tar`, and `model_e.tar`.
 
 The legacy torch checkpoints are **not** part of this repository: the published
-weights ship through the pinned Hugging Face model cards, and `pyhfo/ckpt/` is
-not tracked. Obtain the `.tar` checkpoints separately from the maintainers and
+weights ship through the pinned Hugging Face model cards, and no checkpoint directory is
+tracked. Obtain the `.tar` checkpoints separately from the maintainers and
 pass their directory explicitly with `--ckpt-dir` (the argument is required).
 
 ```bash
@@ -212,7 +211,10 @@ and `ehfo_onnx` does not import `pyhfo.model` or `pyhfo.dl_models`.
 
 ## Electron Packaging
 
-`desktop/npm run package:mac-smoke` freezes the torch-free backend and assembles
+The Electron packaging flow lives in the
+[roychowdhuryresearch/ieeg-agent](https://github.com/roychowdhuryresearch/ieeg-agent)
+monorepo, not in this repository. There, `npm run package:mac-smoke` freezes the torch-free
+backend and assembles
 the application without `Contents/Resources/onnx`. The packaged Electron main
 process points `HF_HOME` at a persistent writable directory under Electron
 `userData/models/huggingface`. Package smoke tests reject an embedded ONNX
