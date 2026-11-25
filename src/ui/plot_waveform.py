@@ -1,0 +1,246 @@
+import sys
+from PyQt5 import QtCore, QtGui, QtWidgets
+import pyqtgraph as pg # We will try using pyqtgraph for plotting
+import numpy as np
+import time
+import mne
+# from superqt import QDoubleRangeSlider
+from tqdm import tqdm
+import os
+from src.hfo_app import HFO_App
+from src.spindle_app import SpindleApp
+import random
+from src.controllers import MiniPlotController, MainWaveformPlotController
+
+curr_dir = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.dirname(curr_dir))
+
+
+class CenterWaveformAndMiniPlotController():
+    def __init__(self, main_waveform_plot_widget: pg.PlotWidget, mini_plot_widget: pg.PlotWidget, backend: HFO_App, channel_gutter_widget: pg.PlotWidget = None):
+        self.mini_plot_controller = MiniPlotController(mini_plot_widget, backend)
+        self.main_waveform_plot_controller = MainWaveformPlotController(
+            main_waveform_plot_widget,
+            backend,
+            channel_gutter_widget=channel_gutter_widget,
+        )
+
+        # clear everything if exit
+        self.main_waveform_plot_controller.clear()
+        self.mini_plot_controller.clear()
+
+        self.time_window = 20 #20 second time window
+        self.time_increment = 20
+        # self.old_size = (self.waveform_display.x(),self.waveform_display.y(),self.waveform_display.width(),self.waveform_display.height())
+        self.t_start = 0
+        self.first_channel_to_plot = 0
+        self.n_channels_to_plot = 10
+        self.backend = backend
+        self.filtered = False
+        self.time_window_increment = 100 #in percent
+        # self.waveform_color = (0,0,255) #dark blue
+        # self.artifact_color=(245,130,48) #orange
+        # self.spike_color=(240,30,250) #pink
+        # self.non_spike_color=(60,180,75) #green
+        # self.HFO_color=self.non_spike_color
+        # self.color_dict={"artifact":self.artifact_color,"spike":self.spike_color,
+        #                  "non_spike":self.non_spike_color,"HFO":self.HFO_color}
+        self.plot_biomarkers = False
+        self.normalize_vertical = False
+        self.stds = None
+    
+    def set_filtered(self,filtered:bool):
+        self.main_waveform_plot_controller.set_waveform_filter(filtered)
+        self.plot(self.t_start)
+
+    def update_backend(self,new_backend:HFO_App,init_eeg_data:bool=True):
+        self.backend = new_backend
+        self.mini_plot_controller.update_backend(new_backend)
+        self.main_waveform_plot_controller.update_backend(new_backend)
+        if init_eeg_data:
+            self.init_eeg_data()
+
+    def set_overlay_run_provider(self, provider):
+        self.mini_plot_controller.set_overlay_run_provider(provider)
+        self.main_waveform_plot_controller.set_overlay_run_provider(provider)
+
+    def init_eeg_data(self):
+        self.mini_plot_controller.clear()
+        self.main_waveform_plot_controller.clear()
+
+        self.mini_plot_controller.init_eeg_data()
+        self.main_waveform_plot_controller.init_eeg_data()
+
+        self.mini_plot_controller.init_biomarker_display()
+        self.main_waveform_plot_controller.init_waveform_display()
+      
+    def get_n_channels(self):
+        return self.main_waveform_plot_controller.model.n_channels
+    
+    def get_n_channels_to_plot(self):
+        return self.n_channels_to_plot
+
+    def get_total_time(self):
+        return self.main_waveform_plot_controller.get_total_time()
+
+    def get_time_window(self):
+        return self.time_window
+    
+    def get_time_increment(self):
+        return self.time_increment
+    
+    def set_normalize_vertical(self,normalize_vertical:bool):
+        self.normalize_vertical = normalize_vertical
+        self.main_waveform_plot_controller.set_normalize_vertical(normalize_vertical)
+
+    def set_vertical_amplitude_scale(self, vertical_amplitude_scale: float):
+        self.main_waveform_plot_controller.set_vertical_amplitude_scale(vertical_amplitude_scale)
+
+    def get_vertical_amplitude_scale(self):
+        return self.main_waveform_plot_controller.get_vertical_amplitude_scale()
+
+    def set_time_window(self,time_window:float):
+        self.time_window = time_window
+        self.main_waveform_plot_controller.set_time_window(time_window)
+        #replot
+        # self.plot(self.t_start)
+
+    def set_time_increment(self,time_increment:float):
+        self.time_increment = time_increment
+        
+    def set_n_channels_to_plot(self,n_channels_to_plot:int):
+        self.n_channels_to_plot = n_channels_to_plot
+        self.main_waveform_plot_controller.set_n_channels_to_plot(n_channels_to_plot)
+        self.mini_plot_controller.set_n_channels_to_plot(n_channels_to_plot)
+
+    def set_plot_biomarkers(self,plot_biomarkers:bool):
+        self.plot_biomarkers = plot_biomarkers
+        self.main_waveform_plot_controller.set_plot_biomarkers(plot_biomarkers)
+        self.plot(self.t_start, update_biomarker=True)
+
+    def get_channels_to_plot(self):
+        return self.main_waveform_plot_controller.model.channels_to_plot
+    
+    def get_channel_indices_to_plot(self):
+        return self.main_waveform_plot_controller.model.channel_indices_to_plot
+    
+    def update_channel_names(self,new_channel_names):
+        self.mini_plot_controller.update_channel_names(new_channel_names)
+        self.main_waveform_plot_controller.update_channel_names(new_channel_names)
+
+    def set_channel_presentation(self, presentation_by_channel):
+        self.main_waveform_plot_controller.set_channel_presentation(presentation_by_channel)
+
+    def clear_channel_presentation(self):
+        self.main_waveform_plot_controller.clear_channel_presentation()
+
+    def set_trackpad_sensitivity(self, profile_name):
+        self.main_waveform_plot_controller.set_trackpad_sensitivity(profile_name)
+
+    def get_trackpad_sensitivity(self):
+        return self.main_waveform_plot_controller.get_trackpad_sensitivity()
+
+    def set_channels_to_plot(self,channels_to_plot:list):
+        self.main_waveform_plot_controller.set_channels_to_plot(channels_to_plot)
+        self.mini_plot_controller.set_channels_to_plot(channels_to_plot)
+
+    def set_channel_indices_to_plot(self,channel_indices_to_plot:list):
+        self.main_waveform_plot_controller.set_channel_indices_to_plot(channel_indices_to_plot)
+        self.mini_plot_controller.set_channel_indices_to_plot(channel_indices_to_plot)
+
+    def set_cursor_enabled(self, enabled: bool):
+        self.main_waveform_plot_controller.set_cursor_enabled(enabled)
+
+    def is_cursor_enabled(self):
+        return self.main_waveform_plot_controller.is_cursor_enabled()
+
+    def set_measurement_enabled(self, enabled: bool):
+        self.main_waveform_plot_controller.set_measurement_enabled(enabled)
+
+    def is_measurement_enabled(self):
+        return self.main_waveform_plot_controller.is_measurement_enabled()
+
+    def set_measurement(self, points, summary_text=""):
+        self.main_waveform_plot_controller.set_measurement(points, summary_text=summary_text)
+
+    def clear_measurement(self):
+        self.main_waveform_plot_controller.clear_measurement()
+
+    def get_measurement_point(self, channel_name, time_value):
+        return self.main_waveform_plot_controller.get_measurement_point(channel_name, time_value)
+
+    def get_highlighted_channel(self):
+        return self.main_waveform_plot_controller.get_highlighted_channel()
+
+    def connect_channel_selection(self, handler):
+        self.main_waveform_plot_controller.connect_channel_gutter_selection(handler)
+
+    def connect_measurement_selection(self, handler):
+        self.main_waveform_plot_controller.connect_measurement_selection(handler)
+
+    def connect_wheel_time_scroll(self, handler):
+        self.main_waveform_plot_controller.connect_wheel_time_scroll(handler)
+
+    def connect_wheel_channel_scroll(self, handler):
+        self.main_waveform_plot_controller.connect_wheel_channel_scroll(handler)
+
+    def connect_time_zoom(self, handler):
+        self.main_waveform_plot_controller.connect_time_zoom(handler)
+    
+    def plot(self, start_in_time:float = None, first_channel_to_plot:int = None, empty=False, update_biomarker=False):
+
+        if empty:
+            self.main_waveform_plot_controller.clear()
+            self.mini_plot_controller.clear()
+            return
+        
+        if start_in_time is not None:
+            self.main_waveform_plot_controller.set_current_time_window(start_in_time)
+        start_in_time, end_in_time = self.main_waveform_plot_controller.get_current_start_end()
+
+        if first_channel_to_plot is not None:
+            self.main_waveform_plot_controller.set_first_channel_to_plot(first_channel_to_plot)
+            self.mini_plot_controller.set_first_channel_to_plot(first_channel_to_plot)
+        channels_to_plot = self.main_waveform_plot_controller.model.channels_to_plot
+        available_channels = len(channels_to_plot)
+        if available_channels == 0:
+            self.main_waveform_plot_controller.clear()
+            self.mini_plot_controller.clear()
+            return
+
+        first_channel_to_plot = self.main_waveform_plot_controller.get_first_channel_to_plot()
+        first_channel_to_plot = max(0, min(first_channel_to_plot, available_channels - 1))
+        visible_channels = max(1, min(self.main_waveform_plot_controller.model.n_channels_to_plot, available_channels - first_channel_to_plot))
+        self.main_waveform_plot_controller.set_first_channel_to_plot(first_channel_to_plot)
+        self.mini_plot_controller.set_first_channel_to_plot(first_channel_to_plot)
+        self.main_waveform_plot_controller.set_n_channels_to_plot(visible_channels)
+        self.mini_plot_controller.set_n_channels_to_plot(visible_channels)
+
+        self.main_waveform_plot_controller.clear()
+
+        if update_biomarker:
+            self.mini_plot_controller.clear()
+            self.mini_plot_controller.init_biomarker_display()
+
+        eeg_data_to_display, y_100_length, y_scale_length, offset_value = self.main_waveform_plot_controller.plot_all_current_channels_for_window()
+        top_value = eeg_data_to_display[0].max()
+        top_value_mini = 0.5
+        if self.plot_biomarkers:
+            self.main_waveform_plot_controller.plot_all_current_biomarkers_for_window(eeg_data_to_display, offset_value, top_value)
+
+        if self.plot_biomarkers and update_biomarker:
+            self.mini_plot_controller.plot_all_current_biomarkers_for_all_channels(top_value_mini)
+
+        self.main_waveform_plot_controller.draw_channel_names(offset_value)
+        self.main_waveform_plot_controller.draw_scale_bar(eeg_data_to_display, offset_value, y_100_length, y_scale_length)
+        if not self.main_waveform_plot_controller.uses_channel_gutter():
+            self.mini_plot_controller.sync_left_axis_width(
+                self.main_waveform_plot_controller.get_left_axis_width()
+            )
+
+        self.mini_plot_controller.set_miniplot_title('biomarker', top_value_mini)
+        self.mini_plot_controller.set_total_x_y_range(top_value_mini)
+        self.mini_plot_controller.update_highlight_window(start_in_time, end_in_time, top_value_mini)
+
+    def set_miniplot_y_range(self, y_min: float, y_max: float):
+        self.mini_plot_controller.view.plot_widget.setYRange(y_min, y_max, padding=0.05)

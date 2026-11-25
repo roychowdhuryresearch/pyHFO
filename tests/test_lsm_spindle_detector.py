@@ -1,9 +1,9 @@
 import numpy as np
 from scipy.io import savemat
 
-from pyhfo.param.param_detector import ParamDetector, ParamSpindleLSM
-from pyhfo.spindle_app import SpindleApp
-from pyhfo.utils.kramer_lsm_spindle import (
+from src.param.param_detector import ParamDetector, ParamSpindleLSM
+from src.spindle_app import SpindleApp
+from src.utils.kramer_lsm_spindle import (
     KramerLSMSpindleDetector,
     export_kramer_lsm_json_preset,
     load_kramer_lsm_parameters,

@@ -1,110 +1,324 @@
 # PyHFO
+<img src="src/ui/images/icon1.png" alt="PyHFO logo" style="width:30%;">
 
-PyHFO is the UCLA Roychowdhury group's headless EEG analysis engine. It reads EDF, BrainVision and FIF recordings, detects high-frequency oscillations (HFOs), spikes and spindles, and exports event tables and review sessions. Detector outputs are candidates for review.
+[![License](https://img.shields.io/badge/License-UCLA%20Academic-blue.svg)](LICENSE.txt)
+[![Python](https://img.shields.io/badge/Python-3.9-blue.svg)](https://www.python.org/downloads/)
+[![Latest Release](https://img.shields.io/github/v/release/roychowdhuryresearch/pyHFO)](https://github.com/roychowdhuryresearch/pyHFO/releases)
 
-## Install
+[Project Page](https://roychowdhuryresearch.github.io/PyHFO_Project_Page/) |
+[Releases](https://github.com/roychowdhuryresearch/pyHFO/releases) |
+[Manual](MANUAL.md)
 
-Use Python 3.10–3.13 in a virtual environment.
+PyHFO is a desktop EEG review workspace for high-frequency oscillation (HFO) analysis, spindle review, and related clinical event workflows. The current application combines data loading, filtering, detection, classification, event review, session persistence, and report export in one PyQt-based interface.
 
-```sh
-python -m pip install pyhfo
-pyhfo --version
+## What the current app does
+
+- Load EEG recordings from EDF, BrainVision, FIF, and FIF.GZ files.
+- Run HFO detection with STE, MNI, HIL, local RMS, or local line-length detectors.
+- Run spindle detection with YASA, Python Kramer LSM bundled editable presets, A7-style thresholds, or Molle-style RMS thresholds.
+- Review runs side by side, compare overlap, create consensus runs, and accept a preferred run.
+- Classify events with artifact, spkHFO, and eHFO models.
+- Open a dedicated annotation window for event-by-event review, including unreviewed-event queues.
+- Save and restore full analysis sessions.
+- Export Excel summaries, event tables, and shareable HTML report bundles.
+
+The current workspace is broader than the older README described: it is no longer just an EDF-oriented HFO detector window.
+
+## Supported inputs and outputs
+
+### EEG file formats
+
+- `.edf`
+- BrainVision triplets: `.vhdr`, `.eeg`, `.vmrk`
+- `.fif`
+- `.fif.gz`
+
+### Session formats
+
+- `.pybrain` for the current session format
+- `.npz` for legacy session compatibility
+
+### Export formats
+
+- Excel workbooks
+- CSV event exports
+- HTML report bundles with linked assets
+- Waveform snapshots
+
+Note: some UI labels and session file extensions still use the historical `PyBrain` name for backward compatibility.
+
+## Main workflows
+
+### 1. Full workspace
+
+Use the main window when you want to load an EEG file, create multiple runs, compare them, review channels and waveforms, annotate events, and export final outputs.
+
+Typical HFO workflow:
+
+1. Open an EEG file.
+2. Filter the signal.
+3. Run one or more detectors such as STE, MNI, HIL, RMS, or LineLength.
+4. Optionally classify the active run with artifact, spkHFO, and eHFO models.
+5. Review events in the annotation window.
+6. Optionally open Run Stats and create a union, majority, or intersection consensus run from visible runs.
+7. Accept the preferred run.
+8. Save a session or export a report.
+
+### 2. Quick Detection
+
+Use Quick Detection for a faster single-pass path when you want to open an EEG file, choose one biomarker and detector, and export results without using the full workspace.
+
+Quick Detection currently supports:
+
+- HFO detection with STE, MNI, HIL, RMS, or LineLength
+- Spindle detection with A7 or MOLLE
+- Spike detection with RMS/LL
+- Optional classifier execution for HFO quick runs
+- Excel export
+- Session export
+
+### 3. Biomarker modes
+
+The main workspace supports multiple biomarker modes:
+
+- `HFO`: full detection, classification, review, and export workflow, including STE/MNI/HIL and local RMS/LineLength detector paths
+- `Spindle`: YASA, Kramer LSM, A7-style, or Molle-style detection plus artifact/spike review workflow
+- `Spike`: RMS/LL detection plus accepted/artifact review and export workflow
+
+### 4. Batch Projects And Protocol Presets
+
+The backend can build a resumable batch project manifest from a folder of `.edf`, `.vhdr`, `.fif`, and `.fif.gz` recordings. Each case gets a stable output folder, status, attempt count, error field, and result metadata so long folder runs can resume after failures.
+
+Protocol presets can be exported from the active setup and restored later. Presets preserve the biomarker type, filter parameters, detector parameters, classifier sources, and notes for reproducible lab workflows.
+
+## Classification models
+
+PyHFO can use either local checkpoint paths or hosted Hugging Face model cards for classifier sources.
+
+The default presets are configured around:
+
+- `roychowdhuryresearch/HFO-artifact`
+- `roychowdhuryresearch/HFO-spkHFO`
+- `roychowdhuryresearch/HFO-eHFO`
+
+If you use the hosted presets, the first run may download model assets from Hugging Face.
+
+Reports include classifier reproducibility metadata: source preference, hosted model cards, local model paths, local file existence, and SHA-256 hashes for local model files.
+
+## Installation
+
+### Option 1: Standalone release
+
+End users should prefer the packaged builds from [GitHub Releases](https://github.com/roychowdhuryresearch/pyHFO/releases).
+
+#### macOS
+
+If you download the macOS app bundle:
+
+1. Download and unzip the release archive.
+2. Open Terminal in the folder containing `pyHFO.dmg`.
+3. Remove the quarantine attribute:
+
+```bash
+xattr -cr pyHFO.dmg
 ```
 
-The base install includes classical HFO detection and CPU ONNX classification. Install the extras for the analyses you use.
+4. Open the DMG and drag PyHFO into Applications.
 
-| Extra | Install command | Enables |
-| --- | --- | --- |
-| spindle | `python -m pip install 'pyhfo[spindle]'` | YASA spindle detection. Bundled Kramer LSM presets and threshold detectors work with the base install. |
-| severity | `python -m pip install 'pyhfo[severity]'` | Segment-level severity scoring with compatible local weights |
-| gpu | `python -m pip install 'pyhfo[gpu]'` | PyTorch classifier presets and loading legacy checkpoints |
-| dev | `python -m pip install 'pyhfo[dev]'` | Testing, EDF fixture generation, ONNX graph tooling and distribution builds |
+### Option 2: Run from source
 
-## Analyze a recording
+PyHFO is currently developed and tested around Python 3.9.
 
-Inspect the sample rate and channels, then run detection. This example uses high-rate data suitable for HFO analysis.
-
-```sh
-pyhfo info --input recording.edf
-pyhfo detect --input recording.edf --output results --biomarker HFO \
-  --detector RMS --n-jobs 1 --export csv --export summary-json
+```bash
+git clone https://github.com/roychowdhuryresearch/pyHFO.git
+cd pyHFO
+python3.9 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+python main.py
 ```
 
-The CLI writes a JSON result to stdout. The result includes the candidate count, recording fingerprint and paths to the artifacts. Use `pyhfo parameters recommend --help` to plan a detector configuration for another recording.
+Conda works as well if that is your preferred environment manager:
 
-To classify the HFO candidates during detection, enable the classifier. PyHFO selects
-the `default_cpu` preset and loads the pinned ONNX models on first use. The JSON
-result records the selected preset in `classifier_metadata.model_preset` and the
-loaded model type in `classifier_metadata.model_type`.
-
-```sh
-pyhfo detect --input recording.edf --output classified-results --biomarker HFO \
-  --detector RMS --classifier-param enabled=true --export csv --export summary-json
+```bash
+conda create -n pyhfo python=3.9
+conda activate pyhfo
+pip install -r requirements.txt
+python main.py
 ```
 
-`quick-detect` accepts the same flag. In MCP and HTTP detection requests,
-pass `"classifier": {"enabled": true}` in the JSON payload.
+### Option 3: Build release packages
 
-## Connect an agent or BrainLens
+The repository now separates runtime, development, and release-build dependencies:
 
-BrainLens can install the distribution in its Python environment and call the public API directly.
+- `requirements.txt`: runtime dependencies for running from source
+- `requirements-dev.txt`: runtime dependencies plus test tooling
+- `requirements-release-macos.txt`: runtime dependencies plus `py2app`
+- `requirements-release-windows.txt`: runtime dependencies plus `PyInstaller`
 
-```python
-from pyhfo import __version__
-from pyhfo.agent_api import get_recording_info, run_detection
+#### Build a macOS release package
 
-info = get_recording_info("recording.edf")
-result = run_detection({
-    "input_path": "recording.edf",
-    "output_dir": "results",
-    "biomarker": "HFO",
-    "detector": "RMS",
-    "n_jobs": 1,
-    "exports": ["csv", "summary-json"],
-})
+Run this on macOS:
+
+```bash
+python3.9 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements-release-macos.txt
+python macos_package.py
 ```
 
-An MCP client can start `pyhfo-mcp` from the same environment. Put the absolute path to that executable in the client's configuration if the virtual environment is outside its search path.
+This produces:
 
-```json
-{"mcpServers": {"pyhfo": {"command": "pyhfo-mcp", "args": ["--transport", "stdio"]}}}
+- `dist/PyHFO.app`
+- `dist/PyHFO-<version>-macos-arm64.zip`
+- `dist/PyHFO-<version>-macos-arm64.dmg`
+
+#### Build a Windows release folder
+
+Run this on a Windows machine:
+
+```powershell
+py -3.9 -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements-release-windows.txt
+python windows_package.py
 ```
 
-For HTTP clients, start the loopback server and inspect its action manifest.
+This produces a distributable `dist/PyHFO/` folder. Zip that folder before uploading it to a GitHub release.
 
-```sh
-pyhfo-server --host 127.0.0.1 --port 8765
-# In a second terminal
-curl http://127.0.0.1:8765/health
-curl http://127.0.0.1:8765/manifest
+Note: desktop app packaging is not cross-platform here. Build macOS artifacts on macOS and Windows artifacts on Windows.
+
+## Quick start
+
+1. Launch the app with `python main.py` or the packaged desktop build.
+2. Open an EEG file.
+3. Choose `HFO`, `Spindle`, or `Spike` mode as needed.
+4. Configure filtering and detector parameters.
+5. Run detection.
+6. Optionally run classification on the active run.
+7. Open the review window to inspect and relabel events.
+8. Save a `.pybrain` session or export a workbook/report.
+
+The current main workspace is shown below:
+
+![PyHFO Main Workspace](img/overview1.png)
+
+For detailed operator instructions, refer to the [manual](MANUAL.md).
+
+## Development
+
+Install development dependencies with:
+
+```bash
+pip install -r requirements-dev.txt
 ```
 
-## Desktop app and agent runtime
+### Run tests
 
-The Electron desktop app and the agent runtime built on this engine live in
-[roychowdhuryresearch/ieeg-agent](https://github.com/roychowdhuryresearch/ieeg-agent).
-[BrainLens](https://github.com/zyp5511/BrainLens) is a downstream clinical review workbench built on this engine.
-
-## State and models
-
-PyHFO keeps its sessions, projects, implicit exports and model cache under `$PYHFO_HOME` (default `~/.pyhfo`). Explicit output paths take precedence. To continue using an existing session directory, set `PYHFO_AGENT_SESSION_DIR` to its absolute path. Projects and exports also accept `PYHFO_AGENT_PROJECT_DIR` and `PYHFO_AGENT_EXPORT_DIR`.
-
-Detection runs without model downloads. On first classification the CPU preset fetches the artifact, spkHFO and eHFO ONNX models from pinned Hugging Face revisions and checks the SHA-256 digest of each model and its preprocessing specification. The GPU preset uses the PyTorch weights on the corresponding cards. See the [artifact](https://huggingface.co/roychowdhuryresearch/HFO-artifact), [spkHFO](https://huggingface.co/roychowdhuryresearch/HFO-spkHFO) and [eHFO](https://huggingface.co/roychowdhuryresearch/HFO-eHFO) model cards.
-
-For offline classification, run classification once while connected using the same cache, then set `HF_HUB_OFFLINE=1`. Set `HF_HUB_CACHE` to reuse an existing Hugging Face hub cache, or `HF_HOME` to change its parent directory. Alternatively, point `PYHFO_ONNX_DIR` to a complete local bundle containing `model_a/`, `model_s/` and `model_e/`, each with `model.onnx` and `model.spec.json`.
-
-The severity registry reserves `roychowdhuryresearch/EEG-severity`. Until the owners publish its revision and digests, supply a local directory containing `config.json` and real `model.safetensors` weights.
-
-```sh
-pyhfo severity --input scalp.edf --model-dir /path/to/severity-model
+```bash
+pytest -q
 ```
 
-`PYHFO_SEVERITY_MODEL_DIR` sets the same local override. `PYHFO_SEVERITY_REPO` selects a registry mirror containing the pinned release. The scorer uses a 19-channel TUEG montage and 15-second segments. See the [draft model card](https://github.com/roychowdhuryresearch/pyHFO/blob/main/MODEL_CARD_severity.md).
+### Optional smoke tests
+
+The repository includes heavier smoke tests that are opt-in:
+
+```bash
+PYHFO_RUN_SMOKE=1 pytest -q tests/test_backend_smoke.py tests/test_app_smoke.py
+```
+
+These smoke tests expect the repository sample assets to be present and may require optional runtime dependencies such as `torch`.
+
+## Troubleshooting
+
+### PyQt install issues
+
+If your environment has trouble resolving Qt packages, upgrade `pip` first and reinstall from `requirements.txt`:
+
+```bash
+pip install --upgrade pip
+pip install -r requirements.txt --force-reinstall
+```
+
+### Missing spindle detection
+
+YASA spindle detection depends on `yasa`. If it is missing, the UI will still load, but only the YASA workflow remains unavailable until that package is installed. Kramer LSM, A7-style spindle detection, Molle-style spindle RMS detection, HFO RMS detection, and HFO line-length detection are implemented locally in Python and do not add runtime dependencies. Kramer LSM includes authorized JSON presets expanded from the Kramer detector parameter files, and the advanced panel lets users edit the model parameters directly or point to a compatible `.mat`/`.json` parameter file.
+
+### Hosted classifier download failures
+
+If the default classifier presets cannot download, either:
+
+- confirm internet access for Hugging Face downloads, or
+- switch the classifier sources to local checkpoint files
+
+### Large EEG files
+
+Large EEG studies can consume substantial RAM. If the UI becomes sluggish, reduce the loaded EEG file span, close other applications, or prefer the full workspace over repeated ad hoc exports.
 
 ## Citation
 
-Zhang et al. introduced PyHFO in the *Journal of Neural Engineering* (2024). Ding et al. describe the deep learning classification workflow in PyHFO 2.0 (2025). Include the software acknowledgment in paragraph 4 of the license in publications using PyHFO. [PyHFO](https://doi.org/10.1088/1741-2552/ad4916) · [PyHFO 2.0](https://doi.org/10.1088/1741-2552/ae10e0)
+If PyHFO is useful in your research, please cite:
+
+```bibtex
+@article{ding2025pyhfo,
+  title={PyHFO 2.0: An open-source platform for deep learning-based clinical high-frequency oscillations analysis},
+  author={Ding, Y. and Zhang, Y. and Duan, C. and Daida, A. and Zhang, Y. and Kanai, S. and Lu, M. and Hussain, S. and Staba, R. J. and Nariai, H. and Roychowdhury, V.},
+  journal={Journal of Neural Engineering},
+  volume={22},
+  number={5},
+  pages={056040},
+  year={2025},
+  doi={10.1088/1741-2552/ae10e0}
+}
+
+@article{zhang2024pyhfo,
+  title={PyHFO: lightweight deep learning-powered end-to-end high-frequency oscillations analysis application},
+  author={Zhang, Y. and Liu, L. and Ding, Y. and Chen, X. and Monsoor, T. and Daida, A. and Oana, S. and Hussain, S. A. and Sankar, R. and Fallah, A. and Santana-Gomez, C. and Engel, J. and Staba, R. J. and Speier, W. and Zhang, J. and Nariai, H. and Roychowdhury, V.},
+  journal={Journal of Neural Engineering},
+  year={2024},
+  doi={10.1088/1741-2552/ad4916}
+}
+```
+
+## Related projects
+
+- [HFODetector](https://github.com/roychowdhuryresearch/HFO_Detector) - Python toolbox for fast HFO detection.
+- [HFO-Classification](https://github.com/roychowdhuryresearch/HFO-Classification) - Deep learning projects for HFO classification.
+- [EEG-Viz](https://github.com/jebbica/EEG-Viz) - EEG visualization toolkit.
+- [MNE-HFO](https://mne.tools/mne-hfo/stable/index.html) - Reference HFO detector family including RMS and line-length detector workflows. PyHFO includes local threshold-style RMS and line-length implementations without adding this dependency.
+- [Wonambi](https://wonambi-python.github.io/gui/methods.html) and [rsleep A7](https://rsleep.org/reference/a7.html) - Reference spindle detector families that informed the local A7-style and Molle-style threshold detector surfaces.
+- [Spindle-Detector-Method](https://github.com/Mark-Kramer/Spindle-Detector-Method) - Kramer latent-state-model spindle detector method and parameter files. PyHFO includes authorized expanded JSON presets derived from this method for the `LSM` spindle workflow.
 
 ## License
 
-The UCLA Academic Software License governs educational and academic research use. The license includes the required acknowledgment and commercial licensing contacts. [LICENSE.txt](https://github.com/roychowdhuryresearch/pyHFO/blob/main/LICENSE.txt)
+This project is licensed under the UCLA Academic License. See [LICENSE.txt](LICENSE.txt).
+
+## Contact and support
+
+- Issues: [GitHub Issues](https://github.com/roychowdhuryresearch/pyHFO/issues)
+- Discussions: [GitHub Discussions](https://github.com/roychowdhuryresearch/pyHFO/discussions)
+- Documentation: [User manual](MANUAL.md)
+- Project site: [PyHFO Project Page](https://roychowdhuryresearch.github.io/PyHFO_Project_Page/)
+
+For academic collaboration questions, contact Prof. Vwani Roychowdhury through UCLA ECE.
+
+## Acknowledgments
+
+This project is supervised by Prof. [Vwani Roychowdhury](https://www.ee.ucla.edu/vwani-p-roychowdhury/).
+
+Department of Electrical and Computer Engineering, University of California, Los Angeles
+
+- [Yipeng Zhang](https://zyp5511.github.io/)
+- [Lawrence Liu](https://www.linkedin.com/in/lawrence-liu-0a01391a7/)
+- [Yuanyi Ding](https://www.linkedin.com/in/yuanyi-ding-4a981a132/)
+- [Xin Chen](https://www.linkedin.com/in/xin-chen-980521/)
+- [Jessica Lin](https://www.linkedin.com/in/jessica4903/)
+- [Mingjian Lu](https://www.linkedin.com/in/mingjian-lu-357182102/)
+- [Lucas Lu](https://www.linkedin.com/in/lucas-lu-93b867278/)
+
+Division of Pediatric Neurology, Department of Pediatrics, UCLA Mattel Children's Hospital David Geffen School of Medicine
+
+- [Hiroki Nariai](https://www.uclahealth.org/providers/hiroki-nariai)

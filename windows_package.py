@@ -15,7 +15,7 @@ def main():
         cwd=ROOT,
         check=True,
     )
-    print(f"Built Windows release folder: {ROOT / 'dist' / 'pyhfo-backend'}")
+    print(f"Built Windows release folder: {ROOT / 'dist' / 'PyHFO'}")
 
 
 if __name__ == "__main__":

@@ -1,29 +1,18 @@
 import os
 import sys
-from importlib.util import find_spec
 from pathlib import Path
 
 import mne
 import numpy as np
 import pytest
+from PyQt5 import QtWidgets
 
 
 ROOT = Path(__file__).resolve().parents[1]
-# Some tests exercise the repository's release scripts. Prefer the installed
-# distribution when testing a wheel, and support a dependency-only source checkout.
-sys.path.append(str(ROOT))
-source = ROOT / "src"
-spec = find_spec("pyhfo")
-if spec is None or spec.origin is None:
-    sys.path.insert(0, str(source))
-if Path(find_spec("pyhfo").origin).parent == source / "pyhfo":
-    paths = os.environ.get("PYTHONPATH", "").split(os.pathsep)
-    os.environ["PYTHONPATH"] = os.pathsep.join([str(source), *(p for p in paths if p)])
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-
-@pytest.fixture(autouse=True)
-def pyhfo_home(tmp_path, monkeypatch):
-    monkeypatch.setenv("PYHFO_HOME", str(tmp_path / "pyhfo-home"))
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 
 @pytest.fixture
@@ -49,3 +38,11 @@ def tiny_fif_path(tmp_path, tiny_mne_raw):
     path = tmp_path / "tiny_raw.fif"
     tiny_mne_raw.save(path, overwrite=True, verbose=False)
     return path
+
+
+@pytest.fixture(scope="session")
+def qapp():
+    app = QtWidgets.QApplication.instance()
+    if app is None:
+        app = QtWidgets.QApplication([])
+    return app

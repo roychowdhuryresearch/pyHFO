@@ -1,16 +1,16 @@
 import numpy as np
 
-from pyhfo.hfo_app import HFO_App
-from pyhfo.param.param_detector import (
+from src.hfo_app import HFO_App
+from src.param.param_detector import (
     ParamDetector,
     ParamHFOLineLength,
     ParamHFORMS,
     ParamSpindleA7,
     ParamSpindleRMS,
 )
-from pyhfo.param.param_filter import ParamFilter
-from pyhfo.spindle_app import SpindleApp
-from pyhfo.utils.utils_detector import HFOThresholdDetector, SpindleThresholdDetector
+from src.param.param_filter import ParamFilter
+from src.spindle_app import SpindleApp
+from src.utils.utils_detector import HFOThresholdDetector, SpindleThresholdDetector
 
 
 def _synthetic_hfo(sample_freq=1000, duration_seconds=2.0):

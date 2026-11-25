@@ -1,8 +1,8 @@
 import mne
 import numpy as np
 
-from pyhfo.hfo_app import HFO_App
-from pyhfo.utils.utils_montage import (
+from src.hfo_app import HFO_App
+from src.utils.utils_montage import (
     apply_conventional_bipolar_montage,
     get_average_reference_definitions,
     get_average_reference_metadata,

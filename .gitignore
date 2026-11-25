@@ -4,8 +4,7 @@ __pycache__
 build
 dist
 .eggs
-states
-.pyhfo_agent_sessions/
+states   
 *.edf
 *.xlsx
 .vscode

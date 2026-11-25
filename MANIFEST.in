@@ -1,3 +1,0 @@
-include MODEL_CARD_severity.md
-include scripts/*.py
-include tests/conftest.py
