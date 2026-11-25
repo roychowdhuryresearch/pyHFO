@@ -20,7 +20,7 @@ PyHFO bandpass filters at 0.3–75 Hz, applies a 60 Hz notch, resamples to 200 H
 
 TUH EEG Corpus — confirm data-use terms before publishing.
 
-- CBraMod backbone — [owners to supply authors, upstream URL, citation, license and required notices].
+- CBraMod backbone — Wang J, Zhao S, Luo Z, Zhou Y, Jiang H, Li S, Li T, Pan G. *CBraMod: A Criss-Cross Brain Foundation Model for EEG Decoding.* ICLR 2025 ([OpenReview](https://openreview.net/forum?id=NPNUHgHF2w), [arXiv:2412.07236](https://arxiv.org/abs/2412.07236)). Upstream code: https://github.com/wjq-learning/CBraMod, MIT License, Copyright (c) 2025 Jiquan Wang. Keep this copyright and permission notice with redistributed CBraMod-derived weights.
 - BASED preference-learning model and calibration — [owners to supply authors, upstream URL, citation, weight provenance and redistribution terms].
 - [Owners to document training cohort, splits, evaluation metrics, and population-specific limitations before release.]
 
