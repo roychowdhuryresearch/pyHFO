@@ -1,4 +1,4 @@
 -r requirements.txt
 
-# macOS app bundle build tooling.
-py2app
+# Headless backend build tooling (pyhfo_backend_macos.spec).
+pyinstaller

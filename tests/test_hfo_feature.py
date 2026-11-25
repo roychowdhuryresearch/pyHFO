@@ -1,6 +1,6 @@
 import numpy as np
 
-from src.hfo_feature import HFO_Feature
+from pyhfo.hfo_feature import HFO_Feature
 
 
 def test_channel_lookup_uses_cached_channel_indexing():

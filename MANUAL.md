@@ -1,5 +1,18 @@
 # PyHFO 3.0.2 User Manual
 
+> **⚠️ This manual documents the PyQt desktop application, which no longer exists in this
+> repository.** The PyQt UI was removed — the shipped interface is now the Electron app in the
+> [roychowdhuryresearch/ieeg-agent](https://github.com/roychowdhuryresearch/ieeg-agent) monorepo,
+> and the `pyhfo` package in this repository (`src/pyhfo`) is the headless engine behind it
+> (`pyhfo.agent_api`, `pyhfo.agent_cli`, `pyhfo.agent_mcp`). Every instruction below that says to click a button, open a
+> window, or use a menu refers to an application that is gone; the Electron app arranges the same
+> work differently.
+>
+> It is kept because the domain content is still accurate and hard to find elsewhere: what each
+> detector does, what the parameters mean, how the HFO / spindle / spike workflows fit together,
+> and what the exported files contain. Read it for the concepts, not for the clicks. A rewrite
+> against the Electron UI has not been done.
+
 This manual is for day-to-day PyHFO use. It is written as an operator guide rather than a developer note. The goal is to answer four practical questions:
 
 1. How do I open data and start working?

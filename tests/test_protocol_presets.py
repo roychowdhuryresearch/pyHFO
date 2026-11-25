@@ -1,12 +1,12 @@
 import numpy as np
 
-from src.hfo_app import HFO_App
-from src.hfo_feature import HFO_Feature
-from src.param.param_classifier import ParamClassifier
-from src.param.param_detector import ParamDetector, ParamSTE
-from src.param.param_filter import ParamFilter
-from src.utils.analysis_session import DetectionRun
-from src.utils.protocol_presets import (
+from pyhfo.hfo_app import HFO_App
+from pyhfo.hfo_feature import HFO_Feature
+from pyhfo.param.param_classifier import ParamClassifier
+from pyhfo.param.param_detector import ParamDetector, ParamSTE
+from pyhfo.param.param_filter import ParamFilter
+from pyhfo.utils.analysis_session import DetectionRun
+from pyhfo.utils.protocol_presets import (
     load_protocol_preset,
     protocol_from_run,
     restore_protocol_params,

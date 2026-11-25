@@ -1,0 +1,523 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "Authoritative UI-command catalog. Every command's risk is also its contract-profile reference (contract_profile_binding=risk). Consumers MUST resolve contract_defaults + namespace_contracts[type namespace] + contract_profiles[risk] and fail closed on duplicate command types, unknown profiles, or missing effective contract fields. Writes = {compute,artifact_write,review_write,destructive} and MUST require confirmation.",
+  "version": "1.1.0",
+  "contract_version": "ieeg-agent.v1",
+  "contract_profile_binding": "risk",
+  "contract_defaults": {
+    "failure_statuses": ["failed", "rejected", "noop"],
+    "provenance_required": ["command_id", "command_type", "contract_version", "source", "payload_sha256"],
+    "terminal_proof": {
+      "required": true,
+      "source": "renderer_or_backend_ack",
+      "required_fields": ["status", "observed_at", "postcondition"]
+    }
+  },
+  "contract_profiles": {
+    "view": {
+      "effect": "ui_state",
+      "research_impact": "none",
+      "idempotency": {"mode": "idempotent", "key_scope": "command_type_and_payload"},
+      "retry": {"mode": "safe", "max_attempts": 2, "backoff_ms": 100},
+      "timeout_seconds": 10,
+      "approval_role": "none",
+      "terminal_statuses": ["applied", "complete"],
+      "postcondition": "requested_ui_state_is_observable"
+    },
+    "read": {
+      "effect": "metadata_observation",
+      "research_impact": "observation_only",
+      "idempotency": {"mode": "idempotent", "key_scope": "command_type_and_payload"},
+      "retry": {"mode": "safe", "max_attempts": 2, "backoff_ms": 200},
+      "timeout_seconds": 15,
+      "approval_role": "none",
+      "terminal_statuses": ["applied", "complete"],
+      "postcondition": "requested_metadata_is_visible"
+    },
+    "analysis": {
+      "effect": "derived_analysis",
+      "research_impact": "derived_evidence",
+      "idempotency": {"mode": "deduplicate_by_key", "key_scope": "command_type_and_payload"},
+      "retry": {"mode": "same_key_only", "max_attempts": 2, "backoff_ms": 500},
+      "timeout_seconds": 120,
+      "approval_role": "none",
+      "terminal_statuses": ["complete"],
+      "postcondition": "derived_analysis_is_recorded_and_observable"
+    },
+    "compute": {
+      "effect": "research_compute",
+      "research_impact": "research_output",
+      "idempotency": {"mode": "deduplicate_by_key", "key_scope": "command_type_and_payload"},
+      "retry": {"mode": "same_key_only", "max_attempts": 2, "backoff_ms": 1000},
+      "timeout_seconds": 300,
+      "approval_role": "clinician",
+      "terminal_statuses": ["complete"],
+      "postcondition": "compute_result_and_run_provenance_are_recorded"
+    },
+    "artifact_write": {
+      "effect": "artifact_persistence",
+      "research_impact": "artifact_materialization",
+      "idempotency": {"mode": "deduplicate_by_key", "key_scope": "command_type_and_payload"},
+      "retry": {"mode": "same_key_only", "max_attempts": 2, "backoff_ms": 1000},
+      "timeout_seconds": 180,
+      "approval_role": "clinician",
+      "terminal_statuses": ["complete"],
+      "postcondition": "artifact_exists_with_recorded_provenance"
+    },
+    "review_write": {
+      "effect": "clinical_review_mutation",
+      "research_impact": "human_review_record",
+      "idempotency": {"mode": "deduplicate_by_key", "key_scope": "command_type_and_payload"},
+      "retry": {"mode": "same_key_only", "max_attempts": 2, "backoff_ms": 500},
+      "timeout_seconds": 60,
+      "approval_role": "clinician",
+      "terminal_statuses": ["complete"],
+      "postcondition": "review_decision_is_visible_in_workspace_state"
+    },
+    "destructive": {
+      "effect": "workspace_replacement",
+      "research_impact": "workspace_context_change",
+      "idempotency": {"mode": "non_idempotent", "key_scope": "command_type_and_payload"},
+      "retry": {"mode": "never", "max_attempts": 1, "backoff_ms": 0},
+      "timeout_seconds": 180,
+      "approval_role": "clinician",
+      "terminal_statuses": ["complete"],
+      "postcondition": "replacement_workspace_is_loaded_and_identified"
+    }
+  },
+  "namespace_contracts": {
+    "workspace": {"owner": "desktop.workspace", "affected_resources": ["workspace_ui"], "data_sensitivity": "operational"},
+    "agent": {"owner": "desktop.agent_trace", "affected_resources": ["agent_trace_ui"], "data_sensitivity": "operational"},
+    "recording": {"owner": "desktop.recording", "affected_resources": ["recording_context", "workspace_ui"], "data_sensitivity": "clinical_derived"},
+    "analysis": {"owner": "desktop.analysis", "affected_resources": ["analysis_state", "recording_context"], "data_sensitivity": "clinical_derived"},
+    "detection": {"owner": "desktop.detection", "affected_resources": ["detection_runs", "analysis_state"], "data_sensitivity": "research_derived"},
+    "severity": {"owner": "desktop.severity", "affected_resources": ["severity_results", "analysis_state"], "data_sensitivity": "research_derived"},
+    "classification": {"owner": "desktop.classification", "affected_resources": ["classification_runs", "detection_runs"], "data_sensitivity": "research_derived"},
+    "waveform": {"owner": "desktop.waveform", "affected_resources": ["waveform_view"], "data_sensitivity": "clinical_derived"},
+    "events": {"owner": "desktop.events", "affected_resources": ["event_review_state"], "data_sensitivity": "clinical_derived"},
+    "review": {"owner": "desktop.review", "affected_resources": ["review_decisions", "detection_runs"], "data_sensitivity": "clinical_derived"},
+    "artifacts": {"owner": "desktop.artifacts", "affected_resources": ["artifact_registry"], "data_sensitivity": "research_artifact"},
+    "export": {"owner": "desktop.export", "affected_resources": ["artifact_registry", "filesystem_artifact"], "data_sensitivity": "research_artifact"},
+    "batch": {"owner": "desktop.batch", "affected_resources": ["batch_manifest", "filesystem_artifact"], "data_sensitivity": "clinical_derived"},
+    "project": {"owner": "desktop.project", "affected_resources": ["project_file", "workspace_state"], "data_sensitivity": "clinical_derived"}
+  },
+  "commands": [
+    {
+      "type": "workspace.open_panel",
+      "risk": "view",
+      "requires_confirmation": false,
+      "required_payload": [],
+      "requires_recording": false,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "workspace.show_toast",
+      "risk": "view",
+      "requires_confirmation": false,
+      "required_payload": [],
+      "requires_recording": false,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "workspace.reset_waveform_view",
+      "risk": "view",
+      "requires_confirmation": false,
+      "required_payload": [],
+      "requires_recording": false,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "agent.show_trace_step",
+      "risk": "view",
+      "requires_confirmation": false,
+      "required_payload": [],
+      "requires_recording": false,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "recording.open",
+      "risk": "destructive",
+      "requires_confirmation": true,
+      "required_payload": ["input_path"],
+      "requires_recording": false,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "recording.inspect_metadata",
+      "risk": "read",
+      "requires_confirmation": false,
+      "required_payload": [],
+      "requires_recording": true,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "recording.infer_roi",
+      "risk": "analysis",
+      "requires_confirmation": false,
+      "required_payload": [],
+      "requires_recording": true,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "recording.select_channel",
+      "risk": "view",
+      "requires_confirmation": false,
+      "required_payload": ["channel"],
+      "requires_recording": false,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "recording.set_channel_visibility",
+      "risk": "view",
+      "requires_confirmation": false,
+      "required_payload": [],
+      "requires_recording": false,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "analysis.run_qc",
+      "risk": "analysis",
+      "requires_confirmation": false,
+      "required_payload": [],
+      "requires_recording": true,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "analysis.compute_spectral_profile",
+      "risk": "analysis",
+      "requires_confirmation": false,
+      "required_payload": [],
+      "requires_recording": true,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "analysis.prepare_recording",
+      "risk": "compute",
+      "requires_confirmation": true,
+      "required_payload": [],
+      "requires_recording": true,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "detection.plan",
+      "risk": "analysis",
+      "requires_confirmation": false,
+      "required_payload": [],
+      "requires_recording": true,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "detection.set_parameters",
+      "risk": "view",
+      "requires_confirmation": false,
+      "required_payload": [],
+      "requires_recording": true,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "detection.run",
+      "risk": "compute",
+      "requires_confirmation": true,
+      "required_payload": ["biomarker", "detector"],
+      "requires_recording": true,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "detection.rank_candidates",
+      "risk": "analysis",
+      "requires_confirmation": false,
+      "required_payload": [],
+      "requires_recording": false,
+      "requires_run": true,
+      "requires_event": false
+    },
+    {
+      "type": "severity.run",
+      "risk": "compute",
+      "requires_confirmation": true,
+      "required_payload": [],
+      "requires_recording": true,
+      "requires_run": false,
+      "requires_event": false,
+      "contract": {
+        "postcondition": "severity_result_and_model_provenance_are_recorded"
+      }
+    },
+    {
+      "type": "detection.select_run",
+      "risk": "view",
+      "requires_confirmation": false,
+      "required_payload": ["run_id"],
+      "requires_recording": false,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "detection.show_candidate_ranking",
+      "risk": "view",
+      "requires_confirmation": false,
+      "required_payload": [],
+      "requires_recording": false,
+      "requires_run": true,
+      "requires_event": false
+    },
+    {
+      "type": "detection.focus_top_candidate_channel",
+      "risk": "view",
+      "requires_confirmation": false,
+      "required_payload": [],
+      "requires_recording": false,
+      "requires_run": true,
+      "requires_event": false
+    },
+    {
+      "type": "classification.set_parameters",
+      "risk": "view",
+      "requires_confirmation": false,
+      "required_payload": [],
+      "requires_recording": true,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "classification.run",
+      "risk": "compute",
+      "requires_confirmation": true,
+      "required_payload": [],
+      "requires_recording": true,
+      "requires_run": true,
+      "requires_event": false
+    },
+    {
+      "type": "waveform.set_viewport",
+      "risk": "view",
+      "requires_confirmation": false,
+      "required_payload": [],
+      "requires_recording": false,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "waveform.focus_channel",
+      "risk": "view",
+      "requires_confirmation": false,
+      "required_payload": ["channel"],
+      "requires_recording": false,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "waveform.center_event",
+      "risk": "view",
+      "requires_confirmation": false,
+      "required_payload": ["event_id"],
+      "requires_recording": false,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "waveform.set_amplitude_scale",
+      "risk": "view",
+      "requires_confirmation": false,
+      "required_payload": [],
+      "requires_recording": false,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "waveform.set_display",
+      "risk": "view",
+      "requires_confirmation": false,
+      "required_payload": [],
+      "requires_recording": false,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "waveform.focus_hotspot_channels",
+      "risk": "view",
+      "requires_confirmation": false,
+      "required_payload": [],
+      "requires_recording": false,
+      "requires_run": true,
+      "requires_event": false
+    },
+    {
+      "type": "events.select_event",
+      "risk": "view",
+      "requires_confirmation": false,
+      "required_payload": ["event_id"],
+      "requires_recording": false,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "events.move_cursor",
+      "risk": "view",
+      "requires_confirmation": false,
+      "required_payload": [],
+      "requires_recording": false,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "events.stage_annotation",
+      "risk": "review_write",
+      "requires_confirmation": true,
+      "required_payload": ["event_id", "label"],
+      "requires_recording": false,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "events.clear_staged_annotation",
+      "risk": "review_write",
+      "requires_confirmation": true,
+      "required_payload": ["event_id"],
+      "requires_recording": false,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "review.focus_event",
+      "risk": "view",
+      "requires_confirmation": false,
+      "required_payload": ["event_id"],
+      "requires_recording": false,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "review.open_event",
+      "risk": "view",
+      "requires_confirmation": false,
+      "required_payload": [],
+      "requires_recording": false,
+      "requires_run": false,
+      "requires_event": true
+    },
+    {
+      "type": "review.open_comparison",
+      "risk": "view",
+      "requires_confirmation": false,
+      "required_payload": [],
+      "requires_recording": false,
+      "requires_run": true,
+      "requires_event": false
+    },
+    {
+      "type": "review.accept_run",
+      "risk": "review_write",
+      "requires_confirmation": true,
+      "required_payload": ["run_id"],
+      "requires_recording": false,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "artifacts.open_report",
+      "risk": "view",
+      "requires_confirmation": false,
+      "required_payload": [],
+      "requires_recording": false,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "export.session",
+      "risk": "artifact_write",
+      "requires_confirmation": true,
+      "required_payload": [],
+      "requires_recording": false,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "export.workbook",
+      "risk": "artifact_write",
+      "requires_confirmation": true,
+      "required_payload": [],
+      "requires_recording": false,
+      "requires_run": true,
+      "requires_event": false
+    },
+    {
+      "type": "export.report",
+      "risk": "artifact_write",
+      "requires_confirmation": true,
+      "required_payload": [],
+      "requires_recording": false,
+      "requires_run": true,
+      "requires_event": false
+    },
+    {
+      "type": "batch.create",
+      "risk": "artifact_write",
+      "requires_confirmation": true,
+      "required_payload": ["input_dir"],
+      "requires_recording": false,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "batch.run",
+      "risk": "compute",
+      "requires_confirmation": true,
+      "required_payload": ["manifest_path"],
+      "requires_recording": false,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "detection.create_consensus_run",
+      "risk": "compute",
+      "requires_confirmation": true,
+      "required_payload": [],
+      "requires_recording": false,
+      "requires_run": true,
+      "requires_event": false
+    },
+    {
+      "type": "review.group_overlaps",
+      "risk": "analysis",
+      "requires_confirmation": false,
+      "required_payload": [],
+      "requires_recording": false,
+      "requires_run": true,
+      "requires_event": false
+    },
+    {
+      "type": "project.save",
+      "risk": "artifact_write",
+      "requires_confirmation": true,
+      "required_payload": [],
+      "requires_recording": false,
+      "requires_run": false,
+      "requires_event": false
+    },
+    {
+      "type": "project.open",
+      "risk": "destructive",
+      "requires_confirmation": true,
+      "required_payload": ["input_path"],
+      "requires_recording": false,
+      "requires_run": false,
+      "requires_event": false
+    }
+  ]
+}

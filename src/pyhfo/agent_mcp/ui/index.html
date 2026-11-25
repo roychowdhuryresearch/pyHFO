@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PyHFO Results</title>
+  <style>
+/*__PYHFO_CSS__*/
+  </style>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <h1>PyHFO Results</h1>
+        <p id="subtitle">Waiting for a detection or batch result.</p>
+      </div>
+      <button id="refresh-button" type="button" title="Refresh batch status">Refresh</button>
+    </header>
+
+    <section class="summary-grid" aria-label="Result summary">
+      <div class="metric">
+        <span class="metric-label">Status</span>
+        <strong id="status-value">Idle</strong>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Events</span>
+        <strong id="events-value">0</strong>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Channels</span>
+        <strong id="channels-value">0</strong>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Artifacts</span>
+        <strong id="artifacts-value">0</strong>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Detection</h2>
+      </div>
+      <dl class="details">
+        <dt>Input</dt>
+        <dd id="input-value">-</dd>
+        <dt>Biomarker</dt>
+        <dd id="biomarker-value">-</dd>
+        <dt>Detector</dt>
+        <dd id="detector-value">-</dd>
+        <dt>Run</dt>
+        <dd id="run-value">-</dd>
+      </dl>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Artifacts</h2>
+      </div>
+      <ul id="artifact-list" class="artifact-list"></ul>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Batch</h2>
+      </div>
+      <div id="batch-grid" class="batch-grid"></div>
+    </section>
+
+    <section class="panel error-panel" id="error-panel" hidden>
+      <div class="panel-header">
+        <h2>Error</h2>
+      </div>
+      <pre id="error-value"></pre>
+    </section>
+  </main>
+  <script>
+/*__PYHFO_JS__*/
+  </script>
+</body>
+</html>

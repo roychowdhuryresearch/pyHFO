@@ -1,11 +1,11 @@
 import numpy as np
 
-import src.hfo_app as hfo_module
-import src.spindle_app as spindle_module
-from src.hfo_app import HFO_App
-from src.param.param_detector import ParamDetector, ParamSTE, ParamYASA
-from src.param.param_filter import ParamFilter
-from src.spindle_app import SpindleApp
+import pyhfo.hfo_app as hfo_module
+import pyhfo.spindle_app as spindle_module
+from pyhfo.hfo_app import HFO_App
+from pyhfo.param.param_detector import ParamDetector, ParamSTE, ParamYASA
+from pyhfo.param.param_filter import ParamFilter
+from pyhfo.spindle_app import SpindleApp
 
 
 def test_hfo_app_loads_tiny_mne_recording(tiny_fif_path):
