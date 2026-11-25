@@ -2,7 +2,7 @@
 
 PyHFO is the UCLA Roychowdhury group's headless EEG analysis engine. It reads EDF, BrainVision and FIF recordings, detects high-frequency oscillations (HFOs), spikes and spindles, and exports event tables and review sessions. Detector outputs are candidates for review.
 
-To review those candidates with an AI agent, use [BrainLens](https://github.com/zyp5511/BrainLens), AI co-review for EEG built on this engine. The clinician and any MCP agent (Claude Code, Codex, Cursor, Antigravity) read the same recording together, and BrainLens runs PyHFO for detection and classification.
+**Looking for the PyHFO desktop app?** From 4.0 it continues in [roychowdhuryresearch/ieeg-agent](https://github.com/roychowdhuryresearch/ieeg-agent): an Electron desktop app and an agent built on this engine. [v3.0.2](https://github.com/roychowdhuryresearch/pyHFO/releases/tag/v3.0.2) is the last PyQt desktop release. This repository is the engine they share.
 
 ## Install
 
@@ -83,7 +83,7 @@ curl http://127.0.0.1:8765/manifest
 
 ## Desktop app and agent runtime
 
-The Electron desktop app and the agent runtime built on this engine live in
+The PyHFO desktop app (Electron) and the agent runtime built on this engine live in
 [roychowdhuryresearch/ieeg-agent](https://github.com/roychowdhuryresearch/ieeg-agent).
 [BrainLens](https://github.com/zyp5511/BrainLens) (AI co-review for EEG) is the clinical review workbench built on this engine.
 
