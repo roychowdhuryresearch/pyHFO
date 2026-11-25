@@ -1,11 +1,11 @@
 import numpy as np
 
-from pyhfo.hfo_feature import HFO_Feature
-from pyhfo.param.param_detector import ParamDetector, ParamMNI, ParamSTE
-from pyhfo.param.param_filter import ParamFilter
-from pyhfo.spindle_feature import SpindleFeature
-from pyhfo.utils.analysis_session import AnalysisSession, DetectionRun, build_run_comparison, review_event_id
-from pyhfo.utils.session_store import load_session_checkpoint, save_session_checkpoint
+from src.hfo_feature import HFO_Feature
+from src.param.param_detector import ParamDetector, ParamMNI, ParamSTE
+from src.param.param_filter import ParamFilter
+from src.spindle_feature import SpindleFeature
+from src.utils.analysis_session import AnalysisSession, DetectionRun, build_run_comparison
+from src.utils.session_store import load_session_checkpoint, save_session_checkpoint
 
 
 def _build_hfo_run(detector_name, intervals, channel_names):
@@ -53,23 +53,10 @@ def test_analysis_session_tracks_multiple_runs_and_active_run():
     assert session.get_active_run().summary["num_events"] == 1
 
 
-def test_review_cursor_sync_uses_active_run_feature_index():
-    session = AnalysisSession("HFO")
-    run = _build_hfo_run("STE", [[10, 20], [30, 40]], ["A1", "A2"])
-    session.add_run(run)
-    run.event_features.index = 1
-
-    cursor = session.sync_review_cursor_from_active_run()
-
-    assert cursor == review_event_id(run.run_id, 1)
-    assert session.to_dict()["review_cursor_event_id"] == cursor
-
-
 def test_session_store_round_trip_preserves_multiple_runs(tmp_path):
     session = AnalysisSession("HFO")
     session.add_run(_build_hfo_run("STE", [[10, 20], [30, 40]], ["A1", "A2"]))
     session.add_run(_build_hfo_run("MNI", [[50, 70]], ["A1"]))
-    session.review_cursor_event_id = "evt-0000-cursor"
     session.accept_run(session.active_run_id)
     session.set_run_visible(session.active_run_id, False)
 
@@ -91,7 +78,6 @@ def test_session_store_round_trip_preserves_multiple_runs(tmp_path):
     assert restored.get_accepted_run().detector_name == "MNI"
     assert restored.get_active_run().summary["top_channels"][0]["channel_name"] == "A1"
     assert restored.visible_run_ids == [run_id for run_id in restored.visible_run_ids]
-    assert restored.review_cursor_event_id == "evt-0000-cursor"
 
 
 def test_visible_runs_default_to_newest_run_and_can_be_toggled():

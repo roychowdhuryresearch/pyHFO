@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from pyhfo.utils.model_metadata import DEFAULT_PREPROCESSING_BY_MODEL, resolve_preprocessing_metadata
+from src.utils.model_metadata import DEFAULT_PREPROCESSING_BY_MODEL, resolve_preprocessing_metadata
 
 
 def test_resolve_preprocessing_metadata_prefers_nested_preprocessing_block():

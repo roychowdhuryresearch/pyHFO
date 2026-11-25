@@ -1,0 +1,229 @@
+import numpy as np
+from contextlib import contextmanager
+import logging
+
+from src.utils.utils_inference import *
+from src.param.param_classifier import ParamClassifier
+import torch
+from src.model import PreProcessing, NeuralCNN_ehfo
+import src.model
+from src.dl_models import *
+from src.hfo_feature import HFO_Feature
+from src.utils.model_metadata import DEFAULT_PREPROCESSING_BY_MODEL, resolve_preprocessing_metadata
+
+
+@contextmanager
+def _silence_hf_public_download_notice():
+    logger = logging.getLogger("huggingface_hub.utils._http")
+    previous_level = logger.level
+    logger.setLevel(logging.ERROR)
+    try:
+        yield
+    finally:
+        logger.setLevel(previous_level)
+
+
+class Classifier():
+    def __init__(self, param:ParamClassifier):
+        self.device = param.device
+        self.batch_size = param.batch_size
+        self.model_type = param.model_type
+        self.use_spike = param.use_spike
+        self.use_ehfo = param.use_ehfo
+        self.load_func = torch.load if "default" in self.model_type else torch.load  #torch.hub.load_state_dict_from_url
+        self.model_a = None
+        self.model_s = None
+        self.model_e = None
+        
+    def update_model_s(self, param:ParamClassifier):
+        self.model_type = param.model_type
+        self.spike_path = param.spike_path
+        self.param_spike_preprocessing, self.model_s = load_ckpt(self.load_func, param.spike_path)
+        #print("spike model param", self.param_spike.to_dict())
+        if self.model_type == "default_cpu":
+            param.device = "cpu"
+        elif self.model_type == "default_gpu":
+            param.device = "cuda:0"
+        else:
+            raise ValueError("Model type not supported!")
+        self.device = param.device if torch.cuda.is_available() else "cpu"
+        self.model_s = self.model_s.to(self.device)
+        self.preprocessing_spike = PreProcessing.from_param(self.param_spike_preprocessing)
+
+    def update_model_a(self, param:ParamClassifier):
+        self.model_type = param.model_type
+        self.artifact_path = param.artifact_path
+        self.param_artifact_preprocessing, model = load_ckpt(self.load_func, param.artifact_path)
+        if "default" in self.model_type:
+            model.channel_selection = True
+            model.in_channels = 1
+        if self.model_type == "default_cpu":
+            param.device = "cpu"
+        elif self.model_type == "default_gpu":
+            param.device = "cuda:0"
+        else:
+            raise ValueError("Model type not supported!")
+        self.device = param.device if torch.cuda.is_available() else "cpu"
+        self.model_a = model.to(self.device)
+        self.preprocessing_artifact = PreProcessing.from_param(self.param_artifact_preprocessing)
+
+    def update_model_e(self, param:ParamClassifier):
+        self.model_type = param.model_type
+        self.ehfo_path = param.ehfo_path
+        import sys
+        sys.modules['src.model_pyhfo_process'] = src.model
+        model_load = torch.load(self.ehfo_path, map_location=torch.device('cpu'), weights_only=False)
+        self.model_e = model_load["model"]
+
+        if self.model_type == "default_cpu":
+            param.device = "cpu"
+        elif self.model_type == "default_gpu":
+            param.device = "cuda:0"
+        else:
+            raise ValueError("Model type not supported!")
+        self.device = param.device if torch.cuda.is_available() else "cpu"
+        self.model_e = self.model_e.to(self.device)
+        self.preprocessing_ehfo = PreProcessing.from_dict(model_load["preprocessing"])
+
+    def update_model_spkhfo(self, param:ParamClassifier):
+        self.model_type = param.model_type
+        self.spike_card = param.spike_card
+
+        with _silence_hf_public_download_notice():
+            model = NeuralCNNForImageClassification.from_pretrained(param.spike_card)
+        preprocessing_param_dict = resolve_preprocessing_metadata(
+            model.config, fallback=DEFAULT_PREPROCESSING_BY_MODEL["spike"]
+        )
+        self.param_spike_preprocessing = load_preprocessing_param(preprocessing_param_dict)
+        if self.model_type == "default_cpu":
+            param.device = "cpu"
+        elif self.model_type == "default_gpu":
+            param.device = "cuda:0"
+        else:
+            raise ValueError("Model type not supported!")
+        self.device = param.device if torch.cuda.is_available() else "cpu"
+        self.model_s = model.to(self.device)
+        self.preprocessing_spike = PreProcessing.from_param(self.param_spike_preprocessing)
+
+    def update_model_artifact(self, param:ParamClassifier):
+        self.model_type = param.model_type
+        self.artifact_card = param.artifact_card
+
+        with _silence_hf_public_download_notice():
+            model = NeuralCNNForImageClassification.from_pretrained(param.artifact_card)
+        preprocessing_param_dict = resolve_preprocessing_metadata(
+            model.config, fallback=DEFAULT_PREPROCESSING_BY_MODEL["artifact"]
+        )
+        self.param_artifact_preprocessing = load_preprocessing_param(preprocessing_param_dict)
+        if "default" in self.model_type:
+            model.channel_selection = True
+            model.input_channels = 1
+        if self.model_type == "default_cpu":
+            param.device = "cpu"
+        elif self.model_type == "default_gpu":
+            param.device = "cuda:0"
+        else:
+            raise ValueError("Model type not supported!")
+        self.device = param.device if torch.cuda.is_available() else "cpu"
+        self.model_a = model.to(self.device)
+        self.preprocessing_artifact = PreProcessing.from_param(self.param_artifact_preprocessing)
+
+    def update_model_ehfo(self, param:ParamClassifier):
+        self.model_type = param.model_type
+        self.ehfo_card = param.ehfo_card
+
+        with _silence_hf_public_download_notice():
+            model = NeuralCNNForImageClassification.from_pretrained(param.ehfo_card)
+        preprocessing_param_dict = resolve_preprocessing_metadata(
+            model.config, fallback=DEFAULT_PREPROCESSING_BY_MODEL["ehfo"]
+        )
+
+        if self.model_type == "default_cpu":
+            param.device = "cpu"
+        elif self.model_type == "default_gpu":
+            param.device = "cuda:0"
+        else:
+            raise ValueError("Model type not supported!")
+        self.device = param.device if torch.cuda.is_available() else "cpu"
+        self.model_e = model.to(self.device)
+        self.preprocessing_ehfo = PreProcessing.from_dict(preprocessing_param_dict)
+
+    def artifact_detection(self, biomarker_features, ignore_region, threshold=0.5):
+        if self.model_a is None:
+            raise ValueError("Please load artifact model first!")
+        return self._classify_artifacts(self.model_a, biomarker_features, ignore_region, threshold=threshold)
+
+    def spike_detection(self, biomarker_features):
+        if self.model_s is None:
+            raise ValueError("Please load spike model first!")
+        return self._classify_spikes(self.model_s, biomarker_features)
+
+    def ehfo_detection(self, biomarker_features):
+        if self.model_e is None:
+            raise ValueError("Please load eHFO model first!")
+        return self._classify_ehfos(self.model_e, biomarker_features)
+
+    def _classify_artifacts(self, model, biomarker_feature, ignore_region, threshold=0.5):
+        features = self.preprocessing_artifact.process_biomarker_feature(biomarker_feature)
+        artifact_predictions = np.zeros(features.shape[0]) -1
+        starts = biomarker_feature.starts
+        ends = biomarker_feature.ends
+        keep_index = np.where(np.logical_and(starts > ignore_region[0], ends < ignore_region[1]) == True)[0]   
+        features = features[keep_index]
+        if len(features) != 0:
+            predictions = inference(model, features, self.device, self.batch_size, threshold=threshold)
+            artifact_predictions[keep_index] = predictions
+        biomarker_feature.update_artifact_pred(artifact_predictions)
+        return biomarker_feature
+    
+    def _classify_spikes(self, model, biomarker_feature):
+        if len(biomarker_feature.artifact_predictions) == 0:
+            raise ValueError("Please run artifact classifier first!")
+        features = self.preprocessing_spike.process_biomarker_feature(biomarker_feature)
+        spike_predictions = np.zeros(features.shape[0]) -1
+        keep_index = np.where(biomarker_feature.artifact_predictions > 0)[0]
+        features = features[keep_index]
+        if len(features) != 0:
+            predictions = inference(model, features, self.device, self.batch_size)
+            spike_predictions[keep_index] = predictions
+        biomarker_feature.update_spike_pred(spike_predictions)
+        return biomarker_feature
+
+    def _classify_ehfos(self, model, biomarker_feature):
+        if len(biomarker_feature.artifact_predictions) == 0:
+            raise ValueError("Please run artifact classifier first!")
+        features = self.preprocessing_ehfo.process_biomarker_feature(biomarker_feature)
+        features = features[:, 0, :, :]
+        features = np.expand_dims(features, axis=1)  # New shape: (batch, 1, height, width)
+        features = np.repeat(features, repeats=3, axis=1)  # New shape: (batch, 3, height, w
+        ehfo_predictions = np.zeros(features.shape[0]) -1
+        keep_index = np.where(biomarker_feature.artifact_predictions > 0)[0]
+        features = features[keep_index]
+        if len(features) != 0:
+            predictions = inference(model, features, self.device, self.batch_size)
+            ehfo_predictions[keep_index] = predictions
+        biomarker_feature.update_ehfo_pred(ehfo_predictions)
+        return biomarker_feature
+
+
+if __name__ == '__main__':
+    model_type = 'default_cpu'
+    device = "cpu"
+    ehfo_path = '/Users/duanchenda/Desktop/gitplay/pyHFO/ckpt/model_e.tar'
+    import sys
+    sys.modules['src.model_pyhfo_process'] = src.model
+    ckpt = torch.load(ehfo_path, map_location=device, weights_only=False)
+
+    model_e = ckpt["model"].to(device).float()
+    preprocessing_dict = ckpt["preprocessing"]
+    # preprocessing = PreProcessing_ehfo.from_dict(preprocessing_dict, device)
+    print(preprocessing_dict)
+    
+    # =====Test the Model=====
+    
+    
+    
+    
+    
+    
+    
